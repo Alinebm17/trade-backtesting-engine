@@ -1,0 +1,87 @@
+{
+  "extends": [
+    "plugin:@typescript-eslint/recommended",
+    "airbnb",
+    "prettier",
+    "plugin:prettier/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "jsx": true,
+    "useJSXTextNode": true,
+    "ecmaVersion": 2018, // Allows for the parsing of modern ECMAScript features
+    "sourceType": "module" // Allows for the use of imports
+  },
+  "plugins": [
+    "@typescript-eslint",
+    "prettier",
+    "react-hooks",
+    "unused-imports"
+  ],
+  "env": {
+    "es6": true,
+    "browser": true,
+    "node": true,
+    "jquery": false,
+    "jest": true
+  },
+  "globals": {
+    "React": "writable"
+  },
+  "ignorePatterns": ["worker.js"],
+  "rules": {
+    "unused-imports/no-unused-imports": "error",
+    "no-unused-vars": "off",
+    "no-promise-executor-return": "off",
+    "no-continue": "off",
+    "prettier/prettier": [
+      "warn",
+      {
+        "semi": false,
+        "trailingComma": "all",
+        "singleQuote": true,
+        "printWidth": 80,
+        "tabWidth": 2
+      }
+    ],
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/no-unused-vars": [
+      0,
+      {
+        "ignoreRestSiblings": true
+      }
+    ],
+    "import/no-unresolved": "off",
+    "import/extensions": "off",
+    "import/no-extraneous-dependencies": "off",
+    "import/prefer-default-export": "off",
+    "no-underscore-dangle": "off",
+    "no-shadow": "off",
+    "@typescript-eslint/no-shadow": "error",
+    "no-param-reassign": "off",
+    "no-plusplus": "off",
+    "no-bitwise": "off",
+    "no-nested-ternary": "off",
+    "consistent-return": "off",
+    "class-methods-use-this": "off",
+    "no-return-assign": "off",
+    "array-callback-return": "off",
+    "radix": "off",
+    "camelcase": "off",
+    "no-await-in-loop": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.tsx"],
+      "rules": {
+        "react/prop-types": "off"
+      }
+    },
+    {
+      "files": ["**/*.json"],
+      "rules": {
+        "no-unused-expressions": "off"
+      }
+    }
+  ]
+}

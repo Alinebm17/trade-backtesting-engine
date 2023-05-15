@@ -1,0 +1,3 @@
+[submodule "indicators"]
+	path = indicators
+	url = https://github.com/Gainium/trading-signals-tv-suitable

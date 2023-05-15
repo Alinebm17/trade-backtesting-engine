@@ -1,0 +1,572 @@
+import { Strategy, StrategyInterface } from '../main'
+import InternalIndicator from './indicatorLoader'
+import {
+  IndicatorsEnum,
+  TradingviewAnalysisConditionEnum,
+  MAEnum,
+  TradingviewAnalysisSignalEnum,
+  rsiValueEnum,
+  rsiValue2Enum,
+  IndicatorStartConditionEnum,
+  ExchangeIntervals,
+  timeIntervalMap,
+  BBCrossingEnum,
+  SRCrossingEnum,
+  IndicatorAction,
+} from '../../../types'
+
+import type {
+  IndicatorHistory,
+  IndicatorConfigBackTesting,
+  MAResult,
+  SettingsIndicators,
+} from '../../../types'
+import type { StrategyInput, Bar } from '../main'
+
+export type Indicator = {
+  instance: InternalIndicator
+  data: IndicatorHistory[]
+  id: string
+  settings: SettingsIndicators
+  interval: ExchangeIntervals
+}
+
+class TIStrategy extends Strategy implements StrategyInterface {
+  constructor(input: StrategyInput) {
+    super(input)
+    this.processBar = this.processBar.bind(this)
+    const { indicators } = input.settings
+    indicators.forEach((i) => {
+      const {
+        type,
+        indicatorLength,
+        checkLevel,
+        condition,
+        maType,
+        maUUID,
+        uuid,
+        maCrossingValue,
+        maCrossingInterval,
+        maCrossingLength,
+        indicatorInterval,
+        stochRSI,
+        stochSmoothD,
+        stochSmoothK,
+        leftBars,
+        rightBars,
+        basePeriods,
+        pumpPeriods,
+        pump,
+        baseCrack,
+      } = i
+      const ind = new InternalIndicator(
+        type === IndicatorsEnum.macd
+          ? {
+              type,
+              shortInterval: 12,
+              longInterval: 26,
+              signalInterval: indicatorLength,
+            }
+          : type === IndicatorsEnum.tv
+          ? {
+              type,
+              checkLevel,
+              useAsEntryExitPoints:
+                condition === TradingviewAnalysisConditionEnum.entry,
+            }
+          : type === IndicatorsEnum.ma
+          ? {
+              type,
+              interval: indicatorLength,
+              maType: maType || MAEnum.ema,
+            }
+          : type === IndicatorsEnum.stoch
+          ? {
+              type,
+              length: indicatorLength,
+              smoothD: stochSmoothD ?? 1,
+              smoothK: stochSmoothK ?? 3,
+            }
+          : type === IndicatorsEnum.stochRSI
+          ? {
+              type,
+              length: indicatorLength,
+              smoothD: stochSmoothD ?? 3,
+              smoothK: stochSmoothK ?? 3,
+              rsiLength: stochRSI ?? 14,
+            }
+          : type === IndicatorsEnum.sr
+          ? {
+              type,
+              leftBars: leftBars ?? 15,
+              rightBars: rightBars ?? 15,
+            }
+          : type === IndicatorsEnum.mfi
+          ? {
+              type,
+              interval: indicatorLength ?? 14,
+            }
+          : type === IndicatorsEnum.qfl
+          ? {
+              type,
+              basePeriods: basePeriods ?? 36,
+              pumpPeriods: pumpPeriods ?? 8,
+              pump: (pump ?? 3) / 100,
+              baseCrack: (baseCrack ?? 3) / 100,
+            }
+          : ({
+              type,
+              interval: indicatorLength,
+            } as IndicatorConfigBackTesting),
+      )
+      Strategy.indicators.push({
+        instance: ind,
+        data: [],
+        id: uuid,
+        settings: i,
+        interval: indicatorInterval,
+      })
+      if (
+        type === IndicatorsEnum.ma &&
+        maCrossingValue !== MAEnum.price &&
+        maCrossingInterval &&
+        maCrossingLength &&
+        maUUID &&
+        maCrossingValue
+      ) {
+        const indicatorChild = new InternalIndicator({
+          type,
+          maType: maCrossingValue,
+          interval: maCrossingLength,
+        })
+        Strategy.indicators.push({
+          instance: indicatorChild,
+          data: [],
+          id: maUUID,
+          settings: i,
+          interval: maCrossingInterval,
+        })
+      }
+    })
+    this.updateIndicatorData = this.updateIndicatorData.bind(this)
+    this.checkIndicators = this.checkIndicators.bind(this)
+    Strategy.lowestInterval = Strategy.interval
+  }
+
+  public override getOtherIntervals(): ExchangeIntervals[] {
+    return Strategy.indicators
+      .flatMap((i) => {
+        const int = [i.settings.indicatorInterval]
+        if (
+          i.settings.type === IndicatorsEnum.ma &&
+          i.settings.maCrossingValue !== MAEnum.price &&
+          i.settings.maCrossingInterval
+        ) {
+          int.push(i.settings.maCrossingInterval)
+        }
+        return int
+      })
+      .filter((i) => i !== Strategy.interval)
+  }
+
+  public test(): void {
+    const data = [...Strategy.data].sort(
+      (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
+    )
+    const [lowest] = data
+    Strategy.lowestInterval = lowest.interval
+    Strategy.interval = lowest.interval
+    lowest.bar.forEach((b, i) => this.processBar(b, lowest.bar[i + 1]))
+  }
+
+  public processBar(bar: Bar, nextBar: Bar): void {
+    if (Strategy.workingShift.length === 0) {
+      this.startWorkingShift(bar.time)
+    }
+    this.checkInRange(bar.close, bar.time)
+    const lowestIndicators = Strategy.indicators.filter(
+      (i) => i.interval === Strategy.lowestInterval,
+    )
+    const restIndicators = Strategy.indicators.filter(
+      (i) => i.interval !== Strategy.lowestInterval,
+    )
+    lowestIndicators.forEach((i) => {
+      i.instance.updateValue(
+        {
+          o: bar.open,
+          h: bar.high,
+          l: bar.low,
+          c: bar.close,
+          v: bar.volume ?? 0,
+        },
+        bar.time,
+        this.updateIndicatorData(i),
+      )
+    })
+    const range = [
+      bar.time + 1,
+      bar.time + timeIntervalMap[Strategy.lowestInterval ?? Strategy.interval],
+    ]
+    if (restIndicators.length === 0) {
+      this.checkDeals(bar)
+    }
+    restIndicators.forEach((i) => {
+      const [data] = Strategy.data.filter((d) => d.interval === i.interval)
+      if (data) {
+        const bars = data.bar.filter(
+          (b) => b.time >= range[0] && b.time <= range[1],
+        )
+        bars.forEach((b) => {
+          i.instance.updateValue(
+            {
+              o: b.open,
+              h: b.high,
+              l: b.low,
+              c: b.close,
+              v: b.volume ?? 0,
+            },
+            b.time,
+            this.updateIndicatorData(i),
+          )
+          this.checkDeals(b)
+        })
+      }
+    })
+    this.checkIndicators(nextBar)
+  }
+
+  private updateIndicatorData(i: Indicator) {
+    return (d: IndicatorHistory[]) => {
+      i.data = d
+      Strategy.indicators = [
+        ...Strategy.indicators.filter((ii) => ii.id !== i.id),
+        i,
+      ]
+    }
+  }
+
+  private checkIndicators(nextBar: Bar) {
+    const startIndicators = Strategy.indicators.filter(
+      (si) => si.settings.indicatorAction === IndicatorAction.startDeal,
+    )
+    const closeIndicators = Strategy.indicators.filter(
+      (ci) => ci.settings.indicatorAction === IndicatorAction.closeDeal,
+    )
+    if (
+      (startIndicators.filter((i) => i.data.length > 0).length ===
+        startIndicators.length ||
+        closeIndicators.filter((i) => i.data.length > 0).length ===
+          closeIndicators.length) &&
+      nextBar
+    ) {
+      const currentState = [...Strategy.indicators].filter(
+        (i) => i.id !== i.settings.maUUID && i.data.length > 0,
+      )
+      Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
+      let startDeal = 0
+      let closeDeal = 0
+      currentState.forEach((i) => {
+        let action = false
+        const {
+          settings: {
+            indicatorValue,
+            indicatorCondition,
+            type,
+            checkLevel,
+            signal,
+            maUUID,
+            maCrossingValue,
+            maType,
+            bbCrossingValue,
+            stochLower,
+            stochUpper,
+            rsiValue,
+            rsiValue2,
+            valueInsteadof,
+            srCrossingValue,
+            indicatorAction,
+          },
+          data,
+        } = i
+        if (type === IndicatorsEnum.qfl) {
+          const [lastData] = [...data].sort((a, b) => b.time - a.time)
+          action = lastData.value as boolean
+        } else if (type === IndicatorsEnum.tv && checkLevel && signal) {
+          /**
+           * TradingViews Technical Analysis
+           *
+           * Result:
+           *  - 0 - neutral
+           *
+           *  - 1 - Buy
+           *
+           *  - 2 - Strong buy
+           *
+           *  - 3 - Sell
+           *
+           *  - 4 - Strong sell
+           *
+           *  - 5 - No action (for useEntryExitPoints)
+           */
+          const [lastData] = [...data].sort((a, b) => b.time - a.time)
+          const tvta = lastData.value as number
+          if (signal === TradingviewAnalysisSignalEnum.buy && tvta === 1) {
+            action = true
+          } else if (
+            signal === TradingviewAnalysisSignalEnum.strongBuy &&
+            tvta === 2
+          ) {
+            action = true
+          } else if (
+            signal === TradingviewAnalysisSignalEnum.bothBuy &&
+            (tvta === 2 || tvta === 1)
+          ) {
+            action = true
+          } else if (
+            signal === TradingviewAnalysisSignalEnum.sell &&
+            tvta === 3
+          ) {
+            action = true
+          } else if (
+            signal === TradingviewAnalysisSignalEnum.strongSell &&
+            tvta === 4
+          ) {
+            action = true
+          } else if (
+            signal === TradingviewAnalysisSignalEnum.bothSell &&
+            (tvta === 3 || tvta === 4)
+          ) {
+            action = true
+          }
+        } else if (
+          (indicatorValue !== undefined || type === IndicatorsEnum.ma) &&
+          indicatorCondition
+        ) {
+          let value = indicatorValue !== undefined ? +indicatorValue : 0
+          let prevValue = value
+          const [lastData, prevData] = [...data].sort((a, b) => b.time - a.time)
+          let last = 0
+          let prev = 0
+          let checkValue = false
+          if (
+            (lastData.type === IndicatorsEnum.rsi ||
+              lastData.type === IndicatorsEnum.mfi ||
+              lastData.type === IndicatorsEnum.adx ||
+              lastData.type === IndicatorsEnum.bbw) &&
+            (prevData.type === IndicatorsEnum.rsi ||
+              prevData.type === IndicatorsEnum.mfi ||
+              prevData.type === IndicatorsEnum.adx ||
+              prevData.type === IndicatorsEnum.bbw)
+          ) {
+            last = lastData.value
+            prev = prevData.value
+          }
+          if (
+            lastData.type === IndicatorsEnum.macd &&
+            prevData.type === IndicatorsEnum.macd
+          ) {
+            last = lastData.value.histogram
+            prev = prevData.value.histogram
+          }
+          if (
+            lastData.type === IndicatorsEnum.ma &&
+            prevData.type === IndicatorsEnum.ma
+          ) {
+            last = lastData.value.ma
+            prev = prevData.value.ma
+            if (maCrossingValue === MAEnum.price) {
+              value = lastData.value.price
+              prevValue = prevData.value.price
+            } else if (lastData.value.maType === maType) {
+              const findMA = Strategy.indicators.find((ii) => ii.id === maUUID)
+              if (findMA) {
+                const [dataMA, prevMAData] = [
+                  ...findMA.instance.currentData,
+                ].sort((a, b) => b.time - a.time)
+                prevValue = prevMAData ? (prevMAData.value as MAResult).ma : 0
+                value = dataMA ? (dataMA.value as MAResult).ma : 0
+                if (
+                  (prevValue === 0 && value !== 0) ||
+                  (value === 0 && prevValue !== 0)
+                ) {
+                  value = 0
+                  prevValue = 0
+                }
+              }
+            } else {
+              value = 0
+              prevValue = 0
+              last = 0
+              prev = 0
+            }
+          }
+          if (
+            lastData.type === IndicatorsEnum.bb &&
+            prevData.type === IndicatorsEnum.bb
+          ) {
+            last = lastData.value.price
+            prev = prevData.value.price
+            value =
+              bbCrossingValue === BBCrossingEnum.lower
+                ? lastData.value.result.lower
+                : bbCrossingValue === BBCrossingEnum.middle
+                ? lastData.value.result.middle
+                : lastData.value.result.upper
+            prevValue =
+              bbCrossingValue === BBCrossingEnum.lower
+                ? prevData.value.result.lower
+                : bbCrossingValue === BBCrossingEnum.middle
+                ? prevData.value.result.middle
+                : prevData.value.result.upper
+          }
+          if (
+            lastData.type === IndicatorsEnum.sr &&
+            prevData.type === IndicatorsEnum.sr
+          ) {
+            last = lastData.value.price
+            prev = prevData.value.price
+            value =
+              srCrossingValue === SRCrossingEnum.resistance
+                ? lastData.value.high
+                : lastData.value.low
+            prevValue =
+              srCrossingValue === SRCrossingEnum.resistance
+                ? lastData.value.high
+                : lastData.value.low
+          }
+          if (
+            lastData.type === IndicatorsEnum.bb &&
+            prevData.type === IndicatorsEnum.bb
+          ) {
+            last = lastData.value.price
+            prev = prevData.value.price
+            value =
+              bbCrossingValue === BBCrossingEnum.lower
+                ? lastData.value.result.lower
+                : bbCrossingValue === BBCrossingEnum.middle
+                ? lastData.value.result.middle
+                : lastData.value.result.upper
+            prevValue =
+              bbCrossingValue === BBCrossingEnum.lower
+                ? prevData.value.result.lower
+                : bbCrossingValue === BBCrossingEnum.middle
+                ? prevData.value.result.middle
+                : prevData.value.result.upper
+          }
+          if (
+            (lastData.type === IndicatorsEnum.stoch &&
+              prevData.type === IndicatorsEnum.stoch) ||
+            (lastData.type === IndicatorsEnum.stochRSI &&
+              prevData.type === IndicatorsEnum.stochRSI)
+          ) {
+            if (rsiValue === rsiValueEnum.k) {
+              last = lastData.value.stochK
+              prev = prevData.value.stochK
+            } else if (rsiValue === rsiValueEnum.d) {
+              last = lastData.value.stochD
+              prev = prevData.value.stochD
+            }
+            if (rsiValue2 === rsiValue2Enum.d) {
+              value = lastData.value.stochD
+              prevValue = prevData.value.stochD
+            } else if (rsiValue2 === rsiValue2Enum.k) {
+              value = lastData.value.stochK
+              prevValue = prevData.value.stochK
+            } else if (rsiValue2 === rsiValue2Enum.custom) {
+              value = valueInsteadof ?? 1
+              prevValue = valueInsteadof ?? 1
+              checkValue = false
+            }
+          }
+          if (
+            (indicatorCondition === IndicatorStartConditionEnum.cu ||
+              indicatorCondition === IndicatorStartConditionEnum.cd) &&
+            data.length >= 2
+          ) {
+            if (indicatorCondition === IndicatorStartConditionEnum.cd) {
+              action =
+                this.math.gt(value, last) && this.math.lt(prevValue, prev)
+              /* if (startNewDeal) {
+                console.log(
+                  `val - ${value}, last - ${last}, prevVal - ${prevValue}, prev - ${prev}`,
+                )
+              } */
+            }
+            if (indicatorCondition === IndicatorStartConditionEnum.cu) {
+              action =
+                this.math.lt(value, last) && this.math.gt(prevValue, prev)
+            }
+          }
+          if (indicatorCondition === IndicatorStartConditionEnum.gt) {
+            action = this.math.gt(last, value)
+          }
+          if (indicatorCondition === IndicatorStartConditionEnum.lt) {
+            action = this.math.lt(last, value)
+          }
+          if (
+            ((lastData.type === IndicatorsEnum.stoch &&
+              prevData.type === IndicatorsEnum.stoch) ||
+              (lastData.type === IndicatorsEnum.stochRSI &&
+                prevData.type === IndicatorsEnum.stochRSI)) &&
+            action
+          ) {
+            const upper = +(stochUpper ?? '')
+            const lower = +(stochLower ?? '')
+            action =
+              !isNaN(upper) &&
+              !isNaN(lower) &&
+              (checkValue
+                ? (last > upper && value > upper) ||
+                  (last < lower && value < lower)
+                : last > upper || last < lower)
+          }
+        }
+        if (action) {
+          if (indicatorAction === IndicatorAction.startDeal) {
+            startDeal += 1
+          }
+          if (indicatorAction === IndicatorAction.closeDeal) {
+            closeDeal += 1
+          }
+        }
+      })
+      const data = [...Strategy.data].sort(
+        (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
+      )
+      const lowest = data[data.length - 1]
+      const lowestBar = lowest.bar.find((l) => l.time === nextBar.time)
+      if (
+        closeDeal ===
+          currentState.filter(
+            (i) => i.settings.indicatorAction === IndicatorAction.closeDeal,
+          ).length &&
+        closeDeal !== 0
+      ) {
+        this.closeAllDeals({
+          open: lowestBar?.open ?? nextBar.open,
+          time: nextBar.time,
+          high: lowestBar?.open ?? nextBar.high,
+          low: lowestBar?.low ?? nextBar.low,
+          close: lowestBar?.close ?? nextBar.close,
+        })
+      }
+
+      if (
+        startDeal ===
+          currentState.filter(
+            (i) => i.settings.indicatorAction === IndicatorAction.startDeal,
+          ).length &&
+        startDeal !== 0
+      ) {
+        this.openDeal(
+          lowestBar?.open ?? nextBar.open,
+          nextBar.time,
+          lowestBar?.high ?? nextBar.high,
+          lowestBar?.low ?? nextBar.low,
+        )
+      }
+    }
+  }
+}
+
+export default TIStrategy
