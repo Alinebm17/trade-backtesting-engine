@@ -853,3 +853,29 @@ export type OrderData = {
   paperContext?: boolean
   tpSlTarget?: string
 }
+
+export const tvIntervalMap = {
+  [ExchangeIntervals.oneM]: '1',
+  [ExchangeIntervals.threeM]: '3',
+  [ExchangeIntervals.fiveM]: '5',
+  [ExchangeIntervals.fifteenM]: '15',
+  [ExchangeIntervals.thirtyM]: '30',
+  [ExchangeIntervals.oneH]: '60',
+  [ExchangeIntervals.twoH]: '120',
+  [ExchangeIntervals.fourH]: '240',
+  [ExchangeIntervals.eightH]: '480',
+  [ExchangeIntervals.oneD]: '1D',
+  [ExchangeIntervals.oneW]: '1W',
+}
+
+export interface PeriodParams {
+  from: number
+  to: number
+  countBack: number
+  firstDataRequest: boolean
+}
+
+export declare type Nominal<T, Name extends string> = T & {
+  [Symbol.species]: Name
+}
+export declare type ResolutionString = Nominal<string, 'ResolutionString'>

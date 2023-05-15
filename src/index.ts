@@ -3,19 +3,15 @@ import {
   ExchangeIntervals,
   tvIntervalMap,
   timeIntervalMap,
-} from '../../types'
-import {
-  getCandlesBinance,
-  getCandlesBybit,
-  // getCandlesFtx,
-  getCandlesKucoin,
-} from '../../components/TVChartContainer/basicDatafeed'
-import { MathHelper } from '../math'
+} from './types'
+import { MathHelper } from './helper/math'
 import type {
+  Symbols,
+  BacktestingInput,
   PeriodParams,
   ResolutionString,
-} from '../../public/static/charting_library/charting_library'
-import type { Symbols, BacktestingInput } from '../../types'
+  Bar,
+} from './types'
 
 class Backtesting {
   public exchange: ExchangeEnum
@@ -83,78 +79,28 @@ class Backtesting {
     }
   }
 
-  public async loadData(int?: ExchangeIntervals, from?: number) {
+  public async loadData(
+    int?: ExchangeIntervals,
+    from?: number,
+    fn?: (
+      pair: string,
+      resolution: ResolutionString,
+      periodToUse: PeriodParams,
+      exchange: ExchangeEnum,
+    ) => Promise<Bar[]>,
+  ) {
     const {
       symbol: { pair },
       interval,
       period,
     } = this
-    /* const local = localStorage.getItem(pair)
-    if (local) {
-      return JSON.parse(local)
-    } */
     const resolution = tvIntervalMap[int ?? interval] as ResolutionString
-    let preiodToUse = period
+    let periodToUse = period
     if (int && int !== interval) {
-      preiodToUse = this.calculatePeriod(int, from)
+      periodToUse = this.calculatePeriod(int, from)
     }
-    if (
-      [
-        ExchangeEnum.binance,
-        ExchangeEnum.paperBinance,
-        ExchangeEnum.binanceCoinm,
-        ExchangeEnum.binanceUsdm,
-        ExchangeEnum.paperBinanceCoinm,
-        ExchangeEnum.paperBinanceUsdm,
-      ].includes(this.exchange)
-    ) {
-      const result = await getCandlesBinance(
-        pair,
-        resolution,
-        preiodToUse,
-        this.exchange,
-      )
-      // localStorage.setItem(pair, JSON.stringify(result))
-      return result
-    }
-    if (this.exchange === ExchangeEnum.binanceUS) {
-      const result = await getCandlesBinance(
-        pair,
-        resolution,
-        preiodToUse,
-        this.exchange,
-        'us',
-      )
-      return result
-    }
-    if (
-      [ExchangeEnum.kucoin, ExchangeEnum.paperKucoin].includes(this.exchange)
-    ) {
-      const result = await getCandlesKucoin(
-        pair,
-        resolution,
-        preiodToUse,
-        this.exchange,
-      )
-      return result
-    }
-    /* if (this.exchange === ExchangeEnum.ftx) {
-      const result = await getCandlesFtx(
-        pair,
-        resolution,
-        preiodToUse,
-        this.exchange,
-      )
-      return result
-    } */
-    if ([ExchangeEnum.bybit, ExchangeEnum.paperBybit].includes(this.exchange)) {
-      const result = await getCandlesBybit(
-        pair,
-        resolution,
-        preiodToUse,
-        this.exchange,
-      )
-      return result
+    if (fn) {
+      return await fn(pair, resolution, periodToUse, this.exchange)
     }
     return []
   }

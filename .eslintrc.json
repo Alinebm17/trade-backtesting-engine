@@ -1,23 +1,15 @@
 {
   "extends": [
     "plugin:@typescript-eslint/recommended",
-    "airbnb",
     "prettier",
     "plugin:prettier/recommended"
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "jsx": true,
-    "useJSXTextNode": true,
     "ecmaVersion": 2018, // Allows for the parsing of modern ECMAScript features
     "sourceType": "module" // Allows for the use of imports
   },
-  "plugins": [
-    "@typescript-eslint",
-    "prettier",
-    "react-hooks",
-    "unused-imports"
-  ],
+  "plugins": ["@typescript-eslint", "prettier", "unused-imports"],
   "env": {
     "es6": true,
     "browser": true,
@@ -25,10 +17,6 @@
     "jquery": false,
     "jest": true
   },
-  "globals": {
-    "React": "writable"
-  },
-  "ignorePatterns": ["worker.js"],
   "rules": {
     "unused-imports/no-unused-imports": "error",
     "no-unused-vars": "off",
@@ -71,12 +59,6 @@
     "no-await-in-loop": "off"
   },
   "overrides": [
-    {
-      "files": ["**/*.tsx"],
-      "rules": {
-        "react/prop-types": "off"
-      }
-    },
     {
       "files": ["**/*.json"],
       "rules": {
