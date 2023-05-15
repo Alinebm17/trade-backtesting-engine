@@ -584,6 +584,13 @@ export type BacktestingInput = {
   slippage?: number
 }
 
+export type LoadDataFn = (
+  pair: string,
+  resolution: ResolutionString,
+  periodToUse: PeriodParams,
+  exchange: ExchangeEnum,
+) => Promise<Bar[]>
+
 export type DCABacktestingResult = {
   // pair: string
   deals: Deal[]

@@ -1,6 +1,6 @@
 import Backtesting from '..'
 
-import { ExchangeIntervals, timeIntervalMap } from '../types'
+import { Bar, ExchangeIntervals, timeIntervalMap } from '../types'
 
 import getStrategyBySettings, { StrategyInterface } from './strategy'
 
@@ -40,7 +40,7 @@ class DCABacktesting extends Backtesting {
     }
   }
 
-  public async test() {
+  public async test(bars?: { bar: Bar[]; interval: ExchangeIntervals }[]) {
     if (!this.strategy) {
       return
     }
@@ -52,18 +52,24 @@ class DCABacktesting extends Backtesting {
     )
     this.interval = lowestInterval
     this.period = this.calculatePeriod(lowestInterval)
-    const data = await this.loadData()
-    const testData = [{ bar: data, interval: this.interval }]
-    const otherIntervals = intervals.filter((i) => i !== this.interval)
-    const queries: Promise<void>[] = []
-    otherIntervals.forEach((oi) =>
-      queries.push(
-        this.loadData(oi, this.period.from).then((res) => {
-          testData.push({ bar: res, interval: oi })
-        }),
-      ),
-    )
-    await Promise.all(queries)
+    let testData: { bar: Bar[]; interval: ExchangeIntervals }[] = []
+    if (bars) {
+      testData = bars
+    }
+    {
+      const data = await this._loadData()
+      testData = [{ bar: data, interval: this.interval }]
+      const otherIntervals = intervals.filter((i) => i !== this.interval)
+      const queries: Promise<void>[] = []
+      otherIntervals.forEach((oi) =>
+        queries.push(
+          this._loadData(oi, this.period.from).then((res) => {
+            testData.push({ bar: res, interval: oi })
+          }),
+        ),
+      )
+      await Promise.all(queries)
+    }
     const loadingTime = (new Date().getTime() - startLoading) / 1000
     const start = new Date().getTime()
     this.strategy.loadData(testData)

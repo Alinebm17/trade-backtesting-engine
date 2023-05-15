@@ -10,7 +10,7 @@ import type {
   BacktestingInput,
   PeriodParams,
   ResolutionString,
-  Bar,
+  LoadDataFn,
 } from './types'
 
 class Backtesting {
@@ -29,6 +29,8 @@ class Backtesting {
   private readonly from?: number
 
   private readonly to?: number
+
+  private loadFn?: LoadDataFn
 
   constructor({ exchange, symbol, interval, from, to }: BacktestingInput) {
     this.exchange = exchange
@@ -79,16 +81,11 @@ class Backtesting {
     }
   }
 
-  public async loadData(
-    int?: ExchangeIntervals,
-    from?: number,
-    fn?: (
-      pair: string,
-      resolution: ResolutionString,
-      periodToUse: PeriodParams,
-      exchange: ExchangeEnum,
-    ) => Promise<Bar[]>,
-  ) {
+  set loadData(loadFn: LoadDataFn) {
+    this.loadFn = loadFn
+  }
+
+  public async _loadData(int?: ExchangeIntervals, from?: number) {
     const {
       symbol: { pair },
       interval,
@@ -99,8 +96,8 @@ class Backtesting {
     if (int && int !== interval) {
       periodToUse = this.calculatePeriod(int, from)
     }
-    if (fn) {
-      return await fn(pair, resolution, periodToUse, this.exchange)
+    if (this.loadFn) {
+      return await this.loadFn(pair, resolution, periodToUse, this.exchange)
     }
     return []
   }

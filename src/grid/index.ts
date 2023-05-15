@@ -1,6 +1,6 @@
 import Backtesting from '..'
 
-import { ExchangeIntervals } from '../types'
+import { Bar, ExchangeIntervals } from '../types'
 
 import { Strategy, StrategyInterface } from './strategy'
 
@@ -28,13 +28,13 @@ class DCABacktesting extends Backtesting {
     })
   }
 
-  public async test() {
+  public async test(_data?: Bar[]) {
     if (!this.strategy) {
       return
     }
 
     const startLoading = new Date().getTime()
-    const data = await this.loadData()
+    const data = _data || (await this._loadData())
     const loadingTime = (new Date().getTime() - startLoading) / 1000
     const start = new Date().getTime()
     this.strategy.loadData(data)
