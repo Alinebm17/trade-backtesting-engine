@@ -55,8 +55,7 @@ class DCABacktesting extends Backtesting {
     let testData: { bar: Bar[]; interval: ExchangeIntervals }[] = []
     if (bars) {
       testData = bars
-    }
-    {
+    } else {
       const data = await this._loadData()
       testData = [{ bar: data, interval: this.interval }]
       const otherIntervals = intervals.filter((i) => i !== this.interval)
