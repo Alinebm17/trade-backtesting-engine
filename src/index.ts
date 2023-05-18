@@ -32,7 +32,13 @@ class Backtesting {
 
   private loadFn?: LoadDataFn
 
-  constructor({ exchange, symbol, interval, from, to }: BacktestingInput) {
+  constructor({
+    exchange,
+    symbol,
+    interval,
+    from,
+    to,
+  }: BacktestingInput<unknown>) {
     this.exchange = exchange
     this.interval = interval ?? ExchangeIntervals.fiveM
     this.symbol = symbol

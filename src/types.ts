@@ -568,13 +568,9 @@ export interface Bar {
   volume?: number
 }
 
-export type DCABacktestingInput = BacktestingInput & {
-  settings: DCABotSettings
-  userFee: number
-  prices: Prices
-}
+export type DCABacktestingInput = BacktestingInput<DCABotSettings>
 
-export type BacktestingInput = {
+export type BacktestingInput<T> = {
   exchange: ExchangeEnum
   symbol: Symbols
   interval?: ExchangeIntervals
@@ -582,6 +578,9 @@ export type BacktestingInput = {
   from?: number
   to?: number
   slippage?: number
+  userFee: number
+  prices: Prices
+  settings: T
 }
 
 export type LoadDataFn = (
@@ -817,11 +816,7 @@ export type Precision = {
   price: number
 }
 
-export type GRIDBacktestingInput = BacktestingInput & {
-  settings: Settings
-  userFee: number
-  prices: Prices
-}
+export type GRIDBacktestingInput = BacktestingInput<Settings>
 
 export type OrderData = {
   userId: string

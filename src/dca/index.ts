@@ -22,7 +22,14 @@ class DCABacktesting extends Backtesting {
     ...rest
   }: DCABacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
-    super({ ...rest, interval: candleInterval, symbol })
+    super({
+      ...rest,
+      interval: candleInterval,
+      symbol,
+      userFee,
+      prices,
+      settings,
+    })
     const strategy = getStrategyBySettings(settings)
     if (strategy) {
       this.strategy = new CombinedStrategy(
