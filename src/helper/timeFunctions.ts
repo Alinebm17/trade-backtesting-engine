@@ -71,7 +71,7 @@ export function getDateOfWeek(
 }
 
 export const getDateOfMonth = (month: string) => {
-  const [y, m] = month.split('-').map((v) => Number(v))
+  const [y, m] = `${month}`.split('-').map((v) => Number(v))
 
   return new Date(y, m - 1, 1)
 }
