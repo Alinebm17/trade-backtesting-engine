@@ -508,17 +508,17 @@ class TIStrategy extends Strategy implements StrategyInterface {
               prevData.type === IndicatorsEnum.stoch) ||
               (lastData.type === IndicatorsEnum.stochRSI &&
                 prevData.type === IndicatorsEnum.stochRSI)) &&
-            action
+            action &&
+            checkValue
           ) {
             const upper = +(stochUpper ?? '')
             const lower = +(stochLower ?? '')
             action =
-              !isNaN(upper) &&
-              !isNaN(lower) &&
-              (checkValue
-                ? (last > upper && value > upper) ||
-                  (last < lower && value < lower)
-                : last > upper || last < lower)
+              (!isNaN(upper) &&
+                !isNaN(lower) &&
+                last > upper &&
+                value > upper) ||
+              (last < lower && value < lower)
           }
         }
         if (action) {
