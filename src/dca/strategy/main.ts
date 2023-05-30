@@ -1549,6 +1549,18 @@ export abstract class Strategy implements StrategyInterface {
     )
   }
 
+  private getRate(quoteRate: number) {
+    const denQuote = this.profitBase ? quoteRate : 1
+    const numQuote = this.futures
+      ? this.coinm
+        ? quoteRate
+        : 1
+      : this.long
+      ? 1
+      : quoteRate
+    return numQuote / denQuote
+  }
+
   public returnResult(
     firstData: Bar,
     lastData: Bar,
@@ -1781,17 +1793,34 @@ export abstract class Strategy implements StrategyInterface {
       firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
         : 0
-    return {
+    const maxTheoreticalUsageValue =
+      this.math.round(
+        Math.max(maxTheoreticalUsage, maxDealUsage, maxBotUsage),
+        this.precision,
+      ) * this.getRate(lastPrice)
+    const reuslt = {
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
         .map((d, ind) => ({ ...d, number: ind + 1 })),
       financial: {
         netProfitTotal: totalProfit,
         netProfitTotalUsd: totalProfitUsd,
+        netProfitTotalPerc: this.math.round(
+          (totalProfit / maxTheoreticalUsageValue) * 100,
+          2,
+        ),
         grossProfit: this.math.round(allProfit, this.precision),
         grossProfitUsd: this.math.round(allProfitUsd, 2),
+        grossProfitPerc: this.math.round(
+          (allProfit / maxTheoreticalUsageValue) * 100,
+          2,
+        ),
         grossLoss: this.math.round(allLoss, this.precision),
         grossLossUsd: this.math.round(allLossUsd, 2),
+        grossLossPerc: this.math.round(
+          (allLoss / maxTheoreticalUsageValue) * 100,
+          2,
+        ),
         avgGrossProfit:
           profitDeals.length > 0
             ? this.math.round(allProfit / profitDeals.length, this.precision)
@@ -1799,6 +1828,14 @@ export abstract class Strategy implements StrategyInterface {
         avgGrossProfitUsd:
           profitDeals.length > 0
             ? this.math.round(allProfitUsd / profitDeals.length, 2)
+            : 0,
+        avgGrossProfitPerc:
+          profitDeals.length > 0
+            ? this.math.round(
+                (allProfit / profitDeals.length / maxTheoreticalUsageValue) *
+                  100,
+                2,
+              )
             : 0,
         avgGrossLoss:
           lossDeals.length > 0
@@ -1808,6 +1845,13 @@ export abstract class Strategy implements StrategyInterface {
           lossDeals.length > 0
             ? this.math.round(allLossUsd / lossDeals.length, 2)
             : 0,
+        avgGrossLossPerc:
+          lossDeals.length > 0
+            ? this.math.round(
+                (allLoss / lossDeals.length / maxTheoreticalUsageValue) * 100,
+                2,
+              )
+            : 0,
         avgNetProfit:
           closedDeals.length > 0
             ? this.math.round(totalProfit / closedDeals.length, this.precision)
@@ -1815,6 +1859,14 @@ export abstract class Strategy implements StrategyInterface {
         avgNetProfitUsd:
           closedDeals.length > 0
             ? this.math.round(totalProfitUsd / closedDeals.length, 2)
+            : 0,
+        avgNetProfitPerc:
+          closedDeals.length > 0
+            ? this.math.round(
+                (totalProfit / closedDeals.length / maxTheoreticalUsageValue) *
+                  100,
+                2,
+              )
             : 0,
         avgNetDaily:
           workingDays > 0
@@ -1824,13 +1876,28 @@ export abstract class Strategy implements StrategyInterface {
           workingDays > 0
             ? this.math.round(totalProfitUsd / workingDays, 2)
             : 0,
+        avgNetDailyPerc:
+          workingDays > 0
+            ? this.math.round(
+                (totalProfit / workingDays / maxTheoreticalUsageValue) * 100,
+                2,
+              )
+            : 0,
         unrealizedPnL: this.math.round(unrealizedPnL, this.precision),
         unrealizedPnLUsd: this.math.round(unrealizedPnLUsd, 2),
         unrealizedPnLPerc: this.math.round(
           (unrealizedPnL / unrealizedUsage) * 100,
         ),
         maxDealLoss: this.math.round(Strategy.maxLoss, this.precision),
+        maxDealLossPerc: this.math.round(
+          (Strategy.maxLoss / maxTheoreticalUsageValue) * 100,
+          2,
+        ),
         maxDealProfit: this.math.round(Strategy.maxProfit, this.precision),
+        maxDealProfitPerc: this.math.round(
+          (Strategy.maxProfit / maxTheoreticalUsageValue) * 100,
+          2,
+        ),
         maxDealLossUsd: this.math.round(Strategy.maxLoss * this.usdRate, 2),
         maxDealProfitUsd: this.math.round(Strategy.maxProfit * this.usdRate, 2),
         maxDrawDown: -this.math.round(
@@ -1841,9 +1908,17 @@ export abstract class Strategy implements StrategyInterface {
           Strategy.seriesLoss.value * this.usdRate,
           2,
         ),
+        maxDrawDownPerc: this.math.round(
+          (Strategy.seriesLoss.value / maxTheoreticalUsageValue) * 100,
+          2,
+        ),
         maxRunUp: this.math.round(Strategy.seriesWin.value, this.precision),
         maxRunUpUsd: this.math.round(
           Strategy.seriesWin.value * this.usdRate,
+          2,
+        ),
+        maxRunUpPerc: this.math.round(
+          (Strategy.seriesWin.value / maxTheoreticalUsageValue) * 100,
           2,
         ),
       },
@@ -1871,10 +1946,7 @@ export abstract class Strategy implements StrategyInterface {
             : { d: '', h: '', min: '', s: '' },
       },
       usage: {
-        maxTheoreticalUsage: this.math.round(
-          Math.max(maxTheoreticalUsage, maxDealUsage, maxBotUsage),
-          this.precision,
-        ),
+        maxTheoreticalUsage: maxTheoreticalUsageValue,
         maxRealUsage: this.math.round(
           Math.max(maxDealUsage, maxBotUsage),
           this.precision,
@@ -1926,5 +1998,7 @@ export abstract class Strategy implements StrategyInterface {
       interval: Strategy.interval,
       quoteRate: lastPrice ?? 0,
     }
+    Strategy.resetData()
+    return reuslt
   }
 }

@@ -596,29 +596,40 @@ export type DCABacktestingResult = {
   financial: {
     netProfitTotal: number
     netProfitTotalUsd: number
+    netProfitTotalPerc: number
     grossProfit: number
     grossProfitUsd: number
+    grossProfitPerc: number
     grossLoss: number
     grossLossUsd: number
+    grossLossPerc: number
     avgGrossProfit: number
     avgGrossProfitUsd: number
+    avgGrossProfitPerc: number
     avgGrossLoss: number
     avgGrossLossUsd: number
+    avgGrossLossPerc: number
     avgNetProfit: number
     avgNetProfitUsd: number
+    avgNetProfitPerc: number
     avgNetDaily: number
     avgNetDailyUsd: number
+    avgNetDailyPerc: number
     unrealizedPnL: number
     unrealizedPnLUsd: number
     unrealizedPnLPerc: number
     maxDealProfit: number
     maxDealLoss: number
     maxDealProfitUsd: number
+    maxDealProfitPerc: number
     maxDealLossUsd: number
+    maxDealLossPerc: number
     maxRunUp: number
     maxRunUpUsd: number
+    maxRunUpPerc: number
     maxDrawDown: number
     maxDrawDownUsd: number
+    maxDrawDownPerc: number
   }
   duration: {
     avgDealDuration: number
@@ -747,11 +758,14 @@ export type GridBacktestingResult = {
   financial: {
     profitTotal: string
     profitTotalUsd: number
+    profitTotalPerc: number
     budgetUsd: number
     avgNetDaily: string
     avgNetDailyUsd: number
+    avgNetDailyPerc: number
     avgTransactionProfit: string
     avgTransactionProfitUsd: number
+    avgTransactionProfitPerc: number
     initialBalances: string
     initialBalancesByAsset: {
       base: string
@@ -766,6 +780,7 @@ export type GridBacktestingResult = {
     currentBalancesUsd: number
     valueChange: string
     valueChangeUsd: number
+    valueChangePerc: number
     startPrice: string
     lastPrice: string
     breakevenPrice: number

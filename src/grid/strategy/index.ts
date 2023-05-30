@@ -1083,6 +1083,10 @@ export class Strategy implements StrategyInterface {
           this.precision,
         ),
         profitTotalUsd: totalProfitUsd,
+        profitTotalPerc: this.math.round(
+          (totalProfit / this.initialBalances) * 100,
+          2,
+        ),
         budgetUsd:
           (this.usdRateQuote *
             +this.settings.budget *
@@ -1099,6 +1103,13 @@ export class Strategy implements StrategyInterface {
           workingDays > 0
             ? this.math.round(totalProfitUsd / workingDays, 2)
             : 0,
+        avgNetDailyPerc:
+          workingDays > 0
+            ? this.math.round(
+                (totalProfit / workingDays / this.initialBalances) * 100,
+                2,
+              )
+            : 0,
         avgTransactionProfit:
           this.transactions.length > 0
             ? this.math.convertFromExponential(
@@ -1112,6 +1123,16 @@ export class Strategy implements StrategyInterface {
         avgTransactionProfitUsd:
           this.transactions.length > 0
             ? this.math.round(this.totalProfitUsd / this.transactions.length, 2)
+            : 0,
+        avgTransactionProfitPerc:
+          this.transactions.length > 0
+            ? this.math.round(
+                (this.totalProfit /
+                  this.transactions.length /
+                  this.initialBalances) *
+                  100,
+                2,
+              )
             : 0,
         initialBalances: this.math.convertFromExponential(
           this.math.round(this.initialBalances, this.precision),
@@ -1136,6 +1157,12 @@ export class Strategy implements StrategyInterface {
             positionPnL.value *
               (this.coinm ? lastPrice : 1) *
               this.usdRateQuote,
+          2,
+        ),
+        valueChangePerc: this.math.round(
+          ((this.currentBalances - this.initialBalances + positionPnL.value) /
+            this.initialBalances) *
+            100,
           2,
         ),
         startPrice: this.math.convertFromExponential(
