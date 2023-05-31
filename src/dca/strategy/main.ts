@@ -1996,7 +1996,7 @@ export abstract class Strategy implements StrategyInterface {
           valueUsd: this.math.round(buyAndHold * this.usdRateQuote, 2),
           perc: this.math.round(
             (buyAndHold / buyAndHoldUsage) * 100 * this.leverage,
-            1,
+            2,
           ),
         },
         periodRatio,
