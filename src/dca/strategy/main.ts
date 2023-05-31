@@ -1632,10 +1632,10 @@ export abstract class Strategy implements StrategyInterface {
     const openedDeals = Strategy.deals.filter((d) => d.status === 'open')
     const workingDays = this.math.round(workingTime / (24 * 60 * 60 * 1000), 4)
     const profitDeals = Strategy.deals.filter(
-      (d) => d.profit.total > 0 && d.status === 'closed',
+      (d) => d.profit.perc > 0 && d.status === 'closed',
     )
     const lossDeals = Strategy.deals.filter(
-      (d) => d.profit.total < 0 && d.status === 'closed',
+      (d) => d.profit.perc <= 0 && d.status === 'closed',
     )
     const allProfit = profitDeals.reduce((acc, d) => (acc += d.profit.total), 0)
     const allProfitUsd =
@@ -1715,7 +1715,7 @@ export abstract class Strategy implements StrategyInterface {
         }
       })
     }
-    const levels = Strategy.deals.map((d) => d.levels.complete)
+    const levels = Strategy.deals.map((d) => d.levels.complete - 1)
     const maxDealUsage = this.math.round(
       Math.max(Strategy.maxUsage.deal, avgUsable) / this.leverage,
       this.precision,
@@ -1788,19 +1788,20 @@ export abstract class Strategy implements StrategyInterface {
     }
     const firstPrice = firstData?.close
     const lastPrice = lastData?.close
-    const buyAndHoldUsage = Strategy.maxUsage.botQuote
-    const buyAndHold =
-      firstPrice && lastPrice
-        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
-        : 0
+
     const maxTheoreticalUsageValue = this.math.round(
       Math.max(maxTheoreticalUsage, maxDealUsage, maxBotUsage),
       this.precision,
     )
     const maxTheoreticalUsageWithRate =
       maxTheoreticalUsageValue * this.getRate(lastPrice)
-
-    const reuslt = {
+    const buyAndHoldUsage =
+      maxTheoreticalUsageWithRate * (this.profitBase ? lastPrice : 1)
+    const buyAndHold =
+      firstPrice && lastPrice
+        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
+        : 0
+    const result = {
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
         .map((d, ind) => ({ ...d, number: ind + 1 })),
@@ -2004,6 +2005,6 @@ export abstract class Strategy implements StrategyInterface {
       quoteRate: lastPrice ?? 0,
     }
     Strategy.resetData()
-    return reuslt
+    return result
   }
 }
