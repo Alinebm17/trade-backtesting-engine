@@ -761,6 +761,9 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private getSLOrder(d: Deal, b: Bar): { deal: Deal; order?: DCAGrid } {
+    if (this.settings.dealCloseConditionSL !== CloseConditionEnum.tp) {
+      return { deal: d }
+    }
     let close = false
     let closePrice = 0
     if (
@@ -1247,7 +1250,8 @@ export abstract class Strategy implements StrategyInterface {
     if (
       this.settings.moveSL &&
       this.settings.moveSLTrigger &&
-      this.settings.moveSLValue
+      this.settings.moveSLValue &&
+      this.settings.dealCloseConditionSL === CloseConditionEnum.tp
     ) {
       const trigger = +this.settings.moveSLTrigger / 100
       const value = +this.settings.moveSLValue / 100
