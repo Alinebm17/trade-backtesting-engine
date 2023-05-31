@@ -262,7 +262,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const currentState = [...Strategy.indicators].filter(
         (i) => i.id !== i.settings.maUUID && i.data.length > 0,
       )
-      Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
+      //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
       let startDeal = 0
       let closeDeal = 0
       currentState.forEach((i) => {
