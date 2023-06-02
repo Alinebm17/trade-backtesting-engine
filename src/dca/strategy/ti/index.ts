@@ -207,9 +207,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
       bar.time + 1,
       bar.time + timeIntervalMap[Strategy.lowestInterval ?? Strategy.interval],
     ]
-    if (restIndicators.length === 0) {
+    /*  if (restIndicators.length === 0) {
       this.checkDeals(bar)
-    }
+    } */
     restIndicators.forEach((i) => {
       const [data] = Strategy.data.filter((d) => d.interval === i.interval)
       if (data) {
@@ -228,10 +228,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
             b.time,
             this.updateIndicatorData(i),
           )
-          this.checkDeals(b)
+          //this.checkDeals(b)
         })
       }
     })
+    this.checkDeals(bar)
     this.checkIndicators(nextBar)
   }
 
@@ -253,10 +254,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
       (ci) => ci.settings.indicatorAction === IndicatorAction.closeDeal,
     )
     if (
-      (startIndicators.filter((i) => i.data.length > 0).length ===
-        startIndicators.length ||
-        closeIndicators.filter((i) => i.data.length > 0).length ===
-          closeIndicators.length) &&
+      ((startIndicators.filter((i) => i.data.length > 0).length ===
+        startIndicators.length &&
+        startIndicators.length) ||
+        (closeIndicators.filter((i) => i.data.length > 0).length ===
+          closeIndicators.length &&
+          closeIndicators.length)) &&
       nextBar
     ) {
       const currentState = [...Strategy.indicators].filter(
