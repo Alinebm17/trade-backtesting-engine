@@ -13,6 +13,7 @@ import {
   BBCrossingEnum,
   SRCrossingEnum,
   IndicatorAction,
+  IndicatorSection,
 } from '../../../types'
 
 import type {
@@ -265,9 +266,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const currentState = [...Strategy.indicators].filter(
         (i) => i.id !== i.settings.maUUID && i.data.length > 0,
       )
-      Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
+      //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
       let startDeal = 0
-      let closeDeal = 0
+      let closeDealSl = 0
+      let closeDealTp = 0
       currentState.forEach((i) => {
         let action = false
         const {
@@ -288,6 +290,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             valueInsteadof,
             srCrossingValue,
             indicatorAction,
+            section,
           },
           data,
         } = i
@@ -528,8 +531,17 @@ class TIStrategy extends Strategy implements StrategyInterface {
           if (indicatorAction === IndicatorAction.startDeal) {
             startDeal += 1
           }
-          if (indicatorAction === IndicatorAction.closeDeal) {
-            closeDeal += 1
+          if (
+            indicatorAction === IndicatorAction.closeDeal &&
+            section === IndicatorSection.sl
+          ) {
+            closeDealSl += 1
+          }
+          if (
+            indicatorAction === IndicatorAction.closeDeal &&
+            section !== IndicatorSection.sl
+          ) {
+            closeDealTp += 1
           }
         }
       })
@@ -539,11 +551,30 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const lowest = data[data.length - 1]
       const lowestBar = lowest.bar.find((l) => l.time === nextBar.time)
       if (
-        closeDeal ===
+        closeDealSl ===
           currentState.filter(
-            (i) => i.settings.indicatorAction === IndicatorAction.closeDeal,
+            (i) =>
+              i.settings.indicatorAction === IndicatorAction.closeDeal &&
+              i.settings.section === IndicatorSection.sl,
           ).length &&
-        closeDeal !== 0
+        closeDealSl !== 0
+      ) {
+        this.closeAllDeals({
+          open: lowestBar?.open ?? nextBar.open,
+          time: nextBar.time,
+          high: lowestBar?.open ?? nextBar.high,
+          low: lowestBar?.low ?? nextBar.low,
+          close: lowestBar?.close ?? nextBar.close,
+        })
+      }
+      if (
+        closeDealTp ===
+          currentState.filter(
+            (i) =>
+              i.settings.indicatorAction === IndicatorAction.closeDeal &&
+              i.settings.section !== IndicatorSection.sl,
+          ).length &&
+        closeDealTp !== 0
       ) {
         this.closeAllDeals({
           open: lowestBar?.open ?? nextBar.open,
