@@ -30,6 +30,8 @@ export type Indicator = {
   id: string
   settings: SettingsIndicators
   interval: ExchangeIntervals
+  statuses: { status: boolean; statusSince: number; statusTo: number }[]
+  status: boolean
 }
 
 class TIStrategy extends Strategy implements StrategyInterface {
@@ -126,6 +128,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
         id: uuid,
         settings: i,
         interval: indicatorInterval,
+        statuses: [],
+        status: false,
       })
       if (
         type === IndicatorsEnum.ma &&
@@ -146,6 +150,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
           id: maUUID,
           settings: i,
           interval: maCrossingInterval,
+          statuses: [],
+          status: false,
         })
       }
     })
@@ -180,10 +186,29 @@ class TIStrategy extends Strategy implements StrategyInterface {
     lowest.bar.forEach((b, i) => this.processBar(b, lowest.bar[i + 1]))
   }
 
-  public processBar(bar: Bar, nextBar: Bar): void {
+  private checkStatuses(bar: Bar) {
+    Strategy.indicators = Strategy.indicators.map((i) => {
+      const findStatus = i.statuses.find(
+        (s) => bar.time >= s.statusSince && bar.time < s.statusTo,
+      )
+      if (findStatus) {
+        i.statuses = i.statuses.filter(
+          (s) =>
+            s.statusSince !== findStatus.statusSince &&
+            s.statusTo !== findStatus.statusTo,
+        )
+        i.status = findStatus.status
+      }
+
+      return i
+    })
+  }
+
+  public processBar(bar: Bar, _nextBar: Bar): void {
     if (Strategy.workingShift.length === 0) {
       this.startWorkingShift(bar.time)
     }
+    this.checkStatuses(bar)
     this.checkInRange(bar.close, bar.time)
     const lowestIndicators = Strategy.indicators.filter(
       (i) => i.interval === Strategy.lowestInterval,
@@ -234,7 +259,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       }
     })
     this.checkDeals(bar)
-    this.checkIndicators(nextBar)
+    this.checkIndicators(bar)
   }
 
   private updateIndicatorData(i: Indicator) {
@@ -255,21 +280,14 @@ class TIStrategy extends Strategy implements StrategyInterface {
       (ci) => ci.settings.indicatorAction === IndicatorAction.closeDeal,
     )
     if (
-      ((startIndicators.filter((i) => i.data.length > 0).length ===
-        startIndicators.length &&
-        startIndicators.length) ||
-        (closeIndicators.filter((i) => i.data.length > 0).length ===
-          closeIndicators.length &&
-          closeIndicators.length)) &&
+      (startIndicators.filter((i) => i.data.length > 0).length ||
+        closeIndicators.filter((i) => i.data.length > 0).length) &&
       nextBar
     ) {
       const currentState = [...Strategy.indicators].filter(
         (i) => i.id !== i.settings.maUUID && i.data.length > 0,
       )
       //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
-      let startDeal = 0
-      let closeDealSl = 0
-      let closeDealTp = 0
       currentState.forEach((i) => {
         let action = false
         const {
@@ -289,8 +307,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
             rsiValue2,
             valueInsteadof,
             srCrossingValue,
-            indicatorAction,
-            section,
           },
           data,
         } = i
@@ -527,71 +543,86 @@ class TIStrategy extends Strategy implements StrategyInterface {
               (last < lower && value < lower)
           }
         }
-        if (action) {
-          if (indicatorAction === IndicatorAction.startDeal) {
-            startDeal += 1
-          }
-          if (
-            indicatorAction === IndicatorAction.closeDeal &&
-            section === IndicatorSection.sl
-          ) {
-            closeDealSl += 1
-          }
-          if (
-            indicatorAction === IndicatorAction.closeDeal &&
-            section !== IndicatorSection.sl
-          ) {
-            closeDealTp += 1
-          }
+        const [last] = [...data].sort((a, b) => b.time - a.time)
+        const step = timeIntervalMap[i.interval]
+        const status = {
+          status: action,
+          statusSince: last.time + step,
+          statusTo: last.time + step * 2 - 1,
         }
+        i.statuses.push(status)
+        Strategy.indicators = [
+          ...Strategy.indicators.filter((si) => si.id !== i.id),
+          { ...i, data: [] },
+        ]
       })
+    }
+    if (nextBar) {
       const data = [...Strategy.data].sort(
         (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
       )
       const lowest = data[data.length - 1]
       const lowestBar = lowest.bar.find((l) => l.time === nextBar.time)
-      if (
-        closeDealSl ===
-          currentState.filter(
-            (i) =>
-              i.settings.indicatorAction === IndicatorAction.closeDeal &&
-              i.settings.section === IndicatorSection.sl,
-          ).length &&
-        closeDealSl !== 0
-      ) {
-        this.closeAllDeals({
-          open: lowestBar?.open ?? nextBar.open,
-          time: nextBar.time,
-          high: lowestBar?.open ?? nextBar.high,
-          low: lowestBar?.low ?? nextBar.low,
-          close: lowestBar?.close ?? nextBar.close,
-        })
-      }
-      if (
-        closeDealTp ===
-          currentState.filter(
-            (i) =>
-              i.settings.indicatorAction === IndicatorAction.closeDeal &&
-              i.settings.section !== IndicatorSection.sl,
-          ).length &&
-        closeDealTp !== 0
-      ) {
-        this.closeAllDeals({
-          open: lowestBar?.open ?? nextBar.open,
-          time: nextBar.time,
-          high: lowestBar?.open ?? nextBar.high,
-          low: lowestBar?.low ?? nextBar.low,
-          close: lowestBar?.close ?? nextBar.close,
-        })
-      }
+      const closeDealSl = [...Strategy.indicators].filter(
+        (i) =>
+          i.settings.indicatorAction === IndicatorAction.closeDeal &&
+          i.settings.section === IndicatorSection.sl,
+      )
+      const closeDealTp = [...Strategy.indicators].filter(
+        (i) =>
+          i.settings.indicatorAction === IndicatorAction.closeDeal &&
+          i.settings.section !== IndicatorSection.sl,
+      )
+      const startDeal = [...Strategy.indicators].filter(
+        (i) => i.settings.indicatorAction === IndicatorAction.startDeal,
+      )
+      const closeDealSlStatus = closeDealSl.filter((i) => i.status)
+      const closeDealTpStatus = closeDealTp.filter((i) => i.status)
+      const startDealStatus = startDeal.filter((i) => i.status)
 
       if (
-        startDeal ===
-          currentState.filter(
-            (i) => i.settings.indicatorAction === IndicatorAction.startDeal,
-          ).length &&
-        startDeal !== 0
+        closeDealSl.length === closeDealSlStatus.length &&
+        closeDealSl.length
       ) {
+        Strategy.indicators = Strategy.indicators.map((i) => {
+          if (closeDealSlStatus.map((ai) => ai.id).includes(i.id)) {
+            return { ...i, status: false, statusSince: 0, statusTo: 0 }
+          }
+          return i
+        })
+        this.closeAllDeals({
+          open: lowestBar?.open ?? nextBar.open,
+          time: nextBar.time,
+          high: lowestBar?.open ?? nextBar.high,
+          low: lowestBar?.low ?? nextBar.low,
+          close: lowestBar?.close ?? nextBar.close,
+        })
+      }
+      if (
+        closeDealTp.length === closeDealTpStatus.length &&
+        closeDealTp.length
+      ) {
+        Strategy.indicators = Strategy.indicators.map((i) => {
+          if (closeDealTpStatus.map((ai) => ai.id).includes(i.id)) {
+            return { ...i, status: false, statusSince: 0, statusTo: 0 }
+          }
+          return i
+        })
+        this.closeAllDeals({
+          open: lowestBar?.open ?? nextBar.open,
+          time: nextBar.time,
+          high: lowestBar?.open ?? nextBar.high,
+          low: lowestBar?.low ?? nextBar.low,
+          close: lowestBar?.close ?? nextBar.close,
+        })
+      }
+      if (startDeal.length === startDealStatus.length && startDeal.length) {
+        Strategy.indicators = Strategy.indicators.map((i) => {
+          if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
+            return { ...i, status: false, statusSince: 0, statusTo: 0 }
+          }
+          return i
+        })
         this.openDeal(
           lowestBar?.open ?? nextBar.open,
           nextBar.time,
