@@ -2,13 +2,16 @@ export class MathHelper {
   private eps = 1e-10
 
   convertFromExponential(num: number | string, precision = 2) {
-    return Number(num).toFixed(precision).replace(/0*$/, '').replace(/\.*$/, '')
+    return Number(num)
+      .toFixed(Math.min(precision, 20))
+      .replace(/0*$/, '')
+      .replace(/\.*$/, '')
   }
 
   round(_num: number, precision = 2, down = false, up = false) {
     let num = `${_num}`
     if (`${_num}`.indexOf('e') !== -1) {
-      num = this.convertFromExponential(_num, precision)
+      num = this.convertFromExponential(_num, precision + 2)
     }
     if (down) {
       const res = Number(
