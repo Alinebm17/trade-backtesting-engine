@@ -593,6 +593,7 @@ export type LoadDataFn = (
 export type DCABacktestingResult = {
   // pair: string
   deals: Deal[]
+  noData?: boolean
   financial: {
     netProfitTotal: number
     netProfitTotalUsd: number
@@ -755,6 +756,7 @@ export type Grid = {
 export type GridBacktestingResult = {
   transaction: BacktestingTransaction[]
   orders: Grid[]
+  noDate?: boolean
   financial: {
     profitTotal: string
     profitTotalUsd: number

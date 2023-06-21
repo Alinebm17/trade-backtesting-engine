@@ -1932,6 +1932,7 @@ export abstract class Strategy implements StrategyInterface {
           2,
         ),
       },
+      noData: !firstData && !lastData,
       duration: {
         avgDealDuration: avgDuration,
         avgSplitDealDuration:

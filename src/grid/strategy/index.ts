@@ -1059,6 +1059,7 @@ export class Strategy implements StrategyInterface {
     }
     return {
       transaction: this.transactions.sort((a, b) => b.index - a.index),
+      noData: !firstData && !lastData,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       orders: [
