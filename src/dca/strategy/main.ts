@@ -620,6 +620,7 @@ export abstract class Strategy implements StrategyInterface {
     )
     deal = {
       ...deal,
+      activeOrders,
       initialBalance: {
         base: initialBase,
         quote: initialQuote,
