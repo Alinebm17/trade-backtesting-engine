@@ -1,5 +1,6 @@
 import { checkNumber } from '../../helper/utils'
 import DCABotFunctions from '../../helper/dcaBotFunctions'
+import ComboBotFunctions from '../../helper/comboBotFunctions'
 import {
   DCAOrderTypeEnum,
   StrategyEnum,
@@ -27,6 +28,7 @@ import type {
   Prices,
   Asset,
   Bar as BarTV,
+  Minigrid,
 } from '../../types'
 
 export type Bar = BarTV
@@ -39,6 +41,7 @@ export type StrategyInput = {
   interval: ExchangeIntervals
   balances?: Asset[] | null
   slippage?: number
+  combo?: boolean
 }
 
 export type DataType = {
@@ -200,11 +203,24 @@ export abstract class Strategy implements StrategyInterface {
 
   static position = Strategy.emptyPositon
 
+  private combo = false
+
   constructor(input: StrategyInput) {
-    const { settings, userFee, symbol, prices, interval, balances, slippage } =
-      input
+    const {
+      settings,
+      userFee,
+      symbol,
+      prices,
+      interval,
+      balances,
+      slippage,
+      combo,
+    } = input
+    this.combo = !!combo
     this.settings = settings
-    this.botFunctions = new DCABotFunctions(settings, symbol)
+    this.botFunctions = this.combo
+      ? new ComboBotFunctions(settings, symbol, userFee)
+      : new DCABotFunctions(settings, symbol, userFee)
     this.filterFn = {
       filledOrders: this.long
         ? (b: Bar) => (o: FullGrid) =>
@@ -409,6 +425,72 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
+  private generateGridsOnPrice(price: number, minigrid: Minigrid) {}
+
+  private createMinigrid(
+    deal: Deal,
+    startOrder: FullGrid,
+    allOrders: DCAGrid[],
+  ) {
+    const { settings, userFee } = this
+    const price = deal.startPrice
+    const gridStep = price * (+settings.step / 100)
+    const startPrice = startOrder.price
+    const lowPrice = this.long ? startPrice : startPrice - gridStep
+    const topPrice = this.long ? startPrice + gridStep : startPrice
+    const levels = Math.floor(+(settings.gridLevel ?? '1'))
+    const fee = userFee
+    const sellDisplacement = fee * 2
+    const profitCurrency = 'quote'
+    const orderFixedIn = 'base'
+    const buys = allOrders.filter((g) => g.side === BotOrderSideEnum.buy)
+    const sells = allOrders.filter((g) => g.side === BotOrderSideEnum.sell)
+    const base = sells.reduce((acc, o) => acc + o.qty, 0)
+    const quote = buys.reduce((acc, o) => acc + o.qty * o.price, 0)
+    const asset = {
+      base,
+      quote,
+    }
+    const time = startOrder.filledTime ?? +new Date()
+    const minigrid: Minigrid = {
+      initialOrders: allOrders,
+      filledOrders: [],
+      activeOrders: allOrders,
+      id: this.botFunctions.utils.id(20),
+      dealId: deal.id,
+      dcaOrderId: startOrder.id,
+      grids: { buy: buys.length, sell: sells.length },
+      status: 'open',
+      initialBalances: asset,
+      currentBalances: asset,
+      initialPrice: startPrice,
+      lastPrice: startPrice,
+      lastSide: startOrder.side,
+      profit: {
+        total: 0,
+        totalUsd: 0,
+      },
+      avgPrice: startPrice,
+      createTime: time,
+      updateTime: time,
+      assets: { used: asset, required: asset },
+      settings: {
+        topPrice,
+        lowPrice,
+        levels,
+        budget: startOrder.qty * startOrder.price,
+        sellDisplacement,
+        profitCurrency,
+        orderFixedIn,
+      },
+      transactions: {
+        buy: 0,
+        sell: 0,
+      },
+    }
+    return minigrid
+  }
+
   public openDeal(price: number, startTime: number, high: number, low: number) {
     if (!this.checkCooldownStart(startTime)) {
       return
@@ -433,21 +515,22 @@ export abstract class Strategy implements StrategyInterface {
     let initialOrders = this.botFunctions
       .createOrders(orderPrice, true, undefined, undefined, this.balances)
       .filter((o) => o.type !== DCAOrderTypeEnum.sl)
-    const filledOrders = initialOrders.filter(
-      (o) => o.type === DCAOrderTypeEnum.bo,
-    )
+    const filledOrders = initialOrders
+      .filter((o) => o.type === DCAOrderTypeEnum.bo)
+      .map((fo) => ({
+        ...fo,
+        filledTime: startTime,
+      }))
     this.updatePositionWithOrder(filledOrders[0])
     initialOrders = [
       ...initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp),
     ]
     const id = this.botFunctions.utils.id(20)
     let deal: Deal = {
+      mingrids: [],
       id,
       initialOrders,
-      filledOrders: filledOrders.map((fo) => ({
-        ...fo,
-        filledTime: startTime,
-      })),
+      filledOrders,
       activeOrders: [],
       status: 'open',
       startTime,
@@ -489,10 +572,20 @@ export abstract class Strategy implements StrategyInterface {
       avgPrice: orderPrice,
       startPrice: orderPrice,
     }
+    if (this.combo) {
+      const baseOrder = filledOrders[0]
+      const minigrid = this.createMinigrid(
+        deal,
+        baseOrder,
+        initialOrders.filter((o) => o.relatedTo === baseOrder.id),
+      )
+      deal.mingrids.push(minigrid)
+    }
     if (
       this.settings.useTp &&
       !this.botFunctions.isTrailingTp &&
-      this.settings.dealCloseCondition === CloseConditionEnum.tp
+      this.settings.dealCloseCondition === CloseConditionEnum.tp &&
+      !this.combo
     ) {
       const tp = this.getTP(deal)
       initialOrders = [...initialOrders, ...tp]
@@ -526,73 +619,7 @@ export abstract class Strategy implements StrategyInterface {
       0,
     )
     deal = {
-      id,
-      initialOrders,
-      filledOrders: filledOrders.map((fo) => ({
-        ...fo,
-        filledTime: startTime,
-      })),
-      activeOrders,
-      status: 'open',
-      startTime,
-      profit: {
-        total: 0,
-        totalUsd: 0,
-        perc: 0,
-      },
-      levels: {
-        all: initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp).length,
-        complete: 1,
-      },
-      duration: 0,
-      splitDuration: {
-        d: '',
-        h: '',
-        min: '',
-        s: '',
-      },
-      usage: {
-        current: {
-          base: this.futures
-            ? this.coinm
-              ? filledOrders.reduce((acc, fo) => (acc += fo.qty), 0)
-              : 0
-            : this.long
-            ? 0
-            : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0),
-          quote: this.futures
-            ? this.coinm
-              ? 0
-              : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
-            : this.long
-            ? filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
-            : 0,
-        },
-        max: {
-          base: this.futures
-            ? this.coinm
-              ? initialOrders
-                  .filter((io) => io.type !== DCAOrderTypeEnum.tp)
-                  .reduce((acc, io) => (acc += io.qty), 0)
-              : 0
-            : this.long
-            ? 0
-            : initialOrders
-                .filter((io) => io.type !== DCAOrderTypeEnum.tp)
-                .reduce((acc, io) => (acc += io.qty), 0),
-          quote: this.futures
-            ? this.coinm
-              ? 0
-              : initialOrders
-                  .filter((io) => io.type !== DCAOrderTypeEnum.tp)
-                  .reduce((acc, io) => (acc += io.qty * io.price), 0)
-            : this.long
-            ? initialOrders
-                .filter((io) => io.type !== DCAOrderTypeEnum.tp)
-                .reduce((acc, io) => (acc += io.qty * io.price), 0)
-            : 0,
-        },
-      },
+      ...deal,
       initialBalance: {
         base: initialBase,
         quote: initialQuote,
@@ -601,9 +628,6 @@ export abstract class Strategy implements StrategyInterface {
         base: !this.long ? initialBase - currentBase : currentBase,
         quote: this.long ? initialQuote - currentQuote : currentQuote,
       },
-      slPerc: +(this.settings.slPerc || '0') / 100,
-      avgPrice: orderPrice,
-      startPrice: orderPrice,
     }
     if (this.profitBase && deal.usage.current.base > Strategy.maxUsage.deal) {
       Strategy.maxUsage.deal = deal.usage.current.base
@@ -615,6 +639,9 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private filterTP(d: Deal, b: Bar): { deal: Deal; order?: DCAGrid } {
+    if (this.combo) {
+      return { deal: d }
+    }
     if (this.botFunctions.isTrailingTp) {
       return { deal: d }
     }
@@ -761,6 +788,9 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private getSLOrder(d: Deal, b: Bar): { deal: Deal; order?: DCAGrid } {
+    if (this.combo) {
+      return { deal: d }
+    }
     if (this.settings.dealCloseConditionSL !== CloseConditionEnum.tp) {
       return { deal: d }
     }
@@ -902,6 +932,10 @@ export abstract class Strategy implements StrategyInterface {
     })
   }
 
+  private closeMinigrid(minigrid: Minigrid): Minigrid {
+    return { ...minigrid, status: 'close' }
+  }
+
   private closeDeal(
     tpOrder: DCAGrid,
     d: Deal,
@@ -984,6 +1018,7 @@ export abstract class Strategy implements StrategyInterface {
       }
       Strategy.previousDeal = d
     }
+    d.mingrids = d.mingrids.map((m) => this.closeMinigrid(m))
     Strategy.lastClosedDeal = b.time
     if (cbClose) {
       cbClose(price)

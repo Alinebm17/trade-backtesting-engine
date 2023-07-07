@@ -368,6 +368,7 @@ export interface DCABotSettings extends BaseSettings {
   leverage?: number
   futures?: boolean
   coinm?: boolean
+  gridLevel?: string
 }
 
 export enum BotStartTypeEnum {
@@ -415,6 +416,7 @@ export enum DCAOrderTypeEnum {
   sl = 'SL order',
   bo = 'Start order',
   dca = 'DCA order',
+  grid = 'Grid',
 }
 
 export type GridBreakpoint = {
@@ -485,6 +487,7 @@ export type DCAGrid = {
   quote?: number
   tpSlTarget?: string
   label?: string
+  relatedTo?: string
 }
 
 export type Asset = {
@@ -516,7 +519,46 @@ export type SplitTime = {
   s: string
 }
 
+export type Minigrid = {
+  initialOrders: FullGrid[]
+  filledOrders: FullGrid[]
+  activeOrders: FullGrid[]
+  id: string
+  dealId: string
+  dcaOrderId: string
+  grids: { buy: number; sell: number }
+  status: 'open' | 'close'
+  initialBalances: Balance
+  currentBalances: Balance
+  initialPrice: number
+  lastPrice: number
+  lastSide: BotOrderSideEnum
+  profit: {
+    total: number
+    totalUsd: number
+  }
+  avgPrice: number
+  createTime: number
+  updateTime: number
+  closeTime?: number
+  assets: { used: Balance; required: Balance }
+  settings: {
+    topPrice: number
+    lowPrice: number
+    levels: number
+    budget: number
+    sellDisplacement: number
+    profitCurrency: Currency
+    orderFixedIn: Currency
+  }
+  transactions: {
+    buy: number
+    sell: number
+  }
+}
+
 export type Deal = {
+  mingrids: Minigrid[]
   initialOrders: FullGrid[]
   id: string
   filledOrders: FullGrid[]
@@ -581,6 +623,7 @@ export type BacktestingInput<T> = {
   userFee: number
   prices: Prices
   settings: T
+  combo?: boolean
 }
 
 export type LoadDataFn = (

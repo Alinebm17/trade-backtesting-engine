@@ -19,6 +19,7 @@ class DCABacktesting extends Backtesting {
     interval,
     balances,
     slippage,
+    combo,
     ...rest
   }: DCABacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
@@ -41,6 +42,7 @@ class DCABacktesting extends Backtesting {
           interval: candleInterval,
           balances,
           slippage,
+          combo,
         },
         ...strategy,
       )
