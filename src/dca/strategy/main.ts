@@ -425,7 +425,7 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  private generateGridsOnPrice(price: number, minigrid: Minigrid) {}
+  /*  private generateGridsOnPrice(price: number, minigrid: Minigrid) {} */
 
   private createMinigrid(
     deal: Deal,
