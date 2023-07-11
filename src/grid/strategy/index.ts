@@ -365,11 +365,11 @@ export class Strategy implements StrategyInterface {
           : qty
         matchedPrice = initialPriceStart ?? price
       } else if (match) {
-        this.usedOrderId.add(matchedId)
-        this.usedOrderId.add(id)
         matchedId = match.id
         matchQty = match.qty
         matchedPrice = match.price
+        this.usedOrderId.add(matchedId)
+        this.usedOrderId.add(id)
       }
       if (matchedPrice !== 0) {
         const pnlBase =

@@ -488,6 +488,7 @@ export type DCAGrid = {
   tpSlTarget?: string
   label?: string
   relatedTo?: string
+  minigridId?: string
 }
 
 export type Asset = {
@@ -550,6 +551,7 @@ export type Minigrid = {
     sellDisplacement: number
     profitCurrency: Currency
     orderFixedIn: Currency
+    step: number
   }
   transactions: {
     buy: number
@@ -579,6 +581,7 @@ export type Deal = {
     all: number
     complete: number
   }
+  step: number
   duration: number
   splitDuration: SplitTime
   number?: number
