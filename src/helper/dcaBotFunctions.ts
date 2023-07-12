@@ -195,6 +195,7 @@ class DCABotFunctions {
       priceDeviation: '0%',
       avgPrice: latestPrice,
       requiredPrice: useTp ? tpPrice : undefined,
+      levelNumber: 0,
     }
     if (baseOrder.price * baseOrder.qty < symbol.quoteAsset.minAmount) {
       baseOrder.qty = this.math.round(
@@ -604,6 +605,7 @@ class DCABotFunctions {
               : '',
           base: this.math.round(base, precision),
           quote: this.math.round(quote, symbol.priceAssetPrecision),
+          levelNumber: i,
         })
       }
       if (!all && useSmartOrders) {

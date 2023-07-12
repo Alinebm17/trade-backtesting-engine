@@ -489,6 +489,7 @@ export type DCAGrid = {
   label?: string
   relatedTo?: string
   minigridId?: string
+  levelNumber?: number
 }
 
 export type Asset = {
@@ -597,6 +598,7 @@ export type Deal = {
   trailingMode?: TrailingModeEnum
   bestPriceSet?: boolean
   tpSlTargetFilled?: string[]
+  lastFilled: number
 }
 
 type Balance = {

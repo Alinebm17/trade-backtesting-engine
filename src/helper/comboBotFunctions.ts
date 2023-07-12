@@ -131,6 +131,7 @@ class ComboBotFunctions extends DcaBotFunctions {
       priceDeviation: '0%',
       avgPrice: latestPrice,
       requiredPrice: undefined,
+      levelNumber: 0,
     }
     if (baseOrder.price * baseOrder.qty < symbol.quoteAsset.minAmount) {
       baseOrder.qty = this.math.round(
@@ -438,6 +439,7 @@ class ComboBotFunctions extends DcaBotFunctions {
               : '',
           base: this.math.round(base, precision),
           quote: this.math.round(quote, symbol.priceAssetPrecision),
+          levelNumber: i,
         })
         for (const o of dcaMinigridOrders) {
           grids.push(o)
