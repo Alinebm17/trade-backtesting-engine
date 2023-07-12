@@ -1146,7 +1146,7 @@ export abstract class Strategy implements StrategyInterface {
       let totalUsd = 0
       const filledBuy = grids
         .filter((g) => g.side === BotOrderSideEnum.buy && g.price >= b.low)
-        .sort((a, b) => b.price - a.price)
+        .sort((a, B) => B.price - a.price)
       filledBuy.forEach((o) => {
         m.filledOrders.push({ ...o, filledTime: b.time })
         d.filledOrders.push({ ...o, filledTime: b.time })
@@ -1165,7 +1165,7 @@ export abstract class Strategy implements StrategyInterface {
       }
       const filledSell = grids
         .filter((g) => g.side === BotOrderSideEnum.sell && g.price <= b.high)
-        .sort((a, b) => a.price - b.price)
+        .sort((a, B) => a.price - B.price)
       filledSell.forEach((o) => {
         m.filledOrders.push({ ...o, filledTime: b.time })
         d.filledOrders.push({ ...o, filledTime: b.time })
@@ -1192,7 +1192,7 @@ export abstract class Strategy implements StrategyInterface {
       m.grids.sell = sells.length
       const balance = {
         base: sells.reduce((acc, s) => acc + s.qty, 0),
-        quote: buys.reduce((acc, b) => acc + b.qty * b.price, 0),
+        quote: buys.reduce((acc, B) => acc + B.qty * B.price, 0),
       }
       m.currentBalances = balance
       m.assets = {
@@ -1241,8 +1241,8 @@ export abstract class Strategy implements StrategyInterface {
       .filter(this.filterFn.filledOrders(b))
       .map((o) => ({ ...o, filledTime: b.time }))
     if (filledDCA.length > 0) {
-      for (const o of filledDCA.sort((a, b) =>
-        this.long ? b.price - a.price : a.price - b.price,
+      for (const o of filledDCA.sort((a, B) =>
+        this.long ? B.price - a.price : a.price - B.price,
       )) {
         if (this.combo) {
           d.lastFilled = o.levelNumber ?? d.lastFilled
