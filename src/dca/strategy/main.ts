@@ -586,6 +586,7 @@ export abstract class Strategy implements StrategyInterface {
       .filter((o) => o.type === DCAOrderTypeEnum.bo)
       .map((fo) => ({
         ...fo,
+        startTime,
         filledTime: startTime,
       }))
     const baseOrder = filledOrders[0]
@@ -603,6 +604,7 @@ export abstract class Strategy implements StrategyInterface {
       initialOrders,
       filledOrders,
       activeOrders: [],
+      ordersHistory: [],
       status: 'open',
       startTime,
       profit: {
@@ -655,14 +657,16 @@ export abstract class Strategy implements StrategyInterface {
       initialOrders = [...initialOrders, ...tp]
     }
 
-    const activeOrders = initialOrders.filter(
-      (o) => !filledOrders.map((fo) => fo.id).includes(o.id),
-    )
+    const activeOrders: FullGrid[] = initialOrders
+      .filter((o) => !filledOrders.map((fo) => fo.id).includes(o.id))
+      .map((o) => ({ ...o, startTime }))
 
     if (this.combo) {
       const minigrid = this.createMinigrid(deal, baseOrder)
       deal.mingrids.push(minigrid)
-      minigrid.activeOrders.forEach((o) => activeOrders.push(o))
+      minigrid.activeOrders.forEach((o) =>
+        activeOrders.push({ ...o, startTime }),
+      )
     }
 
     const initialBase = this.long
@@ -691,6 +695,7 @@ export abstract class Strategy implements StrategyInterface {
     deal = {
       ...deal,
       activeOrders,
+      ordersHistory: activeOrders,
       initialBalance: {
         base: initialBase,
         quote: initialQuote,
@@ -756,7 +761,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.deals.push(deal)
   }
 
-  private filterTP(d: Deal, b: Bar): { deal: Deal; order?: DCAGrid } {
+  private filterTP(d: Deal, b: Bar): { deal: Deal; order?: FullGrid } {
     if (this.combo) {
       return { deal: d }
     }
@@ -1184,6 +1189,39 @@ export abstract class Strategy implements StrategyInterface {
         m.lastSide = lastFilledSell.side
       }
       m.activeOrders = grids
+      d.ordersHistory = d.ordersHistory.map((o) => {
+        if (
+          o.minigridId === m.id &&
+          o.type === DCAOrderTypeEnum.grid &&
+          !o.filledTime
+        ) {
+          if (
+            !grids.find(
+              (g) =>
+                g.price === o.price && g.side === o.side && g.qty === o.qty,
+            )
+          ) {
+            o.filledTime = b.time
+          }
+        }
+        return o
+      })
+      d.ordersHistory = [
+        ...d.ordersHistory,
+        ...m.activeOrders
+          .filter(
+            (g) =>
+              !d.ordersHistory.find(
+                (oh) =>
+                  g.type === DCAOrderTypeEnum.grid &&
+                  !oh.filledTime &&
+                  g.price === oh.price &&
+                  g.side === oh.side &&
+                  g.qty === oh.qty,
+              ),
+          )
+          .map((o) => ({ ...o, startTime: b.time })),
+      ]
       m.transactions.buy += filledBuy.length
       m.transactions.sell += filledSell.length
       const buys = grids.filter((g) => g.side === BotOrderSideEnum.buy)
@@ -1225,6 +1263,16 @@ export abstract class Strategy implements StrategyInterface {
             ...order,
             filledTime: undefined,
             id: this.botFunctions.utils.id(20),
+          })
+          d.ordersHistory = d.ordersHistory.map((o) =>
+            o.minigridId === m.id && !o.filledTime
+              ? { ...o, filledTime: b.time }
+              : { ...o },
+          )
+          d.ordersHistory.push({
+            ...order,
+            startTime: b.time,
+            filledTime: undefined,
           })
         }
       }
@@ -1268,11 +1316,44 @@ export abstract class Strategy implements StrategyInterface {
       d.activeOrders = d.activeOrders.filter(
         (o) => !d.filledOrders.map((fo) => fo.id).includes(o.id),
       )
+      d.ordersHistory = d.ordersHistory.map((o) => {
+        if (
+          (o.type === DCAOrderTypeEnum.dca || o.type === DCAOrderTypeEnum.bo) &&
+          !o.filledTime
+        ) {
+          if (
+            !d.activeOrders.find(
+              (g) =>
+                g.price === o.price && g.side === o.side && g.qty === o.qty,
+            )
+          ) {
+            o.filledTime = b.time
+          }
+        }
+        return o
+      })
+      d.ordersHistory = [
+        ...d.ordersHistory,
+        ...d.activeOrders
+          .filter(
+            (g) =>
+              !d.ordersHistory.find(
+                (oh) =>
+                  (oh.type === DCAOrderTypeEnum.dca ||
+                    oh.type === DCAOrderTypeEnum.bo) &&
+                  !oh.filledTime &&
+                  g.price === oh.price &&
+                  g.side === oh.side &&
+                  g.qty === oh.qty,
+              ),
+          )
+          .map((o) => ({ ...o, startTime: b.time })),
+      ]
     }
     return d
   }
 
-  private getSLOrder(d: Deal, b: Bar): { deal: Deal; order?: DCAGrid } {
+  private getSLOrder(d: Deal, b: Bar): { deal: Deal; order?: FullGrid } {
     if (
       this.settings.dealCloseConditionSL !== CloseConditionEnum.tp &&
       !this.combo
@@ -1478,7 +1559,7 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private closeDeal(
-    tpOrder: DCAGrid,
+    tpOrder: FullGrid,
     d: Deal,
     b: Bar,
     cbClose?: (price: number) => void,
@@ -1491,6 +1572,9 @@ export abstract class Strategy implements StrategyInterface {
       ...d.filledOrders.filter((fo) => fo.id !== tpOrder.id),
       { ...tpOrder, filledTime: b.time },
     ]
+    d.ordersHistory = d.ordersHistory.map((o) =>
+      o.filledTime ? { ...o } : { ...o, filledTime: b.time },
+    )
     d.duration = d.closedTime - d.startTime
     d.splitDuration = friendlyTime(d.duration)
     const profit = this.getProfit(d)
@@ -1648,7 +1732,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.deals
       .filter((d) => d.status === 'open')
       .forEach((d) => {
-        let tpOrder: DCAGrid | undefined
+        let tpOrder: FullGrid | undefined
         const bOpenHigh = { ...b, low: b.open }
         const bLowClose = { ...b, high: b.close }
         const bHighClose = { ...b, low: b.close }

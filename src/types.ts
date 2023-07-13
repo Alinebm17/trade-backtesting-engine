@@ -512,7 +512,7 @@ export const enum PositionSide {
   LONG = 'LONG',
 }
 
-export type FullGrid = DCAGrid & { filledTime?: number }
+export type FullGrid = DCAGrid & { filledTime?: number; startTime?: number }
 
 export type SplitTime = {
   d: string
@@ -566,6 +566,7 @@ export type Deal = {
   id: string
   filledOrders: FullGrid[]
   activeOrders: FullGrid[]
+  ordersHistory: FullGrid[]
   status: 'open' | 'closed'
   startTime: number
   closedTime?: number
