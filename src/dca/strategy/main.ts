@@ -1258,6 +1258,9 @@ export abstract class Strategy implements StrategyInterface {
       d = this.updateDeal(d, b)
       if (closed) {
         const order = d.filledOrders.find((o) => o.id === m.dcaOrderId)
+        if (order?.type === DCAOrderTypeEnum.bo) {
+          return this.closeDeal(d, b)
+        }
         if (order) {
           d.activeOrders.push({
             ...order,
@@ -1548,7 +1551,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.deals = Strategy.deals.map((d) => {
       if (d.status === 'open' && this.checkMinTp(b.open, d)) {
         const tp = this.getTP(d, b.open, true, false)[0]
-        return this.closeDeal(tp, d, b)
+        return this.closeDeal(d, b, tp)
       }
       return d
     })
@@ -1559,27 +1562,47 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private closeDeal(
-    tpOrder: FullGrid,
     d: Deal,
     b: Bar,
+    tpOrder?: FullGrid,
     cbClose?: (price: number) => void,
   ) {
-    const { price } = tpOrder
+    let closePrice = b.close
+    let profit: ReturnType<typeof this.getProfit> | undefined
     d.status = 'closed'
-    d.closePrice = price
     d.closedTime = b.time
-    d.filledOrders = [
-      ...d.filledOrders.filter((fo) => fo.id !== tpOrder.id),
-      { ...tpOrder, filledTime: b.time },
-    ]
     d.ordersHistory = d.ordersHistory.map((o) =>
       o.filledTime ? { ...o } : { ...o, filledTime: b.time },
     )
     d.duration = d.closedTime - d.startTime
     d.splitDuration = friendlyTime(d.duration)
-    const profit = this.getProfit(d)
+    d.mingrids = d.mingrids.map((m) => this.closeMinigrid(m))
+    if (tpOrder) {
+      const { price } = tpOrder
+      closePrice = price
+      d.closePrice = price
+      d.filledOrders = [
+        ...d.filledOrders.filter((fo) => fo.id !== tpOrder.id),
+        { ...tpOrder, filledTime: b.time },
+      ]
+
+      const _profit = this.getProfit(d)
+      if (_profit) {
+        d.profit = _profit
+        profit = d.profit
+      }
+    } else {
+      d.profit.perc = this.math.round(
+        (d.profit.total / (this.long ? d.usage.max.quote : d.usage.max.base)) *
+          100,
+        2,
+      )
+      d.profit.total = this.math.round(d.profit.total, this.precision)
+      d.profit.totalUsd = this.math.round(d.profit.totalUsd, 2)
+      profit = d.profit
+    }
+
     if (profit) {
-      d.profit = profit
       if (profit.total > 0 && profit.total > Strategy.maxProfit) {
         Strategy.maxProfit = profit.total
       }
@@ -1613,40 +1636,39 @@ export abstract class Strategy implements StrategyInterface {
         Strategy.seriesLoss.count += 1
       }
       Strategy.totalProfit += profit.total
-      if (Strategy.totalProfit > Strategy.seriesWin.max) {
-        Strategy.seriesWin.max = Strategy.totalProfit
-        const tempValue = Strategy.seriesWin.max - Strategy.seriesWin.min
-        if (tempValue > Strategy.seriesWin.value) {
-          Strategy.seriesWin.value = tempValue
-        }
-      }
-      if (Strategy.totalProfit < Strategy.seriesWin.min) {
-        Strategy.seriesWin.min = Strategy.totalProfit
-        Strategy.seriesWin.max = Strategy.totalProfit
-      }
-      if (Strategy.totalProfit < Strategy.seriesLoss.min) {
-        Strategy.seriesLoss.min = Strategy.totalProfit
-        const tempValue = Strategy.seriesLoss.max - Strategy.seriesLoss.min
-        if (tempValue > Strategy.seriesLoss.value) {
-          Strategy.seriesLoss.value = tempValue
-        }
-      }
-      if (Strategy.totalProfit > Strategy.seriesLoss.max) {
-        Strategy.seriesLoss.min = Strategy.totalProfit
-        Strategy.seriesLoss.max = Strategy.totalProfit
-      }
-      if (Strategy.seriesWin.count > Strategy.maxConsecutiveWins) {
-        Strategy.maxConsecutiveWins = Strategy.seriesWin.count
-      }
-      if (Strategy.seriesLoss.count > Strategy.maxConsecutiveLosses) {
-        Strategy.maxConsecutiveLosses = Strategy.seriesLoss.count
-      }
-      Strategy.previousDeal = d
     }
-    d.mingrids = d.mingrids.map((m) => this.closeMinigrid(m))
+    if (Strategy.totalProfit > Strategy.seriesWin.max) {
+      Strategy.seriesWin.max = Strategy.totalProfit
+      const tempValue = Strategy.seriesWin.max - Strategy.seriesWin.min
+      if (tempValue > Strategy.seriesWin.value) {
+        Strategy.seriesWin.value = tempValue
+      }
+    }
+    if (Strategy.totalProfit < Strategy.seriesWin.min) {
+      Strategy.seriesWin.min = Strategy.totalProfit
+      Strategy.seriesWin.max = Strategy.totalProfit
+    }
+    if (Strategy.totalProfit < Strategy.seriesLoss.min) {
+      Strategy.seriesLoss.min = Strategy.totalProfit
+      const tempValue = Strategy.seriesLoss.max - Strategy.seriesLoss.min
+      if (tempValue > Strategy.seriesLoss.value) {
+        Strategy.seriesLoss.value = tempValue
+      }
+    }
+    if (Strategy.totalProfit > Strategy.seriesLoss.max) {
+      Strategy.seriesLoss.min = Strategy.totalProfit
+      Strategy.seriesLoss.max = Strategy.totalProfit
+    }
+    if (Strategy.seriesWin.count > Strategy.maxConsecutiveWins) {
+      Strategy.maxConsecutiveWins = Strategy.seriesWin.count
+    }
+    if (Strategy.seriesLoss.count > Strategy.maxConsecutiveLosses) {
+      Strategy.maxConsecutiveLosses = Strategy.seriesLoss.count
+    }
+    Strategy.previousDeal = d
     Strategy.lastClosedDeal = b.time
     if (cbClose) {
-      cbClose(price)
+      cbClose(closePrice)
     }
     return d
   }
@@ -1716,7 +1738,7 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.deals = Strategy.deals.map((d) => {
         if (d.status === 'open') {
           const tp = this.getTP(d, current.liquidationPrice, true, false)[0]
-          return this.closeDeal(tp, d, b)
+          return this.closeDeal(d, b, tp)
         }
         return d
       })
@@ -1742,6 +1764,9 @@ export abstract class Strategy implements StrategyInterface {
           if (candleType === CandleTypeEnum.bull) {
             // open -> low. Check DCA and SL
             d = this.processGridOrders(d, b)
+            if (d.status === 'closed') {
+              return
+            }
             d = this.processDCAOrders(d, b)
             const slReturn = this.getSLOrder(d, b)
             d = slReturn.deal
@@ -1781,6 +1806,9 @@ export abstract class Strategy implements StrategyInterface {
               }
               if (!tpOrder) {
                 d = this.processGridOrders(d, b)
+                if (d.status === 'closed') {
+                  return
+                }
                 d = this.processDCAOrders(d, b)
               }
             }
@@ -1792,7 +1820,7 @@ export abstract class Strategy implements StrategyInterface {
             }
           }
           if (tpOrder) {
-            d = this.closeDeal(tpOrder, d, b, cbClose)
+            d = this.closeDeal(d, b, tpOrder, cbClose)
           }
         } else {
           if (candleType === CandleTypeEnum.bull) {
@@ -1811,6 +1839,9 @@ export abstract class Strategy implements StrategyInterface {
               }
               if (!tpOrder) {
                 d = this.processGridOrders(d, b)
+                if (d.status === 'closed') {
+                  return
+                }
                 d = this.processDCAOrders(d, b)
               }
             }
@@ -1824,6 +1855,9 @@ export abstract class Strategy implements StrategyInterface {
           if (candleType === CandleTypeEnum.bear) {
             // open -> high movement. Check for filled DCA and SL
             d = this.processGridOrders(d, bOpenHigh)
+            if (d.status === 'closed') {
+              return
+            }
             d = this.processDCAOrders(d, bOpenHigh)
             const slReturn = this.getSLOrder(d, bOpenHigh)
             d = slReturn.deal
@@ -1849,7 +1883,7 @@ export abstract class Strategy implements StrategyInterface {
             }
           }
           if (tpOrder) {
-            d = this.closeDeal(tpOrder, d, b, cbClose)
+            d = this.closeDeal(d, b, tpOrder, cbClose)
           }
         }
         Strategy.deals = [...Strategy.deals.filter((dd) => dd.id !== d.id), d]
