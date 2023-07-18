@@ -566,7 +566,7 @@ export type Deal = {
   id: string
   filledOrders: FullGrid[]
   activeOrders: FullGrid[]
-  ordersHistory: FullGrid[]
+  ordersHistory: (FullGrid & { slLine?: boolean })[]
   status: 'open' | 'closed'
   startTime: number
   closedTime?: number

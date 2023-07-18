@@ -555,6 +555,26 @@ export abstract class Strategy implements StrategyInterface {
     return minigrid
   }
 
+  private getSlHistoryLine(deal: Deal, startTime?: number) {
+    if (
+      this.settings.useSl &&
+      this.settings.dealCloseConditionSL === CloseConditionEnum.tp &&
+      deal.slPerc
+    ) {
+      const price =
+        deal.avgPrice *
+        (1 - (deal.slPerc * -1 - this.userFee * 2) * (this.long ? 1 : -1))
+      return {
+        qty: 0,
+        price,
+        side: this.long ? BotOrderSideEnum.sell : BotOrderSideEnum.buy,
+        id: this.botFunctions.utils.id(10),
+        startTime: startTime ?? deal.startTime,
+        slLine: true,
+      }
+    }
+  }
+
   public openDeal(price: number, startTime: number, high: number, low: number) {
     if (!this.checkCooldownStart(startTime)) {
       return
@@ -695,7 +715,7 @@ export abstract class Strategy implements StrategyInterface {
     deal = {
       ...deal,
       activeOrders,
-      ordersHistory: activeOrders,
+      ordersHistory: [...activeOrders],
       initialBalance: {
         base: initialBase,
         quote: initialQuote,
@@ -705,8 +725,9 @@ export abstract class Strategy implements StrategyInterface {
         quote: this.long ? initialQuote - currentQuote : currentQuote,
       },
       levels: {
-        all: initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca)
-          .length,
+        all:
+          initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca).length +
+          1,
         complete: 1,
       },
       usage: {
@@ -751,6 +772,12 @@ export abstract class Strategy implements StrategyInterface {
             : 0,
         },
       },
+    }
+    if (!this.combo) {
+      const slLine = this.getSlHistoryLine(deal)
+      if (slLine) {
+        deal.ordersHistory.push(slLine)
+      }
     }
     if (this.profitBase && deal.usage.current.base > Strategy.maxUsage.deal) {
       Strategy.maxUsage.deal = deal.usage.current.base
@@ -1315,7 +1342,9 @@ export abstract class Strategy implements StrategyInterface {
           ...tpOrdersCurrent,
         ]
       }
-      d.levels.complete = Math.max(d.lastFilled, 0)
+      d.levels.complete = this.combo
+        ? Math.max(d.lastFilled, 0)
+        : d.levels.complete + filledDCA.length
       d.activeOrders = d.activeOrders.filter(
         (o) => !d.filledOrders.map((fo) => fo.id).includes(o.id),
       )
@@ -1352,6 +1381,22 @@ export abstract class Strategy implements StrategyInterface {
           )
           .map((o) => ({ ...o, startTime: b.time })),
       ]
+      if (!this.combo) {
+        const slLine = this.getSlHistoryLine(d, b.time)
+        if (slLine) {
+          const localSlLine = d.ordersHistory.find(
+            (o) => o.slLine && !o.filledTime,
+          )
+          if (localSlLine && localSlLine.price !== slLine.price) {
+            localSlLine.filledTime = b.time
+            d.ordersHistory = [
+              ...d.ordersHistory.filter((o) => o.id !== localSlLine.id),
+              slLine,
+              localSlLine,
+            ]
+          }
+        }
+      }
     }
     return d
   }
@@ -2561,6 +2606,7 @@ export abstract class Strategy implements StrategyInterface {
       (firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
         : 0) * this.leverage
+
     const result = {
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
