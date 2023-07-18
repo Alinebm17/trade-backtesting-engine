@@ -103,13 +103,13 @@ class BotUtils {
       startPrice,
       forceLocal,
       initialPrice,
-      combo,
+      levels,
     }: {
       useStartPrice?: boolean
       startPrice?: string
       forceLocal: boolean
       initialPrice: number
-      combo?: boolean
+      levels: number
     },
   ) {
     const useStart =
@@ -134,10 +134,10 @@ class BotUtils {
         sells.splice(0, 1)
       }
     }
-    if (sellCount > 0 && buyCount === 0 && !combo) {
+    if (sellCount > 0 && buyCount === 0 && sellCount > levels) {
       sells.splice(0, 1)
     }
-    if (buyCount > 0 && sellCount === 0 && !combo) {
+    if (buyCount > 0 && sellCount === 0 && buyCount > levels) {
       buys.splice(buys.length - 1, 1)
     }
     sellCount = sells.length
@@ -320,7 +320,7 @@ class BotUtils {
       startPrice,
       forceLocal,
       initialPrice,
-      combo,
+      levels: +levels,
     })
     const initPrice = useStart ? +startPrice : initialPrice
     if (profitCurrency === 'base') {

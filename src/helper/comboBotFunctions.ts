@@ -178,7 +178,7 @@ class ComboBotFunctions extends DcaBotFunctions {
     const gridSettings = {
       lowPrice: long ? `${baseOrder.price}` : `${baseOrder.price * (1 - step)}`,
       topPrice: long ? `${baseOrder.price * (1 + step)}` : `${baseOrder.price}`,
-      budget: `${baseOrder.quote ?? '0'}`,
+      budget: `${coinm ? baseOrder.base : baseOrder.quote ?? '0'}`,
       levels: settings.gridLevel ?? '1',
       useStartPrice: false,
       startPrice: undefined,
@@ -208,29 +208,58 @@ class ComboBotFunctions extends DcaBotFunctions {
         relatedTo: baseOrder.id,
       }))
     const gridStep = latestPrice * step
-    const qtyByGrids = this.math.round(
-      grids.reduce((acc, v) => acc + v.qty, 0) * feeFactor,
-      precision,
-      false,
-      true,
-    )
-    if (long && qtyByGrids > baseOrder.qty) {
-      grids = this.utils
-        .createGridOrders(
-          { ...gridSettings, budget: `${baseOrder.price * qtyByGrids}` },
+    if (coinm) {
+      const qtyByGrids = this.math.round(
+        this.math.round(
+          (grids.reduce(
+            (acc, v) => acc + (v.qty * v.price) / symbol.quoteAsset.minAmount,
+            0,
+          ) *
+            symbol.quoteAsset.minAmount) /
+            latestPrice,
+          0,
+          false,
           true,
-        )
-        .map((g) => ({
-          ...g,
-          type: DCAOrderTypeEnum.grid,
-          relatedTo: baseOrder.id,
-        }))
+        ),
+        precision,
+        false,
+        true,
+      )
       baseOrder.qty = qtyByGrids
       baseOrder.quote = this.math.round(
         baseOrder.qty * baseOrder.price,
         symbol.priceAssetPrecision,
       )
       baseOrder.base = baseOrder.qty
+    } else {
+      const qtyByGrids = this.math.round(
+        grids.reduce((acc, v) => acc + v.qty, 0) *
+          (settings.futures ? 1 : feeFactor),
+        precision,
+        false,
+        true,
+      )
+      if ((long && qtyByGrids > baseOrder.qty) || settings.futures) {
+        grids = settings.futures
+          ? grids
+          : this.utils
+              .createGridOrders(
+                {
+                  ...gridSettings,
+                  budget: `${
+                    coinm ? qtyByGrids : baseOrder.price * qtyByGrids
+                  }`,
+                },
+                true,
+              )
+              .map((g) => ({ ...g, type: DCAOrderTypeEnum.grid }))
+        baseOrder.qty = qtyByGrids
+        baseOrder.quote = this.math.round(
+          baseOrder.qty * baseOrder.price,
+          symbol.priceAssetPrecision,
+        )
+        baseOrder.base = baseOrder.qty
+      }
     }
     let orders: DCAGrid[] = []
     if (settings.useDca) {
@@ -373,7 +402,7 @@ class ComboBotFunctions extends DcaBotFunctions {
               topPrice: long ? `${price + gridStep}` : `${price}`,
               _latestPrice: price,
               initialPrice: price,
-              budget: `${qty * price}`,
+              budget: `${coinm ? qty : qty * price}`,
             },
             true,
           )
@@ -385,39 +414,70 @@ class ComboBotFunctions extends DcaBotFunctions {
             noLabel: true,
             relatedTo: id,
           }))
-        const dcaQtyByGrids = this.math.round(
-          dcaMinigridOrders.reduce((acc, v) => acc + v.qty, 0) * feeFactor,
-          precision,
-          false,
-          true,
-        )
-        if (dcaQtyByGrids > baseOrder.qty) {
-          dcaMinigridOrders = this.utils
-            .createGridOrders(
-              {
-                ...gridSettings,
-                lowPrice: long ? `${price}` : `${price - gridStep}`,
-                topPrice: long ? `${price + gridStep}` : `${price}`,
-                _latestPrice: price,
-                initialPrice: price,
-                budget: `${dcaQtyByGrids * price}`,
-              },
+        if (settings.coinm) {
+          const qtyByGrids = this.math.round(
+            this.math.round(
+              (dcaMinigridOrders.reduce(
+                (acc, v) =>
+                  acc + (v.qty * v.price) / symbol.quoteAsset.minAmount,
+                0,
+              ) *
+                symbol.quoteAsset.minAmount) /
+                price,
+              0,
+              false,
               true,
-            )
-            .map((g) => ({
-              ...g,
-              type: DCAOrderTypeEnum.grid,
-              grey: true,
-              greyLabel: 'Grid',
-              noLabel: true,
-              relatedTo: id,
-            }))
-          qty = dcaQtyByGrids
+            ),
+            precision,
+            false,
+            true,
+          )
+          qty = qtyByGrids
           quote =
             baseOrder.price * baseOrder.qty +
             orders.reduce((acc, v) => acc + v.price * v.qty, 0) +
             qty * price
           base = baseOrder.qty + orders.reduce((acc, v) => acc + v.qty, 0) + qty
+        } else {
+          const dcaQtyByGrids = this.math.round(
+            dcaMinigridOrders.reduce((acc, v) => acc + v.qty, 0) *
+              (settings.futures ? 1 : feeFactor),
+            precision,
+            false,
+            true,
+          )
+          if ((long && dcaQtyByGrids > baseOrder.qty) || settings.futures) {
+            dcaMinigridOrders = settings.futures
+              ? dcaMinigridOrders
+              : this.utils
+                  .createGridOrders(
+                    {
+                      ...gridSettings,
+                      lowPrice: long ? `${price}` : `${price - gridStep}`,
+                      topPrice: long ? `${price + gridStep}` : `${price}`,
+                      _latestPrice: price,
+                      initialPrice: price,
+                      budget: `${
+                        coinm ? dcaQtyByGrids : dcaQtyByGrids * price
+                      }`,
+                    },
+                    true,
+                  )
+                  .map((g) => ({
+                    ...g,
+                    type: DCAOrderTypeEnum.grid,
+                    grey: true,
+                    greyLabel: 'Grid',
+                    noLabel: true,
+                  }))
+            qty = dcaQtyByGrids
+            quote =
+              baseOrder.price * baseOrder.qty +
+              orders.reduce((acc, v) => acc + v.price * v.qty, 0) +
+              qty * price
+            base =
+              baseOrder.qty + orders.reduce((acc, v) => acc + v.qty, 0) + qty
+          }
         }
         orders.push({
           qty,

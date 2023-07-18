@@ -1474,7 +1474,7 @@ export abstract class Strategy implements StrategyInterface {
         const diff = this.long
           ? price - (avgPrice ?? price)
           : (avgPrice ?? price) - price
-        const _perc = diff / (avgPrice ?? 0)
+        const _perc = (diff / (avgPrice ?? 0)) * this.leverage
         const commission =
           d.filledOrders.reduce(
             (acc, v) =>
@@ -1486,12 +1486,22 @@ export abstract class Strategy implements StrategyInterface {
           (this.profitBase
             ? d.currentBalance.base * this.userFee
             : d.currentBalance.base * d.avgPrice * this.userFee)
+        const usage = this.futures
+          ? this.coinm
+            ? d.usage.current.base
+            : d.usage.current.quote
+          : this.long
+          ? d.usage.current.quote
+          : d.usage.current.base
+        const usageDenominator = this.futures
+          ? this.coinm
+            ? d.usage.max.base
+            : d.usage.max.quote
+          : this.long
+          ? d.usage.max.quote
+          : d.usage.max.base
         const perc =
-          (d.profit.total -
-            commission +
-            (this.long ? d.usage.current.quote : d.usage.current.base) *
-              _perc) /
-          (this.long ? d.usage.max.quote : d.usage.max.base)
+          (d.profit.total - commission + usage * _perc) / usageDenominator
         if (
           isFinite(Math.abs(perc)) &&
           !isNaN(perc) &&
@@ -1593,7 +1603,14 @@ export abstract class Strategy implements StrategyInterface {
       }
     } else {
       d.profit.perc = this.math.round(
-        (d.profit.total / (this.long ? d.usage.max.quote : d.usage.max.base)) *
+        (d.profit.total /
+          (this.futures
+            ? this.coinm
+              ? d.usage.max.base
+              : d.usage.max.quote
+            : this.long
+            ? d.usage.max.quote
+            : d.usage.max.base)) *
           100,
         2,
       )
@@ -2192,12 +2209,12 @@ export abstract class Strategy implements StrategyInterface {
         ].includes(fo.type),
     )
     const base = filledOrders.reduce(
-      (acc, fo) => acc + fo.qty * (fo.side === BotOrderSideEnum.buy ? -1 : 1),
+      (acc, fo) => acc + fo.qty * (fo.side === BotOrderSideEnum.buy ? 1 : -1),
       0,
     )
     const quote = filledOrders.reduce(
       (acc, fo) =>
-        acc + fo.qty * fo.price * (fo.side === BotOrderSideEnum.buy ? 1 : -1),
+        acc + fo.qty * fo.price * (fo.side === BotOrderSideEnum.buy ? -1 : 1),
       0,
     )
     const usage = {
@@ -2228,14 +2245,10 @@ export abstract class Strategy implements StrategyInterface {
     )
 
     const quote = this.combo
-      ? this.long
-        ? d.currentBalance.quote / d.avgPrice
-        : d.currentBalance.quote
+      ? d.currentBalance.quote
       : regularOrders.reduce((acc, ro) => (acc += ro.qty * ro.price), 0)
-    const base = this.combo
-      ? !this.long
-        ? d.currentBalance.base * d.avgPrice
-        : d.currentBalance.base
+    const base = this.futures
+      ? d.currentBalance.base
       : regularOrders.reduce((acc, ro) => (acc += ro.qty), 0)
     const tpOrder = filledOrders.filter(
       (fo) =>
@@ -2246,10 +2259,10 @@ export abstract class Strategy implements StrategyInterface {
     const price = quoteTp / qty
     const total =
       d.profit.total +
-      (this.profitBase
-        ? base - qty + (qty * price - quote) / price
-        : this.combo
+      (this.combo
         ? qty * (price - d.avgPrice)
+        : this.profitBase
+        ? base - qty + (qty * price - quote) / price
         : qty * price - quote + (qty - base) * price) *
         (this.long ? 1 : -1) -
       commission
@@ -2264,7 +2277,9 @@ export abstract class Strategy implements StrategyInterface {
     return {
       total: this.math.round(total, this.precision, false, true),
       totalUsd: this.math.round(totalUsd, 2),
-      perc: this.math.round((total / denominator) * 100 * this.leverage),
+      perc: this.math.round(
+        (total / denominator) * 100 * (this.combo ? 1 : this.leverage),
+      ),
     }
   }
 
@@ -2442,7 +2457,11 @@ export abstract class Strategy implements StrategyInterface {
           unrealizedPnLUsd += unPnl * this.usdRate
           unrealizedUsage +=
             (this.combo
-              ? this.long
+              ? this.futures
+                ? this.coinm
+                  ? od.usage.max.base * (this.profitBase ? 1 : tpPrice)
+                  : od.usage.max.quote / (this.profitBase ? tpPrice : 1)
+                : this.long
                 ? od.usage.max.quote / (this.profitBase ? tpPrice : 1)
                 : od.usage.max.base * (this.profitBase ? 1 : tpPrice)
               : this.futures
@@ -2539,9 +2558,9 @@ export abstract class Strategy implements StrategyInterface {
     const buyAndHoldUsage =
       maxTheoreticalUsageWithRate * (this.profitBase ? lastPrice : 1)
     const buyAndHold =
-      firstPrice && lastPrice
+      (firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
-        : 0
+        : 0) * this.leverage
     const result = {
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
@@ -2736,10 +2755,7 @@ export abstract class Strategy implements StrategyInterface {
         buyAndHold: {
           value: this.math.round(buyAndHold, this.precisionQuote),
           valueUsd: this.math.round(buyAndHold * this.usdRateQuote, 2),
-          perc: this.math.round(
-            (buyAndHold / buyAndHoldUsage) * 100 * this.leverage,
-            2,
-          ),
+          perc: this.math.round((buyAndHold / buyAndHoldUsage) * 100, 2),
         },
         periodRatio,
       },
