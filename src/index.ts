@@ -97,10 +97,10 @@ class Backtesting {
       interval,
       period,
     } = this
-    const local = localStorage.getItem(pair)
+    /*  const local = localStorage.getItem(pair)
     if (local) {
       return JSON.parse(local)
-    }
+    } */
     const resolution = tvIntervalMap[int ?? interval] as ResolutionString
     let periodToUse = period
     if (int && int !== interval) {
@@ -113,7 +113,7 @@ class Backtesting {
         periodToUse,
         this.exchange,
       )
-      localStorage.setItem(pair, JSON.stringify(result))
+      /* localStorage.setItem(pair, JSON.stringify(result)) */
 
       return result
     }
