@@ -566,7 +566,7 @@ export type Deal = {
   id: string
   filledOrders: FullGrid[]
   activeOrders: FullGrid[]
-  ordersHistory: (FullGrid & { slLine?: boolean })[]
+  ordersHistory: (FullGrid & { slLine?: boolean; avgLine?: boolean })[]
   status: 'open' | 'closed'
   startTime: number
   closedTime?: number
@@ -805,6 +805,11 @@ export type Grid = {
 export type GridBacktestingResult = {
   transaction: BacktestingTransaction[]
   orders: Grid[]
+  ordersHistory?: (Grid & {
+    startTime: number
+    filledTime?: number
+    avgLine?: boolean
+  })[]
   noDate?: boolean
   financial: {
     profitTotal: string

@@ -555,24 +555,64 @@ export abstract class Strategy implements StrategyInterface {
     return minigrid
   }
 
-  private getSlHistoryLine(deal: Deal, startTime?: number) {
+  private getSlHistoryLine(
+    deal: Deal,
+    startTime?: number,
+  ): Deal['ordersHistory'] {
     if (
       this.settings.useSl &&
-      this.settings.dealCloseConditionSL === CloseConditionEnum.tp &&
-      deal.slPerc
+      this.settings.dealCloseConditionSL === CloseConditionEnum.tp
     ) {
-      const price =
-        deal.avgPrice *
-        (1 - (deal.slPerc * -1 - this.userFee * 2) * (this.long ? 1 : -1))
-      return {
-        qty: 0,
-        price,
-        side: this.long ? BotOrderSideEnum.sell : BotOrderSideEnum.buy,
-        id: this.botFunctions.utils.id(10),
-        startTime: startTime ?? deal.startTime,
-        slLine: true,
+      if (
+        !this.botFunctions.isTrailingSl &&
+        !this.settings.useMultiSl &&
+        deal.slPerc
+      ) {
+        const price =
+          deal.avgPrice *
+          (1 - (deal.slPerc * -1 - this.userFee * 2) * (this.long ? 1 : -1))
+        return [
+          {
+            qty: 0,
+            price,
+            side: this.long ? BotOrderSideEnum.sell : BotOrderSideEnum.buy,
+            id: this.botFunctions.utils.id(10),
+            startTime: startTime ?? deal.startTime,
+            slLine: true,
+          },
+        ]
+      }
+      if (
+        (this.botFunctions.isTrailingSl || this.botFunctions.isTrailingTp) &&
+        !this.settings.useMultiSl &&
+        deal.slPerc
+      ) {
+        const price = deal.trailingLevel
+          ? deal.trailingLevel
+          : deal.avgPrice * (1 - deal.slPerc * -1 * (this.long ? 1 : -1))
+        return [
+          {
+            qty: 0,
+            price,
+            side: this.long ? BotOrderSideEnum.sell : BotOrderSideEnum.buy,
+            id: this.botFunctions.utils.id(10),
+            startTime: startTime ?? deal.startTime,
+            slLine: true,
+          },
+        ]
+      }
+      if (this.settings.useMultiSl) {
+        return this.getTP(deal, undefined, undefined, true).map((o) => ({
+          qty: 0,
+          price: o.price,
+          side: o.side,
+          id: this.botFunctions.utils.id(10),
+          startTime: startTime ?? deal.startTime,
+          slLine: true,
+        }))
       }
     }
+    return []
   }
 
   public openDeal(price: number, startTime: number, high: number, low: number) {
@@ -773,10 +813,14 @@ export abstract class Strategy implements StrategyInterface {
         },
       },
     }
-    if (!this.combo) {
-      const slLine = this.getSlHistoryLine(deal)
-      if (slLine) {
-        deal.ordersHistory.push(slLine)
+
+    if (this.botFunctions.isTrailingSl || this.botFunctions.isTrailingTp) {
+      deal = this.checkTrailing(deal, price, startTime)
+    } else {
+      if (!this.combo) {
+        this.getSlHistoryLine(deal).forEach((slLine) =>
+          deal.ordersHistory.push(slLine),
+        )
       }
     }
     if (this.profitBase && deal.usage.current.base > Strategy.maxUsage.deal) {
@@ -830,10 +874,24 @@ export abstract class Strategy implements StrategyInterface {
           d.tpSlTargetFilled = [...(d.tpSlTargetFilled ?? []), tp.tpSlTarget]
         }
       }
+
       const newTpOrders = this.getTP(d)
       d.activeOrders = [
         ...d.activeOrders.filter(this.filterTpOrders()),
         ...newTpOrders,
+      ]
+      d.ordersHistory = [
+        ...d.ordersHistory.map((oh) => {
+          if (oh.filledTime) {
+            return oh
+          }
+          filledTp.forEach((ftp) => {
+            if (ftp.price === oh.price && ftp.type === oh.type) {
+              oh.filledTime = b.time
+            }
+          })
+          return oh
+        }),
       ]
       const filledBase = filledTp.reduce((acc, o) => acc + o.qty, 0)
       const filledQuote = filledTp.reduce((acc, o) => acc + o.qty * o.price, 0)
@@ -858,10 +916,10 @@ export abstract class Strategy implements StrategyInterface {
             d.currentBalance.quote / d.avgPrice,
             this.symbol.baseAsset.minAmount,
           )
-      const profit = this.getProfit(d)
+      /* const profit = this.getProfit(d)
       if (profit) {
         d.profit = profit
-      }
+      } */
 
       return { deal: d, order: allFilled ? lastTp : undefined }
     }
@@ -923,8 +981,30 @@ export abstract class Strategy implements StrategyInterface {
     return quote / base
   }
 
-  private updateDealAvgPrice(d: Deal) {
-    d.avgPrice = this.avgPrice(d)
+  private replaceAvgPriceHistoryLine(d: Deal, price: number, time: number) {
+    d.ordersHistory = d.ordersHistory.map((oh) => {
+      if (!oh.filledTime && oh.avgLine) {
+        oh.filledTime = time
+      }
+      return oh
+    })
+    d.ordersHistory.push({
+      qty: 0,
+      price,
+      side: BotOrderSideEnum.buy,
+      id: this.botFunctions.utils.id(10),
+      startTime: time,
+      avgLine: true,
+    })
+    return d
+  }
+
+  private updateDealAvgPrice(d: Deal, time: number) {
+    const avgPrice = this.avgPrice(d)
+    if (avgPrice !== d.avgPrice) {
+      d.avgPrice = avgPrice
+      d = this.replaceAvgPriceHistoryLine(d, avgPrice, time)
+    }
     return d
   }
 
@@ -1163,7 +1243,7 @@ export abstract class Strategy implements StrategyInterface {
   private updateDeal(d: Deal, b: BarTV) {
     d = this.updateDealBalances(d)
     d = this.updateDealUsage(d)
-    d = this.updateDealAvgPrice(d)
+    d = this.updateDealAvgPrice(d, b.time)
     d = this.updateDealDuration(d, b)
     return d
   }
@@ -1310,6 +1390,28 @@ export abstract class Strategy implements StrategyInterface {
     return d
   }
 
+  private replaceSlHistoryLine(d: Deal, slLines: FullGrid[], time: number) {
+    const localSlLines = d.ordersHistory
+      .filter(
+        (o) =>
+          o.slLine &&
+          !o.filledTime &&
+          !slLines.find((sl) => sl.price === o.price),
+      )
+      .map((l) => {
+        l.filledTime = time
+        return l
+      })
+    d.ordersHistory = [
+      ...d.ordersHistory.filter(
+        (o) => !localSlLines.map((l) => l.id).includes(o.id),
+      ),
+      ...slLines,
+      ...localSlLines,
+    ]
+    return d
+  }
+
   private processDCAOrders(d: Deal, b: Bar) {
     const filledDCA = d.activeOrders
       .filter(
@@ -1350,7 +1452,9 @@ export abstract class Strategy implements StrategyInterface {
       )
       d.ordersHistory = d.ordersHistory.map((o) => {
         if (
-          (o.type === DCAOrderTypeEnum.dca || o.type === DCAOrderTypeEnum.bo) &&
+          (o.type === DCAOrderTypeEnum.dca ||
+            o.type === DCAOrderTypeEnum.bo ||
+            o.type === DCAOrderTypeEnum.tp) &&
           !o.filledTime
         ) {
           if (
@@ -1372,7 +1476,8 @@ export abstract class Strategy implements StrategyInterface {
               !d.ordersHistory.find(
                 (oh) =>
                   (oh.type === DCAOrderTypeEnum.dca ||
-                    oh.type === DCAOrderTypeEnum.bo) &&
+                    oh.type === DCAOrderTypeEnum.bo ||
+                    oh.type === DCAOrderTypeEnum.tp) &&
                   !oh.filledTime &&
                   g.price === oh.price &&
                   g.side === oh.side &&
@@ -1383,19 +1488,7 @@ export abstract class Strategy implements StrategyInterface {
       ]
       if (!this.combo) {
         const slLine = this.getSlHistoryLine(d, b.time)
-        if (slLine) {
-          const localSlLine = d.ordersHistory.find(
-            (o) => o.slLine && !o.filledTime,
-          )
-          if (localSlLine && localSlLine.price !== slLine.price) {
-            localSlLine.filledTime = b.time
-            d.ordersHistory = [
-              ...d.ordersHistory.filter((o) => o.id !== localSlLine.id),
-              slLine,
-              localSlLine,
-            ]
-          }
-        }
+        d = this.replaceSlHistoryLine(d, slLine, b.time)
       }
     }
     return d
@@ -1421,6 +1514,12 @@ export abstract class Strategy implements StrategyInterface {
         this.long ? o.price >= b.low : o.price <= b.high,
       )
       if (slOrders.length && filledSl.length) {
+        d.ordersHistory = d.ordersHistory.map((o) => {
+          if (o.slLine && filledSl.find((fsl) => fsl.price === o.price)) {
+            o.filledTime = b.time
+          }
+          return o
+        })
         const lastSl = filledSl.sort((a, bb) =>
           this.long ? a.price - bb.price : bb.price - a.price,
         )[0]
@@ -1475,10 +1574,10 @@ export abstract class Strategy implements StrategyInterface {
               d.currentBalance.quote / d.avgPrice,
               this.symbol.baseAsset.minAmount,
             )
-        const profit = this.getProfit(d)
+        /* const profit = this.getProfit(d)
         if (profit) {
           d.profit = profit
-        }
+        } */
         return { deal: d, order: allFilled ? lastSl : undefined }
       }
     } else if (
@@ -1500,6 +1599,7 @@ export abstract class Strategy implements StrategyInterface {
     } else if (this.settings.useSl && d.slPerc && !this.combo) {
       const sl = d.slPerc
       const diff = this.long ? b.low - d.avgPrice : d.avgPrice - b.high
+
       if (diff / d.avgPrice <= sl) {
         close = true
         closePrice = d.avgPrice * (this.long ? 1 - -sl : 1 + -sl)
@@ -1739,7 +1839,7 @@ export abstract class Strategy implements StrategyInterface {
     return b.close >= b.open ? CandleTypeEnum.bull : CandleTypeEnum.bear
   }
 
-  private checkTrailing(d: Deal, price: number) {
+  private checkTrailing(d: Deal, price: number, time: number) {
     if (!(this.botFunctions.isTrailingSl || this.botFunctions.isTrailingTp)) {
       return d
     }
@@ -1776,13 +1876,19 @@ export abstract class Strategy implements StrategyInterface {
     }
     const sl = (+slPerc / 100) * (this.long ? 1 : -1)
     const tp = (+(trailingTpPerc ?? '0') / 100) * (this.long ? 1 : -1)
-    d.trailingLevel = d.bestPrice
+    const newTrailingLevel = d.bestPrice
       ? d.trailingMode === TrailingModeEnum.tsl && slPerc
         ? d.bestPrice * (1 + sl)
         : d.trailingMode === TrailingModeEnum.ttp && trailingTpPerc
         ? d.bestPrice * (1 - tp)
         : 0
       : 0
+    if (newTrailingLevel !== d.trailingLevel && !this.combo) {
+      const newSl = this.getSlHistoryLine(d, time)
+
+      d = this.replaceSlHistoryLine(d, newSl, time)
+    }
+    d.trailingLevel = newTrailingLevel
     return d
   }
 
@@ -1841,7 +1947,7 @@ export abstract class Strategy implements StrategyInterface {
               d = tpReturn.deal
               tpOrder = tpReturn.order
               d = this.checkValue(b, d)
-              d = this.checkTrailing(d, b.high)
+              d = this.checkTrailing(d, b.high, b.time)
             }
             // high -> close. Check SL if it was moved
             if (!tpOrder) {
@@ -1858,7 +1964,7 @@ export abstract class Strategy implements StrategyInterface {
             d = tpReturn.deal
             tpOrder = tpReturn.order
             d = this.checkValue(bOpenHigh, d)
-            d = this.checkTrailing(d, b.high)
+            d = this.checkTrailing(d, b.high, b.time)
             // high -> low movement. Check SL if it was moved. If SL not filled check DCA
             if (!tpOrder) {
               const slReturn = this.getSLOrder(d, b)
@@ -1891,7 +1997,7 @@ export abstract class Strategy implements StrategyInterface {
             d = tpReturn.deal
             tpOrder = tpReturn.order
             d = this.checkValue(bOpenLow, d)
-            d = this.checkTrailing(d, b.low)
+            d = this.checkTrailing(d, b.low, b.time)
             // low -> high movement. Check moved SL, If SL not filled, check DCA
             if (!tpOrder) {
               const slReturn = this.getSLOrder(d, b)
@@ -1933,7 +2039,7 @@ export abstract class Strategy implements StrategyInterface {
               d = tpReturn.deal
               tpOrder = tpReturn.order
               d = this.checkValue(b, d)
-              d = this.checkTrailing(d, b.low)
+              d = this.checkTrailing(d, b.low, b.time)
             }
             // low -> close. Check SL if it was moved
             if (!tpOrder) {
@@ -2018,6 +2124,8 @@ export abstract class Strategy implements StrategyInterface {
       if (unPnL / usage >= trigger) {
         d.changed = true
         d.slPerc = value
+        const slOrder = this.getSlHistoryLine(d, b.time)
+        d = this.replaceSlHistoryLine(d, slOrder, b.time)
       }
     }
     return d
@@ -2244,24 +2352,26 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private getUsage(d: Deal) {
-    const filledOrders = d.filledOrders.filter(
-      (fo) =>
-        fo.type &&
-        [
-          DCAOrderTypeEnum.dca,
-          DCAOrderTypeEnum.bo,
-          DCAOrderTypeEnum.grid,
-        ].includes(fo.type),
-    )
-    const base = filledOrders.reduce(
-      (acc, fo) => acc + fo.qty * (fo.side === BotOrderSideEnum.buy ? 1 : -1),
-      0,
-    )
-    const quote = filledOrders.reduce(
-      (acc, fo) =>
-        acc + fo.qty * fo.price * (fo.side === BotOrderSideEnum.buy ? -1 : 1),
-      0,
-    )
+    const base = this.futures
+      ? this.coinm
+        ? this.long
+          ? d.currentBalance.base
+          : d.initialBalance.base - d.currentBalance.base
+        : 0
+      : this.long
+      ? 0
+      : d.initialBalance.base - d.currentBalance.base
+
+    const quote = this.futures
+      ? this.coinm
+        ? 0
+        : !this.long
+        ? d.currentBalance.quote
+        : d.initialBalance.quote - d.currentBalance.quote
+      : this.long
+      ? d.initialBalance.quote - d.currentBalance.quote
+      : 0
+
     const usage = {
       current: {
         base: this.futures ? (this.coinm ? base : 0) : this.long ? 0 : base,
@@ -2292,7 +2402,7 @@ export abstract class Strategy implements StrategyInterface {
     const quote = this.combo
       ? d.currentBalance.quote
       : regularOrders.reduce((acc, ro) => (acc += ro.qty * ro.price), 0)
-    const base = this.futures
+    const base = this.combo
       ? d.currentBalance.base
       : regularOrders.reduce((acc, ro) => (acc += ro.qty), 0)
     const tpOrder = filledOrders.filter(
@@ -2311,6 +2421,23 @@ export abstract class Strategy implements StrategyInterface {
         : qty * price - quote + (qty - base) * price) *
         (this.long ? 1 : -1) -
       commission
+    if (total < 0) {
+      console.log(
+        total,
+        base,
+        'base',
+        qty,
+        'qty',
+        price,
+        'price',
+        quote,
+        'quote',
+        quoteTp,
+        'quoteTp',
+        d.profit.total,
+        'profit',
+      )
+    }
     const totalUsd = total * usdRate
     const denominator = this.combo
       ? this.profitBase
@@ -2606,7 +2733,15 @@ export abstract class Strategy implements StrategyInterface {
       (firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
         : 0) * this.leverage
-
+    Strategy.deals = Strategy.deals.map((d) => {
+      if (!this.combo) {
+        d.ordersHistory = d.ordersHistory.filter(
+          (oh) =>
+            oh.type !== DCAOrderTypeEnum.bo && oh.type !== DCAOrderTypeEnum.dca,
+        )
+      }
+      return d
+    })
     const result = {
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
