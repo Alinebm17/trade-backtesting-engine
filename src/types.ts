@@ -564,9 +564,13 @@ export type Deal = {
   mingrids: Minigrid[]
   initialOrders: FullGrid[]
   id: string
-  filledOrders: FullGrid[]
+  filledOrders: (FullGrid & { dealId: string })[]
   activeOrders: FullGrid[]
-  ordersHistory: (FullGrid & { slLine?: boolean; avgLine?: boolean })[]
+  ordersHistory: (FullGrid & {
+    slLine?: boolean
+    avgLine?: boolean
+    dealId: string
+  })[]
   status: 'open' | 'closed'
   startTime: number
   closedTime?: number

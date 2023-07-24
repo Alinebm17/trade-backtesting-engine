@@ -579,6 +579,7 @@ export abstract class Strategy implements StrategyInterface {
             id: this.botFunctions.utils.id(10),
             startTime: startTime ?? deal.startTime,
             slLine: true,
+            dealId: deal.id,
           },
         ]
       }
@@ -598,6 +599,7 @@ export abstract class Strategy implements StrategyInterface {
             id: this.botFunctions.utils.id(10),
             startTime: startTime ?? deal.startTime,
             slLine: true,
+            dealId: deal.id,
           },
         ]
       }
@@ -609,6 +611,7 @@ export abstract class Strategy implements StrategyInterface {
           id: this.botFunctions.utils.id(10),
           startTime: startTime ?? deal.startTime,
           slLine: true,
+          dealId: deal.id,
         }))
       }
     }
@@ -648,6 +651,7 @@ export abstract class Strategy implements StrategyInterface {
         ...fo,
         startTime,
         filledTime: startTime,
+        dealId: id,
       }))
     const baseOrder = filledOrders[0]
     this.updatePositionWithOrder(baseOrder)
@@ -755,7 +759,7 @@ export abstract class Strategy implements StrategyInterface {
     deal = {
       ...deal,
       activeOrders,
-      ordersHistory: [...activeOrders],
+      ordersHistory: [...activeOrders].map((o) => ({ ...o, dealId: id })),
       initialBalance: {
         base: initialBase,
         quote: initialQuote,
@@ -857,7 +861,7 @@ export abstract class Strategy implements StrategyInterface {
       d.filledOrders = [
         ...d.filledOrders,
         ...filledTp.map((ftp) => ({ ...ftp, filledTime: b.time })),
-      ]
+      ].map((o) => ({ ...o, dealId: d.id }))
       d.activeOrders = [
         ...d.activeOrders.filter(
           (ao) =>
@@ -995,6 +999,7 @@ export abstract class Strategy implements StrategyInterface {
       id: this.botFunctions.utils.id(10),
       startTime: time,
       avgLine: true,
+      dealId: d.id,
     })
     return d
   }
@@ -1261,7 +1266,7 @@ export abstract class Strategy implements StrategyInterface {
         .sort((a, B) => B.price - a.price)
       filledBuy.forEach((o) => {
         m.filledOrders.push({ ...o, filledTime: b.time })
-        d.filledOrders.push({ ...o, filledTime: b.time })
+        d.filledOrders.push({ ...o, filledTime: b.time, dealId: d.id })
         this.updatePositionWithOrder(o)
         m.avgPrice = this.avgPrice(undefined, m)
         const profit = this.createTransaction(o, m)
@@ -1280,7 +1285,7 @@ export abstract class Strategy implements StrategyInterface {
         .sort((a, B) => a.price - B.price)
       filledSell.forEach((o) => {
         m.filledOrders.push({ ...o, filledTime: b.time })
-        d.filledOrders.push({ ...o, filledTime: b.time })
+        d.filledOrders.push({ ...o, filledTime: b.time, dealId: d.id })
         this.updatePositionWithOrder(o)
         m.avgPrice = this.avgPrice(undefined, m)
         const profit = this.createTransaction(o, m)
@@ -1327,7 +1332,7 @@ export abstract class Strategy implements StrategyInterface {
                   g.qty === oh.qty,
               ),
           )
-          .map((o) => ({ ...o, startTime: b.time })),
+          .map((o) => ({ ...o, startTime: b.time, dealId: d.id })),
       ]
       m.transactions.buy += filledBuy.length
       m.transactions.sell += filledSell.length
@@ -1383,6 +1388,7 @@ export abstract class Strategy implements StrategyInterface {
             ...order,
             startTime: b.time,
             filledTime: undefined,
+            dealId: d.id,
           })
         }
       }
@@ -1408,7 +1414,7 @@ export abstract class Strategy implements StrategyInterface {
       ),
       ...slLines,
       ...localSlLines,
-    ]
+    ].map((o) => ({ ...o, dealId: d.id }))
     return d
   }
 
@@ -1431,7 +1437,10 @@ export abstract class Strategy implements StrategyInterface {
         }
         this.updatePositionWithOrder(o)
       }
-      d.filledOrders = [...d.filledOrders, ...filledDCA]
+      d.filledOrders = [...d.filledOrders, ...filledDCA].map((o) => ({
+        ...o,
+        dealId: d.id,
+      }))
       d = this.updateDeal(d, b)
       if (
         this.settings.useTp &&
@@ -1485,7 +1494,7 @@ export abstract class Strategy implements StrategyInterface {
               ),
           )
           .map((o) => ({ ...o, startTime: b.time })),
-      ]
+      ].map((o) => ({ ...o, dealId: d.id }))
       if (!this.combo) {
         const slLine = this.getSlHistoryLine(d, b.time)
         d = this.replaceSlHistoryLine(d, slLine, b.time)
@@ -1526,7 +1535,7 @@ export abstract class Strategy implements StrategyInterface {
         d.filledOrders = [
           ...d.filledOrders,
           ...filledSl.map((fsl) => ({ ...fsl, filledTime: b.time })),
-        ]
+        ].map((o) => ({ ...o, dealId: d.id }))
         const filledBase = filledSl.reduce((acc, o) => acc + o.qty, 0)
         const filledQuote = filledSl.reduce(
           (acc, o) => acc + o.qty * o.price,
@@ -1739,7 +1748,7 @@ export abstract class Strategy implements StrategyInterface {
       d.filledOrders = [
         ...d.filledOrders.filter((fo) => fo.id !== tpOrder.id),
         { ...tpOrder, filledTime: b.time },
-      ]
+      ].map((o) => ({ ...o, dealId: d.id }))
 
       const _profit = this.getProfit(d)
       if (_profit) {
