@@ -370,7 +370,7 @@ class BotUtils {
         (sells.reduce((acc, v) => (acc += 1 / v.sell), 0) * initPrice +
           buyCount * f)
       if (quoteAmount < symbol.quoteAsset.minAmount) {
-        quoteAmount = symbol.quoteAsset.minAmount * 1.05
+        quoteAmount = symbol.quoteAsset.minAmount * f
       }
     }
     if (profitCurrency === 'quote') {
