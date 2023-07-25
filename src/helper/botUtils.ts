@@ -287,6 +287,7 @@ class BotUtils {
     },
     all = false,
     nosplice = false,
+    feeToSell = false,
   ): Grid[] {
     const useStart =
       !forceLocal &&
@@ -444,43 +445,45 @@ class BotUtils {
       if (profitCurrency === 'quote') {
         if (orderFixedIn === 'quote') {
           buyQty = this.math.round(
-            (quoteAmount / p) * f,
+            (quoteAmount / p) * (feeToSell ? 1 : f),
             quotedAssetPrecision,
-            false,
+            !futures && feeToSell,
             !futures,
           )
           if (buyQty * p < symbol.quoteAsset.minAmount) {
             buyQty = this.math.round(
-              (symbol.quoteAsset.minAmount / p) * f,
+              (symbol.quoteAsset.minAmount / p) * (feeToSell ? 1 : f),
               quotedAssetPrecision,
-              false,
+              !futures && feeToSell,
               !futures,
             )
           }
           if (buyQty < symbol.baseAsset.minAmount) {
             buyQty = this.math.round(
-              symbol.baseAsset.minAmount * f,
+              symbol.baseAsset.minAmount * (feeToSell ? 1 : f),
               quotedAssetPrecision,
-              false,
+              !futures && feeToSell,
               !futures,
             )
           }
           if (i !== 0) {
             sellQty = this.math.round(
-              quoteAmount / prices[i - 1].buy,
+              (quoteAmount / prices[i - 1].buy) * (feeToSell ? 2 - f : 1),
               quotedAssetPrecision,
               !futures,
             )
             if (sellQty * p < symbol.quoteAsset.minAmount) {
               sellQty = this.math.round(
-                symbol.quoteAsset.minAmount / prices[i - 1].buy,
+                (symbol.quoteAsset.minAmount / prices[i - 1].buy) *
+                  (feeToSell ? 2 - f : 1),
                 quotedAssetPrecision,
                 !futures,
               )
             }
           } else {
             sellQty = this.math.round(
-              (buyQty * (1 + gs)) / f,
+              ((buyQty * (1 + gs)) / (feeToSell ? 1 : f)) *
+                (feeToSell ? 2 - f : 1),
               quotedAssetPrecision,
               !futures,
             )

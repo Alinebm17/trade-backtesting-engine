@@ -490,6 +490,7 @@ export type DCAGrid = {
   relatedTo?: string
   minigridId?: string
   levelNumber?: number
+  minigridBudget?: number
 }
 
 export type Asset = {
