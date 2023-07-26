@@ -1302,96 +1302,98 @@ export abstract class Strategy implements StrategyInterface {
         m.lastPrice = lastFilledSell.price
         m.lastSide = lastFilledSell.side
       }
-      m.activeOrders = grids
-      d.ordersHistory = d.ordersHistory.map((o) => {
-        if (
-          o.minigridId === m.id &&
-          o.type === DCAOrderTypeEnum.grid &&
-          !o.filledTime
-        ) {
+      if (filledBuy.length || filledSell.length) {
+        m.activeOrders = grids
+        d.ordersHistory = d.ordersHistory.map((o) => {
           if (
-            !grids.find(
-              (g) =>
-                g.price === o.price && g.side === o.side && g.qty === o.qty,
-            )
+            o.minigridId === m.id &&
+            o.type === DCAOrderTypeEnum.grid &&
+            !o.filledTime
           ) {
-            o.filledTime = b.time
+            if (
+              !grids.find(
+                (g) =>
+                  g.price === o.price && g.side === o.side && g.qty === o.qty,
+              )
+            ) {
+              o.filledTime = b.time
+            }
           }
+          return o
+        })
+        d.ordersHistory = [
+          ...d.ordersHistory,
+          ...m.activeOrders
+            .filter(
+              (g) =>
+                !d.ordersHistory.find(
+                  (oh) =>
+                    g.type === DCAOrderTypeEnum.grid &&
+                    !oh.filledTime &&
+                    g.price === oh.price &&
+                    g.side === oh.side &&
+                    g.qty === oh.qty,
+                ),
+            )
+            .map((o) => ({ ...o, startTime: b.time, dealId: d.id })),
+        ]
+        m.transactions.buy += filledBuy.length
+        m.transactions.sell += filledSell.length
+        const buys = grids.filter((g) => g.side === BotOrderSideEnum.buy)
+        const sells = grids.filter((g) => g.side === BotOrderSideEnum.sell)
+        m.grids.buy = buys.length
+        m.grids.sell = sells.length
+        const balance = {
+          base: sells.reduce((acc, s) => acc + s.qty, 0),
+          quote: buys.reduce((acc, B) => acc + B.qty * B.price, 0),
         }
-        return o
-      })
-      d.ordersHistory = [
-        ...d.ordersHistory,
-        ...m.activeOrders
-          .filter(
-            (g) =>
-              !d.ordersHistory.find(
-                (oh) =>
-                  g.type === DCAOrderTypeEnum.grid &&
-                  !oh.filledTime &&
-                  g.price === oh.price &&
-                  g.side === oh.side &&
-                  g.qty === oh.qty,
-              ),
-          )
-          .map((o) => ({ ...o, startTime: b.time, dealId: d.id })),
-      ]
-      m.transactions.buy += filledBuy.length
-      m.transactions.sell += filledSell.length
-      const buys = grids.filter((g) => g.side === BotOrderSideEnum.buy)
-      const sells = grids.filter((g) => g.side === BotOrderSideEnum.sell)
-      m.grids.buy = buys.length
-      m.grids.sell = sells.length
-      const balance = {
-        base: sells.reduce((acc, s) => acc + s.qty, 0),
-        quote: buys.reduce((acc, B) => acc + B.qty * B.price, 0),
-      }
-      m.currentBalances = balance
-      m.assets = {
-        used: balance,
-        required: balance,
-      }
-      m.profit.total += total
-      m.profit.totalUsd += totalUsd
-      const closed = this.long ? m.grids.sell === 0 : m.grids.buy === 0
-      if (closed) {
-        m.status = 'close'
-        m.activeOrders = []
-        d.lastFilled -= 1
-        d.levels.complete = Math.max(d.lastFilled, 0)
-        m.closeTime = b.time
-      }
+        m.currentBalances = balance
+        m.assets = {
+          used: balance,
+          required: balance,
+        }
+        m.profit.total += total
+        m.profit.totalUsd += totalUsd
+        const closed = this.long ? m.grids.sell === 0 : m.grids.buy === 0
+        if (closed) {
+          m.status = 'close'
+          m.activeOrders = []
+          d.lastFilled -= 1
+          d.levels.complete = Math.max(d.lastFilled, 0)
+          m.closeTime = b.time
+        }
 
-      d.profit.total += total
-      d.profit.totalUsd += totalUsd
-      d.mingrids = [...d.mingrids.filter((mm) => mm.id !== m.id), m]
-      d.activeOrders = [
-        ...d.activeOrders.filter((o) => o.minigridId !== m.id),
-        ...m.activeOrders,
-      ]
-      d = this.updateDeal(d, b)
-      if (closed) {
-        const order = d.filledOrders.find((o) => o.id === m.dcaOrderId)
-        if (order?.type === DCAOrderTypeEnum.bo) {
-          return this.closeDeal(d, b)
-        }
-        if (order) {
-          d.activeOrders.push({
-            ...order,
-            filledTime: undefined,
-            id: this.botFunctions.utils.id(20),
-          })
-          d.ordersHistory = d.ordersHistory.map((o) =>
-            o.minigridId === m.id && !o.filledTime
-              ? { ...o, filledTime: b.time }
-              : { ...o },
-          )
-          d.ordersHistory.push({
-            ...order,
-            startTime: b.time,
-            filledTime: undefined,
-            dealId: d.id,
-          })
+        d.profit.total += total
+        d.profit.totalUsd += totalUsd
+        d.mingrids = [...d.mingrids.filter((mm) => mm.id !== m.id), m]
+        d.activeOrders = [
+          ...d.activeOrders.filter((o) => o.minigridId !== m.id),
+          ...m.activeOrders,
+        ]
+        d = this.updateDeal(d, b)
+        if (closed) {
+          const order = d.filledOrders.find((o) => o.id === m.dcaOrderId)
+          if (order?.type === DCAOrderTypeEnum.bo) {
+            return this.closeDeal(d, b)
+          }
+          if (order) {
+            d.activeOrders.push({
+              ...order,
+              filledTime: undefined,
+              id: this.botFunctions.utils.id(20),
+            })
+            d.ordersHistory = d.ordersHistory.map((o) =>
+              o.minigridId === m.id && !o.filledTime
+                ? { ...o, filledTime: b.time }
+                : { ...o },
+            )
+            d.ordersHistory.push({
+              ...order,
+              startTime: b.time,
+              filledTime: undefined,
+              dealId: d.id,
+            })
+          }
         }
       }
     }
