@@ -647,6 +647,7 @@ export abstract class Strategy implements StrategyInterface {
         (o) =>
           o.type !== DCAOrderTypeEnum.sl && o.type !== DCAOrderTypeEnum.grid,
       )
+    const id = this.botFunctions.utils.id(20)
     const filledOrders = initialOrders
       .filter((o) => o.type === DCAOrderTypeEnum.bo)
       .map((fo) => ({
@@ -660,7 +661,6 @@ export abstract class Strategy implements StrategyInterface {
     initialOrders = [
       ...initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp),
     ]
-    const id = this.botFunctions.utils.id(20)
 
     const step = baseOrder.price * (+this.settings.step / 100)
     let deal: Deal = {
