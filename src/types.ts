@@ -587,6 +587,7 @@ export type Deal = {
   levels: {
     all: number
     complete: number
+    max: number
   }
   step: number
   duration: number

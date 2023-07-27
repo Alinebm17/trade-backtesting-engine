@@ -496,6 +496,7 @@ export abstract class Strategy implements StrategyInterface {
     const time = startOrder.filledTime ?? +new Date()
     const budget =
       startOrder.minigridBudget ?? startOrder.qty * startOrder.price
+
     let minigrid: Minigrid = {
       initialOrders: [],
       filledOrders: [],
@@ -681,6 +682,7 @@ export abstract class Strategy implements StrategyInterface {
       levels: {
         all: 1,
         complete: 1,
+        max: 1,
       },
       duration: 0,
       splitDuration: {
@@ -775,6 +777,7 @@ export abstract class Strategy implements StrategyInterface {
           initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca).length +
           1,
         complete: 1,
+        max: 1,
       },
       usage: {
         current: {
@@ -1360,6 +1363,7 @@ export abstract class Strategy implements StrategyInterface {
           m.activeOrders = []
           d.lastFilled -= 1
           d.levels.complete = Math.max(d.lastFilled, 0)
+          d.levels.max = Math.max(d.lastFilled, d.levels.max)
           m.closeTime = b.time
         }
 
@@ -1438,6 +1442,9 @@ export abstract class Strategy implements StrategyInterface {
           d.lastFilled = o.levelNumber ?? d.lastFilled
           const m = this.createMinigrid(d, o)
           d.mingrids.push(m)
+          m.activeOrders.forEach((o) =>
+            d.activeOrders.push({ ...o, startTime: b.time }),
+          )
         }
         this.updatePositionWithOrder(o)
       }
@@ -1457,6 +1464,7 @@ export abstract class Strategy implements StrategyInterface {
           ...tpOrdersCurrent,
         ]
       }
+      d.levels.max = Math.max(d.lastFilled, d.levels.max)
       d.levels.complete = this.combo
         ? Math.max(d.lastFilled, 0)
         : d.levels.complete + filledDCA.length
@@ -1640,14 +1648,17 @@ export abstract class Strategy implements StrategyInterface {
           : qty * price * this.userFee
         const total =
           d.profit.total + (quoteTp - quote) * (this.long ? 1 : -1) - commission
-        const denominator = this.futures
-          ? this.coinm
-            ? d.usage.max.base
-            : d.usage.max.quote
-          : this.long
-          ? d.usage.max.quote
-          : d.usage.max.base * d.startPrice
-        const perc = total / (denominator * (this.combo ? this.leverage : 1))
+        const denominator =
+          (this.futures
+            ? this.coinm
+              ? d.usage.max.base
+              : d.usage.max.quote
+            : this.long
+            ? d.usage.max.quote
+            : d.usage.max.base * d.startPrice) *
+          (this.combo ? this.leverage : 1)
+        const perc = total / denominator
+
         if (
           isFinite(Math.abs(perc)) &&
           !isNaN(perc) &&
@@ -1656,7 +1667,13 @@ export abstract class Strategy implements StrategyInterface {
           slPerc >= perc * 100
         ) {
           close = true
-          closePrice = b.close
+          const requiredPrice =
+            (denominator * (slPerc / 100) -
+              d.profit.total +
+              commission +
+              quote) /
+            (qty * (this.long ? 1 : -1))
+          closePrice = requiredPrice
         }
         if (
           isFinite(Math.abs(perc)) &&
@@ -1666,7 +1683,13 @@ export abstract class Strategy implements StrategyInterface {
           tpPerc <= perc * 100
         ) {
           close = true
-          closePrice = b.close
+          const requiredPrice =
+            (denominator * (tpPerc / 100) -
+              d.profit.total +
+              commission +
+              quote) /
+            (qty * (this.long ? 1 : -1))
+          closePrice = requiredPrice
         }
       }
     }
@@ -2502,10 +2525,12 @@ export abstract class Strategy implements StrategyInterface {
         this.symbol.priceAssetPrecision,
       ),
       duration:
-        d.status === 'open' ? new Date().getTime() - d.startTime : d.duration,
+        d.status === 'open'
+          ? (lastData.time ?? new Date().getTime()) - d.startTime
+          : d.duration,
       splitDuration:
         d.status === 'open'
-          ? friendlyTime(new Date().getTime() - d.startTime)
+          ? friendlyTime((lastData.time ?? new Date().getTime()) - d.startTime)
           : d.splitDuration,
     }))
     let maxTheoreticalUsage =
@@ -2593,7 +2618,12 @@ export abstract class Strategy implements StrategyInterface {
       openedDeals.forEach((od) => {
         const price = this.prices.find((p) => p.symbol === this.symbol.pair)
         if (price) {
-          const tp = this.getTP(od, price.price, true, false)[0]
+          const tp = this.getTP(
+            od,
+            lastData.close ?? price.price,
+            true,
+            false,
+          )[0]
           const { qty, price: tpPrice } = tp
           const filledOrders = od.filledOrders.filter(
             (fo) =>
@@ -2666,7 +2696,10 @@ export abstract class Strategy implements StrategyInterface {
     )
     const priceDeviation = (orders: FullGrid[]) => {
       const initialOrders = orders
-        .filter((io) => io.type !== DCAOrderTypeEnum.tp)
+        .filter(
+          (io) =>
+            io.type === DCAOrderTypeEnum.bo || io.type === DCAOrderTypeEnum.dca,
+        )
         .sort((a, b) => a.price - b.price)
       if (initialOrders.length > 1) {
         const [first] = initialOrders
@@ -2687,9 +2720,8 @@ export abstract class Strategy implements StrategyInterface {
     const actualPriceDeviation = () => {
       if (Strategy.deals.length > 0) {
         return priceDeviation(
-          Strategy.deals.sort(
-            (a, b) => b.levels.complete - a.levels.complete,
-          )[0].filledOrders,
+          Strategy.deals.sort((a, b) => b.levels.max - a.levels.max)[0]
+            .filledOrders,
         )
       }
       return 0
