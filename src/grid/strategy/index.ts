@@ -1086,7 +1086,6 @@ export class Strategy implements StrategyInterface {
       )
       positionPnL.perc = this.math.round(positionPnL.perc * 100, 2)
     }
-    console.log(this.historyLines)
     return {
       transaction: this.transactions.sort((a, b) => b.index - a.index),
       noData: !firstData && !lastData,
