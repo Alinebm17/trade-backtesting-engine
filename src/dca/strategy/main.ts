@@ -1442,8 +1442,8 @@ export abstract class Strategy implements StrategyInterface {
           d.lastFilled = o.levelNumber ?? d.lastFilled
           const m = this.createMinigrid(d, o)
           d.mingrids.push(m)
-          m.activeOrders.forEach((o) =>
-            d.activeOrders.push({ ...o, startTime: b.time }),
+          m.activeOrders.forEach((ao) =>
+            d.activeOrders.push({ ...ao, startTime: b.time }),
           )
         }
         this.updatePositionWithOrder(o)
