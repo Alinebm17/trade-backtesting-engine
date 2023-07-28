@@ -373,24 +373,24 @@ class ComboBotFunctions extends DcaBotFunctions {
                     (settings.futures
                       ? settings.coinm
                         ? 1
-                        : latestPrice
+                        : price
                       : settings.terminalDealType ===
                         TerminalDealTypeEnum.import
                       ? settings.strategy === StrategyEnum.long
                         ? 1
-                        : latestPrice
+                        : price
                       : settings.strategy === StrategyEnum.short
                       ? 1
-                      : latestPrice)) *
+                      : price)) *
                     volumeVal,
                   precision,
                 )
             : this.math.round(
                 Math.max(
                   symbol.quoteAsset.minAmount
-                    ? symbol.quoteAsset.minAmount / latestPrice
+                    ? symbol.quoteAsset.minAmount / price
                     : symbol.baseAsset.minAmount,
-                  (qtyToUse * orderSize) / 100 / latestPrice,
+                  (qtyToUse * orderSize) / 100 / price,
                 ),
                 precision,
               )
