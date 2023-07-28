@@ -1658,7 +1658,6 @@ export abstract class Strategy implements StrategyInterface {
             : d.usage.max.base * d.startPrice) *
           (this.combo ? this.leverage : 1)
         const perc = total / denominator
-
         if (
           isFinite(Math.abs(perc)) &&
           !isNaN(perc) &&
@@ -1671,7 +1670,7 @@ export abstract class Strategy implements StrategyInterface {
             (denominator * (slPerc / 100) -
               d.profit.total +
               commission +
-              quote) /
+              quote * (this.long ? 1 : -1)) /
             (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
@@ -1687,7 +1686,7 @@ export abstract class Strategy implements StrategyInterface {
             (denominator * (tpPerc / 100) -
               d.profit.total +
               commission +
-              quote) /
+              quote * (this.long ? 1 : -1)) /
             (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
@@ -2467,21 +2466,22 @@ export abstract class Strategy implements StrategyInterface {
           : d.usage.max.quote
         : this.long
         ? d.usage.max.quote
-        : d.usage.max.base
+        : d.usage.max.base * d.startPrice
       : this.profitBase
       ? base
       : quote
+    const perc = this.math.round(
+      (total / (denominator * (this.combo ? this.leverage : 1))) *
+        100 *
+        (this.combo ? 1 : this.leverage),
+      2,
+      false,
+      true,
+    )
     return {
       total: this.math.round(total, this.precision, false, true),
       totalUsd: this.math.round(totalUsd, 2),
-      perc: this.math.round(
-        (total / (denominator * (this.combo ? this.leverage : 1))) *
-          100 *
-          (this.combo ? 1 : this.leverage),
-        2,
-        false,
-        true,
-      ),
+      perc,
     }
   }
 
