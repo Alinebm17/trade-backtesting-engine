@@ -368,6 +368,7 @@ export interface DCABotSettings extends BaseSettings {
   leverage?: number
   futures?: boolean
   coinm?: boolean
+  gridLevel?: string
 }
 
 export enum BotStartTypeEnum {
@@ -415,6 +416,7 @@ export enum DCAOrderTypeEnum {
   sl = 'SL order',
   bo = 'Start order',
   dca = 'DCA order',
+  grid = 'Grid',
 }
 
 export type GridBreakpoint = {
@@ -485,6 +487,10 @@ export type DCAGrid = {
   quote?: number
   tpSlTarget?: string
   label?: string
+  relatedTo?: string
+  minigridId?: string
+  levelNumber?: number
+  minigridBudget?: number
 }
 
 export type Asset = {
@@ -507,7 +513,7 @@ export const enum PositionSide {
   LONG = 'LONG',
 }
 
-export type FullGrid = DCAGrid & { filledTime?: number }
+export type FullGrid = DCAGrid & { filledTime?: number; startTime?: number }
 
 export type SplitTime = {
   d: string
@@ -516,11 +522,56 @@ export type SplitTime = {
   s: string
 }
 
-export type Deal = {
+export type Minigrid = {
   initialOrders: FullGrid[]
-  id: string
   filledOrders: FullGrid[]
   activeOrders: FullGrid[]
+  id: string
+  dealId: string
+  dcaOrderId: string
+  grids: { buy: number; sell: number }
+  status: 'open' | 'close'
+  initialBalances: Balance
+  currentBalances: Balance
+  initialPrice: number
+  lastPrice: number
+  lastSide: BotOrderSideEnum
+  profit: {
+    total: number
+    totalUsd: number
+  }
+  avgPrice: number
+  createTime: number
+  updateTime: number
+  closeTime?: number
+  assets: { used: Balance; required: Balance }
+  settings: {
+    topPrice: number
+    lowPrice: number
+    levels: number
+    budget: number
+    sellDisplacement: number
+    profitCurrency: Currency
+    orderFixedIn: Currency
+    step: number
+  }
+  transactions: {
+    buy: number
+    sell: number
+  }
+}
+
+export type Deal = {
+  mingrids: Minigrid[]
+  initialOrders: FullGrid[]
+  id: string
+  filledOrders: (FullGrid & { dealId: string })[]
+  activeOrders: FullGrid[]
+  ordersHistory: (FullGrid & {
+    slLine?: boolean
+    avgLine?: boolean
+    dealId: string
+  })[]
   status: 'open' | 'closed'
   startTime: number
   closedTime?: number
@@ -536,7 +587,9 @@ export type Deal = {
   levels: {
     all: number
     complete: number
+    max: number
   }
+  step: number
   duration: number
   splitDuration: SplitTime
   number?: number
@@ -552,6 +605,7 @@ export type Deal = {
   trailingMode?: TrailingModeEnum
   bestPriceSet?: boolean
   tpSlTargetFilled?: string[]
+  lastFilled: number
 }
 
 type Balance = {
@@ -581,6 +635,7 @@ export type BacktestingInput<T> = {
   userFee: number
   prices: Prices
   settings: T
+  combo?: boolean
 }
 
 export type LoadDataFn = (
@@ -756,6 +811,11 @@ export type Grid = {
 export type GridBacktestingResult = {
   transaction: BacktestingTransaction[]
   orders: Grid[]
+  ordersHistory?: (Grid & {
+    startTime: number
+    filledTime?: number
+    avgLine?: boolean
+  })[]
   noDate?: boolean
   financial: {
     profitTotal: string

@@ -151,6 +151,8 @@ export class Strategy implements StrategyInterface {
 
   private initialOpen = false
 
+  private historyLines: NonNullable<GridBacktestingResult['ordersHistory']> = []
+
   constructor(input: GRIDStrategyInput) {
     const { settings, userFee, symbol, prices, interval } = input
     this.settings = settings
@@ -365,11 +367,11 @@ export class Strategy implements StrategyInterface {
           : qty
         matchedPrice = initialPriceStart ?? price
       } else if (match) {
-        this.usedOrderId.add(matchedId)
-        this.usedOrderId.add(id)
         matchedId = match.id
         matchQty = match.qty
         matchedPrice = match.price
+        this.usedOrderId.add(matchedId)
+        this.usedOrderId.add(id)
       }
       if (matchedPrice !== 0) {
         const pnlBase =
@@ -601,6 +603,31 @@ export class Strategy implements StrategyInterface {
     }
   }
 
+  private addAvgHistoryLine(time: number) {
+    const localAvg = this.historyLines.find(
+      (hl) => hl.avgLine && !hl.filledTime,
+    )
+    const price = this.breakevenPrice()
+    if (localAvg?.price === price) {
+      return
+    }
+    if (localAvg) {
+      localAvg.filledTime = time
+      this.historyLines = [
+        ...this.historyLines.filter((hl) => hl.id !== localAvg.id),
+        localAvg,
+      ]
+    }
+    this.historyLines.push({
+      startTime: time,
+      avgLine: true,
+      price,
+      side: BotOrderSideEnum.buy,
+      qty: 0,
+      id: this.botFunctions.utils.id(20),
+    })
+  }
+
   public processBar(bar: Bar) {
     if (this.grids.length !== 0) {
       for (const p of [bar.close, bar.low, bar.high]) {
@@ -626,6 +653,7 @@ export class Strategy implements StrategyInterface {
     if (lastFilledBuy) {
       const lastPrice = lastFilledBuy.price
       this.createGrids(lastPrice)
+      this.addAvgHistoryLine(bar.time)
     }
     const filledSell = this.grids
       .filter((g) => g.side === BotOrderSideEnum.sell && g.price <= bar.high)
@@ -638,6 +666,7 @@ export class Strategy implements StrategyInterface {
     if (lastFilledSell) {
       const lastPrice = lastFilledSell.price
       this.createGrids(lastPrice)
+      this.addAvgHistoryLine(bar.time)
     }
   }
 
@@ -1060,6 +1089,7 @@ export class Strategy implements StrategyInterface {
     return {
       transaction: this.transactions.sort((a, b) => b.index - a.index),
       noData: !firstData && !lastData,
+      ordersHistory: this.historyLines,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       orders: [

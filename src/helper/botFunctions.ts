@@ -1,9 +1,4 @@
-import {
-  BotOrderSideEnum,
-  BotMarginTypeEnum,
-  StrategyEnum,
-  FuturesStrategyEnum,
-} from '../types'
+import { BotMarginTypeEnum, StrategyEnum } from '../types'
 import BotUtils from './botUtils'
 
 import type { Settings, Symbols, Grid, OrderData } from '../types'
@@ -72,40 +67,6 @@ class BotFunctions {
 
   set initPrice(initialPrice: number) {
     this.initialPrice = initialPrice
-  }
-
-  private getSellBuyCount(prices: ReturnType<typeof this.getPrices>) {
-    const { useStartPrice, startPrice } = this.settings
-    const useStart =
-      !this.forceLocal &&
-      useStartPrice &&
-      startPrice &&
-      startPrice !== '' &&
-      startPrice !== '0'
-    const initPrice = useStart ? +startPrice : this.initialPrice
-    const sells = prices.filter((p) => p.sell > initPrice)
-    const buys = prices.filter((p) => p.buy < initPrice)
-    let sellCount = sells.length
-    let buyCount = buys.length
-    if (sellCount > 0 && buyCount > 0) {
-      if (
-        Math.abs(sells[0].sell - initPrice) >
-        Math.abs(buys[buys.length - 1].buy - initPrice)
-      ) {
-        buys.splice(buys.length - 1, 1)
-      } else {
-        sells.splice(0, 1)
-      }
-    }
-    if (sellCount > 0 && buyCount === 0) {
-      sells.splice(0, 1)
-    }
-    if (buyCount > 0 && sellCount === 0) {
-      buys.splice(buys.length - 1, 1)
-    }
-    sellCount = sells.length
-    buyCount = buys.length
-    return { sellCount, buyCount, buys, sells }
   }
 
   findClosestGrids(grids: Grid[], latestPrice: number, n?: number) {
@@ -212,312 +173,53 @@ class BotFunctions {
   }
 
   createOrders(all = false, nosplice = false): Grid[] {
-    const { settings, symbol } = this
-    const { lowPrice, topPrice, budget, levels, useStartPrice, startPrice } =
-      settings
-    const useStart =
-      !this.forceLocal &&
-      useStartPrice &&
-      startPrice &&
-      startPrice !== '' &&
-      startPrice !== '0'
-    const latestPrice = useStart ? +startPrice : this.latestPrice
-    const low = parseFloat(lowPrice)
-    const top = parseFloat(topPrice)
-    const B = this.settings.updatedBudget
-      ? +budget
-      : parseFloat(budget) / (1 + this.userFee * 100)
-    const f = 1 + this.userFee
-    let grids: Grid[] = []
-    const quotedAssetPrecision = this.utils.getBaseAssetPrecision(symbol)
-    let qty = 0
-    let buyQty = 0
-    let sellQty = 0
-    let quoteAmount = 0
-    let baseAmount = 0
-    const prices = this.getPrices()
-    const gs = (top / low) ** (1 / parseFloat(levels)) - 1
-    const { sellCount, buyCount, buys, sells } = this.getSellBuyCount(prices)
-    const initPrice = useStart ? +startPrice : this.initialPrice
-    const futures = !!settings.futures
-    if (settings.profitCurrency === 'base') {
-      if (settings.orderFixedIn === 'base') {
-        let tempSellQty = this.math.round(
-          B /
-            (initPrice * sellCount +
-              buys.reduce((acc, v) => (acc += v.buy), 0) * (1 + gs)),
-          quotedAssetPrecision,
-          true,
-        )
-        if (tempSellQty < symbol.quoteAsset.minAmount / prices[0].buy) {
-          tempSellQty = this.math.round(
-            (symbol.quoteAsset.minAmount * 1.1) / prices[0].buy,
-            quotedAssetPrecision,
-            false,
-            true,
-          )
-        }
-        sellQty = tempSellQty
-        if (sellQty < symbol.baseAsset.minAmount) {
-          sellQty = symbol.baseAsset.minAmount
-        }
-        buyQty = this.math.round(
-          tempSellQty * (1 + gs) * f,
-          quotedAssetPrecision,
-          false,
-          true,
-        )
-        if (buyQty < symbol.baseAsset.minAmount) {
-          buyQty = this.math.round(
-            symbol.baseAsset.minAmount * f,
-            quotedAssetPrecision,
-            false,
-            true,
-          )
-        }
-      }
-    }
-    if (
-      (settings.profitCurrency === 'quote' &&
-        settings.orderFixedIn === 'quote') ||
-      (settings.profitCurrency === 'base' && settings.orderFixedIn === 'quote')
-    ) {
-      quoteAmount =
-        B /
-        (sells.reduce((acc, v) => (acc += 1 / v.sell), 0) * initPrice +
-          buyCount * f)
-      if (quoteAmount < symbol.quoteAsset.minAmount) {
-        quoteAmount = symbol.quoteAsset.minAmount * 1.05
-      }
-    }
-    if (settings.profitCurrency === 'quote') {
-      if (settings.orderFixedIn === 'base') {
-        const lowest = [...prices].sort((a, b) => a.buy - b.buy)[0]?.buy || 0
-        baseAmount = futures
-          ? B /
-            (buys.reduce((acc, v) => acc + v.buy, 0) +
-              sells.reduce((acc, v) => acc + v.sell, 0))
-          : B /
-            (sellCount * initPrice + buys.reduce((acc, v) => acc + v.buy, 0))
-        const round = this.math.round(baseAmount, quotedAssetPrecision)
-        if (round < symbol.quoteAsset.minAmount / lowest) {
-          baseAmount = this.math.round(
-            symbol.quoteAsset.minAmount / lowest,
-            quotedAssetPrecision,
-            false,
-            true,
-          )
-        }
-      }
-    }
-    if (settings.coinm) {
-      baseAmount = B / +levels
-    }
-    prices.map((pr, i) => {
-      const side =
-        pr.buy > latestPrice ? BotOrderSideEnum.sell : BotOrderSideEnum.buy
-      const p = side === BotOrderSideEnum.buy ? pr.buy : pr.sell
-      const same =
-        settings.profitCurrency === settings.orderFixedIn ||
-        (settings.profitCurrency === 'base' &&
-          settings.orderFixedIn === 'quote')
-      if (settings.profitCurrency === 'base') {
-        if (settings.orderFixedIn === 'quote') {
-          buyQty = this.math.round(
-            (quoteAmount / p) * f,
-            quotedAssetPrecision,
-            false,
-            !futures,
-          )
-          if (buyQty < symbol.baseAsset.minAmount) {
-            buyQty = this.math.round(
-              symbol.baseAsset.minAmount * f,
-              quotedAssetPrecision,
-              false,
-              !futures,
-            )
-          }
-          if (i !== 0) {
-            const prevBuyQty = this.math.round(
-              quoteAmount / prices[i - 1].buy,
-              quotedAssetPrecision,
-              false,
-              !futures,
-            )
-            sellQty = this.math.round(
-              (prevBuyQty * prices[i - 1].buy) / p,
-              quotedAssetPrecision,
-            )
-            if (prevBuyQty - sellQty < this.symbol.baseAsset.step) {
-              sellQty = this.math.round(
-                prevBuyQty - this.symbol.baseAsset.step,
-                quotedAssetPrecision,
-              )
-            }
-            if (sellQty < symbol.baseAsset.minAmount) {
-              sellQty = symbol.baseAsset.minAmount
-            }
-          }
-        }
-      }
-      if (settings.profitCurrency === 'quote') {
-        if (settings.orderFixedIn === 'quote') {
-          buyQty = this.math.round(
-            (quoteAmount / p) * f,
-            quotedAssetPrecision,
-            false,
-            !futures,
-          )
-          if (buyQty * p < symbol.quoteAsset.minAmount) {
-            buyQty = this.math.round(
-              (symbol.quoteAsset.minAmount / p) * f,
-              quotedAssetPrecision,
-              false,
-              !futures,
-            )
-          }
-          if (buyQty < symbol.baseAsset.minAmount) {
-            buyQty = this.math.round(
-              symbol.baseAsset.minAmount * f,
-              quotedAssetPrecision,
-              false,
-              !futures,
-            )
-          }
-          if (i !== 0) {
-            sellQty = this.math.round(
-              quoteAmount / prices[i - 1].buy,
-              quotedAssetPrecision,
-              !futures,
-            )
-            if (sellQty * p < symbol.quoteAsset.minAmount) {
-              sellQty = this.math.round(
-                symbol.quoteAsset.minAmount / prices[i - 1].buy,
-                quotedAssetPrecision,
-                !futures,
-              )
-            }
-          } else {
-            sellQty = this.math.round(
-              (buyQty * (1 + gs)) / f,
-              quotedAssetPrecision,
-              !futures,
-            )
-          }
-          if (sellQty < symbol.baseAsset.minAmount) {
-            sellQty = symbol.baseAsset.minAmount
-          }
-        }
-      }
-      if (settings.profitCurrency === 'quote') {
-        if (settings.orderFixedIn === 'base') {
-          qty = this.math.round(
-            baseAmount,
-            quotedAssetPrecision,
-            false,
-            !futures,
-          )
-        }
-      }
-      if (settings.coinm) {
-        qty = this.math.round(baseAmount, quotedAssetPrecision)
-      }
-
-      if (qty < symbol.baseAsset.minAmount) {
-        qty = symbol.baseAsset.minAmount
-      }
-      if (side === 'BUY' && !settings.futures) {
-        qty = this.math.round(qty * f, quotedAssetPrecision, false, !futures)
-      }
-      let gridQty = same ? (side === 'SELL' ? sellQty : buyQty) : qty
-      const mod = gridQty % symbol.baseAsset.step
-      if (mod > Number.EPSILON) {
-        gridQty = this.math.round(
-          gridQty - mod + symbol.baseAsset.step,
-          quotedAssetPrecision,
-          false,
-          true,
-        )
-      }
-      const grid = {
-        price: p,
-        side,
-        qty: gridQty,
-        id: this.utils.id(20),
-      }
-      if (grid.qty * grid.price < symbol.quoteAsset.minAmount) {
-        grid.qty = this.math.round(
-          symbol.quoteAsset.minAmount / grid.price,
-          quotedAssetPrecision,
-          false,
-          true,
-        )
-      }
-      if (grid.qty < symbol.baseAsset.minAmount) {
-        grid.qty = symbol.baseAsset.minAmount
-      }
-      if (settings.coinm) {
-        const cont = (grid.price * grid.qty) / symbol.quoteAsset.minAmount
-        if (cont < 1) {
-          grid.qty = this.math.round(
-            symbol.quoteAsset.minAmount / grid.price,
-            quotedAssetPrecision,
-            false,
-            true,
-          )
-        } else if (cont % 1 > Number.EPSILON) {
-          grid.qty = this.math.round(
-            (this.math.round(cont, 0) * symbol.quoteAsset.minAmount) /
-              grid.price,
-            quotedAssetPrecision,
-            false,
-            true,
-          )
-        }
-      }
-      grids.push(grid)
-    })
-    if (!nosplice) {
-      /** find nearest grid to latest price */
-      let diff = Infinity
-      let gridIndex = -1
-      grids.map((grid, index) => {
-        if (Math.abs(grid.price - latestPrice) < diff) {
-          diff = Math.abs(grid.price - latestPrice)
-          gridIndex = index
-        }
-      })
-      /** remove nearest */
-      grids.splice(gridIndex, 1)
-    }
-    if (!all) {
-      if (
-        this.settings.futures &&
-        this.settings.futuresStrategy &&
-        this.settings.futuresStrategy !== FuturesStrategyEnum.neutral
-      ) {
-        const fullGrids = grids
-        grids = [
-          ...this.findClosestGrids(grids, this.latestPrice, undefined).filter(
-            (g) =>
-              g.side !==
-              (this.settings.futuresStrategy === FuturesStrategyEnum.long
-                ? BotOrderSideEnum.sell
-                : BotOrderSideEnum.buy),
-          ),
-          ...fullGrids.filter(
-            (g) =>
-              g.side ===
-              (this.settings.futuresStrategy === FuturesStrategyEnum.long
-                ? BotOrderSideEnum.sell
-                : BotOrderSideEnum.buy),
-          ),
-        ]
-      } else {
-        grids = this.findClosestGrids(grids, this.latestPrice, undefined)
-      }
-    }
-    return grids.sort((a, b) => a.price - b.price)
+    const { settings, symbol, forceLocal, latestPrice, userFee, initialPrice } =
+      this
+    const {
+      lowPrice,
+      topPrice,
+      budget,
+      levels,
+      useStartPrice,
+      startPrice,
+      updatedBudget,
+      sellDisplacement,
+      gridType,
+      futures,
+      profitCurrency,
+      orderFixedIn,
+      coinm,
+      futuresStrategy,
+      ordersInAdvance,
+      useOrderInAdvance,
+    } = settings
+    return this.utils.createGridOrders(
+      {
+        lowPrice,
+        topPrice,
+        budget,
+        levels,
+        useStartPrice,
+        startPrice,
+        updatedBudget,
+        forceLocal,
+        symbol,
+        _latestPrice: latestPrice,
+        userFee,
+        sellDisplacement,
+        gridType,
+        initialPrice,
+        futures: !!futures,
+        profitCurrency,
+        orderFixedIn,
+        coinm: !!coinm,
+        futuresStrategy,
+        _ordersInAdvance: ordersInAdvance,
+        useOrderInAdvance,
+      },
+      all,
+      nosplice,
+    )
   }
 
   getEstimateBalance(_grids: Grid[], number?: number) {

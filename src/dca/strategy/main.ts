@@ -1,5 +1,6 @@
 import { checkNumber } from '../../helper/utils'
 import DCABotFunctions from '../../helper/dcaBotFunctions'
+import ComboBotFunctions from '../../helper/comboBotFunctions'
 import {
   DCAOrderTypeEnum,
   StrategyEnum,
@@ -11,6 +12,7 @@ import {
   PositionSide,
   BotMarginTypeEnum,
   StartConditionEnum,
+  FuturesStrategyEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -27,6 +29,7 @@ import type {
   Prices,
   Asset,
   Bar as BarTV,
+  Minigrid,
 } from '../../types'
 
 export type Bar = BarTV
@@ -39,6 +42,7 @@ export type StrategyInput = {
   interval: ExchangeIntervals
   balances?: Asset[] | null
   slippage?: number
+  combo?: boolean
 }
 
 export type DataType = {
@@ -200,11 +204,26 @@ export abstract class Strategy implements StrategyInterface {
 
   static position = Strategy.emptyPositon
 
+  private combo = false
+
+  private usedOrderId: Set<string> = new Set()
+
   constructor(input: StrategyInput) {
-    const { settings, userFee, symbol, prices, interval, balances, slippage } =
-      input
+    const {
+      settings,
+      userFee,
+      symbol,
+      prices,
+      interval,
+      balances,
+      slippage,
+      combo,
+    } = input
+    this.combo = !!combo
     this.settings = settings
-    this.botFunctions = new DCABotFunctions(settings, symbol)
+    this.botFunctions = this.combo
+      ? new ComboBotFunctions(settings, symbol, userFee)
+      : new DCABotFunctions(settings, symbol, userFee)
     this.filterFn = {
       filledOrders: this.long
         ? (b: Bar) => (o: FullGrid) =>
@@ -409,6 +428,199 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
+  private generateGridsOnPrice(minigrid: Minigrid, price: number) {
+    const { long, settings, symbol } = this
+    const {
+      settings: {
+        lowPrice,
+        topPrice,
+        budget,
+        levels,
+        sellDisplacement,
+        profitCurrency,
+        orderFixedIn,
+      },
+    } = minigrid
+    const gridSettings = {
+      lowPrice: `${lowPrice}`,
+      topPrice: `${topPrice}`,
+      budget: `${budget}`,
+      levels: `${levels}`,
+      useStartPrice: false,
+      startPrice: undefined,
+      updatedBudget: true,
+      forceLocal: false,
+      symbol,
+      _latestPrice: price,
+      userFee: this.userFee,
+      sellDisplacement: `${sellDisplacement}`,
+      gridType: 'arithmetic' as const,
+      initialPrice: long ? lowPrice : topPrice,
+      futures: !!settings.futures,
+      profitCurrency,
+      orderFixedIn,
+      coinm: !!settings.coinm,
+      futuresStrategy: long
+        ? FuturesStrategyEnum.long
+        : FuturesStrategyEnum.short,
+      useOrderInAdvance: false,
+      combo: true,
+    }
+    const grids: DCAGrid[] = this.botFunctions.utils
+      .createGridOrders(gridSettings, true, false, !long)
+      .map((g) => ({
+        ...g,
+        type: DCAOrderTypeEnum.grid,
+        relatedTo: minigrid.dcaOrderId,
+        minigridId: minigrid.id,
+      }))
+    return grids
+  }
+
+  private createMinigrid(deal: Deal, startOrder: FullGrid) {
+    const { settings, userFee, long } = this
+    const price = deal.startPrice
+    const gridStep = price * (+settings.step / 100)
+    const startPrice = startOrder.price
+    const lowPrice = this.long ? startPrice : startPrice - gridStep
+    const topPrice = this.long ? startPrice + gridStep : startPrice
+    const levels = Math.floor(+(settings.gridLevel ?? '1'))
+    const fee = userFee
+    const sellDisplacement = fee * 2 * 100
+    const profitCurrency = 'quote'
+    const orderFixedIn = 'base'
+    let asset = {
+      base: 0,
+      quote: 0,
+    }
+    const time = startOrder.filledTime ?? +new Date()
+    const budget =
+      startOrder.minigridBudget ?? startOrder.qty * startOrder.price
+
+    let minigrid: Minigrid = {
+      initialOrders: [],
+      filledOrders: [],
+      activeOrders: [],
+      id: this.botFunctions.utils.id(20),
+      dealId: deal.id,
+      dcaOrderId: startOrder.id,
+      grids: { buy: 0, sell: 0 },
+      status: 'open',
+      initialBalances: asset,
+      currentBalances: asset,
+      initialPrice: startPrice,
+      lastPrice: startPrice,
+      lastSide: startOrder.side,
+      profit: {
+        total: 0,
+        totalUsd: 0,
+      },
+      avgPrice: startPrice,
+      createTime: time,
+      updateTime: time,
+      assets: { used: asset, required: asset },
+      settings: {
+        topPrice,
+        lowPrice,
+        levels,
+        budget,
+        sellDisplacement,
+        profitCurrency,
+        orderFixedIn,
+        step: deal.step,
+      },
+      transactions: {
+        buy: 0,
+        sell: 0,
+      },
+    }
+    const allOrders = this.generateGridsOnPrice(
+      minigrid,
+      long ? lowPrice : topPrice,
+    )
+    const buys = allOrders.filter((g) => g.side === BotOrderSideEnum.buy)
+    const sells = allOrders.filter((g) => g.side === BotOrderSideEnum.sell)
+    const base = sells.reduce((acc, o) => acc + o.qty, 0)
+    const quote = buys.reduce((acc, o) => acc + o.qty * o.price, 0)
+    asset = {
+      base,
+      quote,
+    }
+    minigrid = {
+      ...minigrid,
+      initialOrders: allOrders,
+      activeOrders: allOrders,
+      grids: { buy: buys.length, sell: sells.length },
+      initialBalances: asset,
+      currentBalances: asset,
+      assets: { used: asset, required: asset },
+    }
+    return minigrid
+  }
+
+  private getSlHistoryLine(
+    deal: Deal,
+    startTime?: number,
+  ): Deal['ordersHistory'] {
+    if (
+      this.settings.useSl &&
+      this.settings.dealCloseConditionSL === CloseConditionEnum.tp
+    ) {
+      if (
+        !this.botFunctions.isTrailingSl &&
+        !this.settings.useMultiSl &&
+        deal.slPerc
+      ) {
+        const price =
+          deal.avgPrice *
+          (1 - (deal.slPerc * -1 - this.userFee * 2) * (this.long ? 1 : -1))
+        return [
+          {
+            qty: 0,
+            price,
+            side: this.long ? BotOrderSideEnum.sell : BotOrderSideEnum.buy,
+            id: this.botFunctions.utils.id(10),
+            startTime: startTime ?? deal.startTime,
+            slLine: true,
+            dealId: deal.id,
+          },
+        ]
+      }
+      if (
+        (this.botFunctions.isTrailingSl || this.botFunctions.isTrailingTp) &&
+        !this.settings.useMultiSl &&
+        deal.slPerc
+      ) {
+        const price = deal.trailingLevel
+          ? deal.trailingLevel
+          : deal.avgPrice * (1 - deal.slPerc * -1 * (this.long ? 1 : -1))
+        return [
+          {
+            qty: 0,
+            price,
+            side: this.long ? BotOrderSideEnum.sell : BotOrderSideEnum.buy,
+            id: this.botFunctions.utils.id(10),
+            startTime: startTime ?? deal.startTime,
+            slLine: true,
+            dealId: deal.id,
+          },
+        ]
+      }
+      if (this.settings.useMultiSl) {
+        return this.getTP(deal, undefined, undefined, true).map((o) => ({
+          qty: 0,
+          price: o.price,
+          side: o.side,
+          id: this.botFunctions.utils.id(10),
+          startTime: startTime ?? deal.startTime,
+          slLine: true,
+          dealId: deal.id,
+        }))
+      }
+    }
+    return []
+  }
+
   public openDeal(price: number, startTime: number, high: number, low: number) {
     if (!this.checkCooldownStart(startTime)) {
       return
@@ -432,23 +644,34 @@ export abstract class Strategy implements StrategyInterface {
     )
     let initialOrders = this.botFunctions
       .createOrders(orderPrice, true, undefined, undefined, this.balances)
-      .filter((o) => o.type !== DCAOrderTypeEnum.sl)
-    const filledOrders = initialOrders.filter(
-      (o) => o.type === DCAOrderTypeEnum.bo,
-    )
-    this.updatePositionWithOrder(filledOrders[0])
+      .filter(
+        (o) =>
+          o.type !== DCAOrderTypeEnum.sl && o.type !== DCAOrderTypeEnum.grid,
+      )
+    const id = this.botFunctions.utils.id(20)
+    const filledOrders = initialOrders
+      .filter((o) => o.type === DCAOrderTypeEnum.bo)
+      .map((fo) => ({
+        ...fo,
+        startTime,
+        filledTime: startTime,
+        dealId: id,
+      }))
+    const baseOrder = filledOrders[0]
+    this.updatePositionWithOrder(baseOrder)
     initialOrders = [
       ...initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp),
     ]
-    const id = this.botFunctions.utils.id(20)
+
+    const step = baseOrder.price * (+this.settings.step / 100)
     let deal: Deal = {
+      step,
+      mingrids: [],
       id,
       initialOrders,
-      filledOrders: filledOrders.map((fo) => ({
-        ...fo,
-        filledTime: startTime,
-      })),
+      filledOrders,
       activeOrders: [],
+      ordersHistory: [],
       status: 'open',
       startTime,
       profit: {
@@ -459,6 +682,7 @@ export abstract class Strategy implements StrategyInterface {
       levels: {
         all: 1,
         complete: 1,
+        max: 1,
       },
       duration: 0,
       splitDuration: {
@@ -488,19 +712,30 @@ export abstract class Strategy implements StrategyInterface {
       slPerc: +(this.settings.slPerc || '0') / 100,
       avgPrice: orderPrice,
       startPrice: orderPrice,
+      lastFilled: 0,
     }
+
     if (
       this.settings.useTp &&
       !this.botFunctions.isTrailingTp &&
-      this.settings.dealCloseCondition === CloseConditionEnum.tp
+      this.settings.dealCloseCondition === CloseConditionEnum.tp &&
+      !this.combo
     ) {
       const tp = this.getTP(deal)
       initialOrders = [...initialOrders, ...tp]
     }
 
-    const activeOrders = initialOrders.filter(
-      (o) => !filledOrders.map((fo) => fo.id).includes(o.id),
-    )
+    const activeOrders: FullGrid[] = initialOrders
+      .filter((o) => !filledOrders.map((fo) => fo.id).includes(o.id))
+      .map((o) => ({ ...o, startTime }))
+
+    if (this.combo) {
+      const minigrid = this.createMinigrid(deal, baseOrder)
+      deal.mingrids.push(minigrid)
+      minigrid.activeOrders.forEach((o) =>
+        activeOrders.push({ ...o, startTime }),
+      )
+    }
 
     const initialBase = this.long
       ? 0
@@ -526,30 +761,23 @@ export abstract class Strategy implements StrategyInterface {
       0,
     )
     deal = {
-      id,
-      initialOrders,
-      filledOrders: filledOrders.map((fo) => ({
-        ...fo,
-        filledTime: startTime,
-      })),
+      ...deal,
       activeOrders,
-      status: 'open',
-      startTime,
-      profit: {
-        total: 0,
-        totalUsd: 0,
-        perc: 0,
+      ordersHistory: [...activeOrders].map((o) => ({ ...o, dealId: id })),
+      initialBalance: {
+        base: initialBase,
+        quote: initialQuote,
+      },
+      currentBalance: {
+        base: !this.long ? initialBase - currentBase : currentBase,
+        quote: this.long ? initialQuote - currentQuote : currentQuote,
       },
       levels: {
-        all: initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp).length,
+        all:
+          initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca).length +
+          1,
         complete: 1,
-      },
-      duration: 0,
-      splitDuration: {
-        d: '',
-        h: '',
-        min: '',
-        s: '',
+        max: 1,
       },
       usage: {
         current: {
@@ -593,17 +821,16 @@ export abstract class Strategy implements StrategyInterface {
             : 0,
         },
       },
-      initialBalance: {
-        base: initialBase,
-        quote: initialQuote,
-      },
-      currentBalance: {
-        base: !this.long ? initialBase - currentBase : currentBase,
-        quote: this.long ? initialQuote - currentQuote : currentQuote,
-      },
-      slPerc: +(this.settings.slPerc || '0') / 100,
-      avgPrice: orderPrice,
-      startPrice: orderPrice,
+    }
+
+    if (this.botFunctions.isTrailingSl || this.botFunctions.isTrailingTp) {
+      deal = this.checkTrailing(deal, price, startTime)
+    } else {
+      if (!this.combo) {
+        this.getSlHistoryLine(deal).forEach((slLine) =>
+          deal.ordersHistory.push(slLine),
+        )
+      }
     }
     if (this.profitBase && deal.usage.current.base > Strategy.maxUsage.deal) {
       Strategy.maxUsage.deal = deal.usage.current.base
@@ -614,7 +841,10 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.deals.push(deal)
   }
 
-  private filterTP(d: Deal, b: Bar): { deal: Deal; order?: DCAGrid } {
+  private filterTP(d: Deal, b: Bar): { deal: Deal; order?: FullGrid } {
+    if (this.combo) {
+      return { deal: d }
+    }
     if (this.botFunctions.isTrailingTp) {
       return { deal: d }
     }
@@ -636,7 +866,7 @@ export abstract class Strategy implements StrategyInterface {
       d.filledOrders = [
         ...d.filledOrders,
         ...filledTp.map((ftp) => ({ ...ftp, filledTime: b.time })),
-      ]
+      ].map((o) => ({ ...o, dealId: d.id }))
       d.activeOrders = [
         ...d.activeOrders.filter(
           (ao) =>
@@ -653,10 +883,24 @@ export abstract class Strategy implements StrategyInterface {
           d.tpSlTargetFilled = [...(d.tpSlTargetFilled ?? []), tp.tpSlTarget]
         }
       }
+
       const newTpOrders = this.getTP(d)
       d.activeOrders = [
         ...d.activeOrders.filter(this.filterTpOrders()),
         ...newTpOrders,
+      ]
+      d.ordersHistory = [
+        ...d.ordersHistory.map((oh) => {
+          if (oh.filledTime) {
+            return oh
+          }
+          filledTp.forEach((ftp) => {
+            if (ftp.price === oh.price && ftp.type === oh.type) {
+              oh.filledTime = b.time
+            }
+          })
+          return oh
+        }),
       ]
       const filledBase = filledTp.reduce((acc, o) => acc + o.qty, 0)
       const filledQuote = filledTp.reduce((acc, o) => acc + o.qty * o.price, 0)
@@ -681,10 +925,10 @@ export abstract class Strategy implements StrategyInterface {
             d.currentBalance.quote / d.avgPrice,
             this.symbol.baseAsset.minAmount,
           )
-      const profit = this.getProfit(d)
+      /* const profit = this.getProfit(d)
       if (profit) {
         d.profit = profit
-      }
+      } */
 
       return { deal: d, order: allFilled ? lastTp : undefined }
     }
@@ -697,51 +941,522 @@ export abstract class Strategy implements StrategyInterface {
       ao.type !== DCAOrderTypeEnum.tp && ao.type !== DCAOrderTypeEnum.sl
   }
 
+  private updateDealBalances(d: Deal) {
+    const filledBase = d.filledOrders.reduce(
+      (acc, v) => acc + v.qty * (v.side === BotOrderSideEnum.buy ? 1 : -1),
+      0,
+    )
+    const filledQuote = d.filledOrders.reduce(
+      (acc, v) =>
+        acc + v.qty * v.price * (v.side === BotOrderSideEnum.buy ? -1 : 1),
+      0,
+    )
+    d.currentBalance.quote = d.initialBalance.quote + filledQuote
+    d.currentBalance.base = d.initialBalance.base + filledBase
+    return d
+  }
+
+  private updateDealUsage(d: Deal) {
+    const usage = this.getUsage(d)
+    if (
+      (!this.long || this.coinm) &&
+      usage.current.base > Strategy.maxUsage.deal
+    ) {
+      Strategy.maxUsage.deal = usage.current.base
+    }
+    if (
+      (this.long || (this.futures && !this.coinm)) &&
+      usage.current.quote > Strategy.maxUsage.deal
+    ) {
+      Strategy.maxUsage.deal = usage.current.quote
+    }
+    d.usage = { ...d.usage, ...usage }
+    return d
+  }
+
+  private avgPrice(deal?: Deal, minigrid?: Minigrid) {
+    const filledDealOrder = (
+      deal ? deal.filledOrders : minigrid?.filledOrders ?? []
+    ).filter(
+      (o) =>
+        o.side === (this.long ? BotOrderSideEnum.buy : BotOrderSideEnum.sell),
+    )
+    let base = filledDealOrder.reduce((acc, v) => acc + v.qty, 0)
+    let quote = filledDealOrder.reduce((acc, v) => acc + v.qty * v.price, 0)
+    if (minigrid) {
+      base += minigrid.initialBalances.base
+      quote += minigrid.initialPrice * minigrid.initialBalances.base
+    }
+    return quote / base
+  }
+
+  private replaceAvgPriceHistoryLine(d: Deal, price: number, time: number) {
+    d.ordersHistory = d.ordersHistory.map((oh) => {
+      if (!oh.filledTime && oh.avgLine) {
+        oh.filledTime = time
+      }
+      return oh
+    })
+    d.ordersHistory.push({
+      qty: 0,
+      price,
+      side: BotOrderSideEnum.buy,
+      id: this.botFunctions.utils.id(10),
+      startTime: time,
+      avgLine: true,
+      dealId: d.id,
+    })
+    return d
+  }
+
+  private updateDealAvgPrice(d: Deal, time: number) {
+    const avgPrice = this.avgPrice(d)
+    if (avgPrice !== d.avgPrice) {
+      d.avgPrice = avgPrice
+      d = this.replaceAvgPriceHistoryLine(d, avgPrice, time)
+    }
+    return d
+  }
+
+  private updateDealDuration(d: Deal, b: BarTV) {
+    d.duration = b.time - d.startTime
+    d.splitDuration = friendlyTime(d.duration)
+    return d
+  }
+
+  get futuresStrategy(): FuturesStrategyEnum | undefined {
+    return this.futures
+      ? this.long
+        ? FuturesStrategyEnum.long
+        : FuturesStrategyEnum.short
+      : undefined
+  }
+  private createTransaction(
+    o: FullGrid,
+    minigrid: Minigrid,
+  ): {
+    profitBase: number
+    profitQuote: number
+    profitUsdt: number
+  } {
+    const { symbol, userFee } = this
+    const {
+      settings: {
+        lowPrice,
+        topPrice,
+        sellDisplacement,
+        levels,
+        profitCurrency,
+      },
+      initialPrice,
+      avgPrice,
+      filledOrders,
+    } = minigrid
+    const prices = this.botFunctions.utils.getPrices({
+      lowPrice: `${lowPrice}`,
+      topPrice: `${topPrice}`,
+      sellDisplacement: `${sellDisplacement}`,
+      gridType: 'arithmetic',
+      levels: `${levels}`,
+      symbol,
+    })
+    prices[prices.length - 1].buy = this.math.round(
+      topPrice,
+      symbol.priceAssetPrecision,
+    )
+    const grids = this.generateGridsOnPrice(minigrid, topPrice * 2) ?? []
+    const _profitBase = profitCurrency === 'base'
+    const { qty, price, side, filledTime, id } = o
+    let comBase = side === BotOrderSideEnum.buy ? qty * userFee : 0
+    let comQuote = side === BotOrderSideEnum.sell ? qty * price * userFee : 0
+    let profitQuote = 0
+    let matchedPrice = 0
+    let matchQty = 0
+    let profitBase = 0
+    let matchedId = ''
+    let profitUsdt = 0
+    if (!this.futures) {
+      if (side === BotOrderSideEnum.sell && _profitBase) {
+        comBase = comQuote / price
+      }
+      if (side === BotOrderSideEnum.buy && !_profitBase) {
+        comQuote = comBase * price
+      }
+      let index = prices.findIndex(
+        (p) => (side === BotOrderSideEnum.sell ? p.sell : p.buy) === price,
+      )
+      if (index === -1) {
+        index = prices.findIndex(
+          (p) => (side === BotOrderSideEnum.sell ? p.buy : p.sell) === price,
+        )
+      }
+      const match = filledOrders.find(
+        (g) =>
+          g.price ===
+            (side === BotOrderSideEnum.sell
+              ? prices[index - 1]?.buy || 0
+              : prices[index + 1]?.sell || 0) &&
+          g.side !== o.side &&
+          (g.filledTime ?? 0) < (filledTime ?? 0) &&
+          !this.usedOrderId.has(g.id),
+      )
+      const needMatch = this.long
+        ? side === BotOrderSideEnum.buy ||
+          (initialPrice &&
+            side === BotOrderSideEnum.sell &&
+            price <= initialPrice)
+        : side === BotOrderSideEnum.sell ||
+          (initialPrice &&
+            side === BotOrderSideEnum.buy &&
+            price >= initialPrice)
+      if (!needMatch && !match) {
+        this.usedOrderId.add(id)
+        matchedId = 'initial price'
+        matchQty = _profitBase ? (price * qty) / (initialPrice ?? price) : qty
+        matchedPrice = initialPrice ?? price
+      } else if (match) {
+        matchedId = match.id
+        matchQty = match.qty
+        matchedPrice = match.price
+        this.usedOrderId.add(matchedId)
+        this.usedOrderId.add(id)
+      }
+      if (matchedPrice !== 0) {
+        const pnlBase =
+          side === BotOrderSideEnum.sell ? matchQty - qty : qty - matchQty
+        const pnlQuote =
+          side === BotOrderSideEnum.sell
+            ? qty * price - matchQty * matchedPrice
+            : matchQty * matchedPrice - qty * price
+        profitBase +=
+          pnlBase +
+          pnlQuote / (side === BotOrderSideEnum.buy ? price : matchedPrice)
+        profitQuote +=
+          pnlQuote +
+          pnlBase * (side === BotOrderSideEnum.buy ? price : matchedPrice)
+      }
+    } else {
+      if (!_profitBase && !this.futures) {
+        if (side === BotOrderSideEnum.buy) {
+          comQuote = comBase * price
+        }
+        if (side === BotOrderSideEnum.sell) {
+          let index = prices.findIndex((p) => p.sell === price)
+          if (index === -1) {
+            index = prices.findIndex((p) => p.buy === price)
+          }
+          const buyMatch = (grids ?? []).find(
+            (g) =>
+              index !== -1 &&
+              g.price === prices[index - 1].buy &&
+              g.side === BotOrderSideEnum.buy,
+          )
+          if (buyMatch) {
+            profitBase = buyMatch.qty - qty
+            profitQuote =
+              qty * price - buyMatch.qty * buyMatch.price + profitBase * price
+            matchedPrice = buyMatch.price
+          }
+        }
+      }
+      if (_profitBase || this.futures) {
+        if (o.side === BotOrderSideEnum.sell) {
+          comBase = comQuote / price
+        }
+        if (!this.usedOrderId.has(id)) {
+          if (this.futuresStrategy !== FuturesStrategyEnum.neutral) {
+            const withMatch =
+              (this.futuresStrategy === FuturesStrategyEnum.long &&
+                o.side === BotOrderSideEnum.sell) ||
+              (this.futuresStrategy === FuturesStrategyEnum.short &&
+                o.side === BotOrderSideEnum.buy)
+            this.usedOrderId.add(id)
+            if (withMatch) {
+              matchedId = 'position price'
+              matchQty = _profitBase ? (price * qty) / (avgPrice || price) : qty
+              matchedPrice = avgPrice || price
+              const pnlBase =
+                o.side === BotOrderSideEnum.sell
+                  ? matchQty - qty
+                  : qty - matchQty
+              const pnlQuote =
+                o.side === BotOrderSideEnum.sell
+                  ? qty * price - matchQty * matchedPrice
+                  : matchQty * matchedPrice - qty * price
+              profitBase +=
+                pnlBase +
+                pnlQuote /
+                  (o.side === BotOrderSideEnum.buy ? price : matchedPrice)
+              profitQuote +=
+                pnlQuote +
+                pnlBase *
+                  (o.side === BotOrderSideEnum.buy ? price : matchedPrice)
+            }
+          } else {
+            let index = prices.findIndex(
+              (p) =>
+                (o.side === BotOrderSideEnum.sell ? p.sell : p.buy) === price,
+            )
+            if (index === -1) {
+              index = prices.findIndex(
+                (p) =>
+                  (o.side === BotOrderSideEnum.sell ? p.buy : p.sell) === price,
+              )
+            }
+
+            const match = filledOrders.find(
+              (g) =>
+                g.price ===
+                  (o.side === BotOrderSideEnum.sell
+                    ? prices[index - 1]?.buy || 0
+                    : prices[index + 1]?.sell || 0) &&
+                g.side !== side &&
+                (g.filledTime ?? 0) < (filledTime ?? 0) &&
+                !this.usedOrderId.has(g.id),
+            )
+            if (match) {
+              matchedId = match.id
+              this.usedOrderId.add(matchedId)
+              this.usedOrderId.add(id)
+              matchQty = match.qty
+              matchedPrice = match.price
+              const pnlBase =
+                side === BotOrderSideEnum.sell ? matchQty - qty : qty - matchQty
+              const pnlQuote =
+                side === BotOrderSideEnum.sell
+                  ? qty * price - matchQty * matchedPrice
+                  : matchQty * matchedPrice - qty * price
+              profitBase +=
+                pnlBase +
+                pnlQuote /
+                  (side === BotOrderSideEnum.buy ? price : matchedPrice)
+              profitQuote +=
+                pnlQuote +
+                pnlBase * (side === BotOrderSideEnum.buy ? price : matchedPrice)
+            }
+          }
+        }
+      }
+    }
+    const totalQuote =
+      profitQuote - (comQuote === 0 ? comBase * price : comQuote)
+    const usdRate = this.usdRateQuote
+    profitUsdt = totalQuote * usdRate
+
+    return {
+      profitBase: profitBase - comBase,
+      profitQuote: profitQuote - comQuote,
+      profitUsdt,
+    }
+  }
+
+  private updateDeal(d: Deal, b: BarTV) {
+    d = this.updateDealBalances(d)
+    d = this.updateDealUsage(d)
+    d = this.updateDealAvgPrice(d, b.time)
+    d = this.updateDealDuration(d, b)
+    return d
+  }
+
+  private processGridOrders(d: Deal, b: Bar) {
+    if (!this.combo) {
+      return d
+    }
+    for (const m of d.mingrids.filter((mg) => mg.status === 'open')) {
+      let grids = m.activeOrders.filter((g) => g.type === DCAOrderTypeEnum.grid)
+      let total = 0
+      let totalUsd = 0
+      const filledBuy = grids
+        .filter((g) => g.side === BotOrderSideEnum.buy && g.price >= b.low)
+        .sort((a, B) => B.price - a.price)
+      filledBuy.forEach((o) => {
+        m.filledOrders.push({ ...o, filledTime: b.time })
+        d.filledOrders.push({ ...o, filledTime: b.time, dealId: d.id })
+        this.updatePositionWithOrder(o)
+        m.avgPrice = this.avgPrice(undefined, m)
+        const profit = this.createTransaction(o, m)
+        total += this.profitBase ? profit.profitBase : profit.profitQuote
+        totalUsd += profit.profitUsdt
+      })
+      const lastFilledBuy = filledBuy[filledBuy.length - 1]
+      if (lastFilledBuy) {
+        const lastPrice = lastFilledBuy.price
+        grids = this.generateGridsOnPrice(m, lastPrice)
+        m.lastPrice = lastFilledBuy.price
+        m.lastSide = lastFilledBuy.side
+      }
+      const filledSell = grids
+        .filter((g) => g.side === BotOrderSideEnum.sell && g.price <= b.high)
+        .sort((a, B) => a.price - B.price)
+      filledSell.forEach((o) => {
+        m.filledOrders.push({ ...o, filledTime: b.time })
+        d.filledOrders.push({ ...o, filledTime: b.time, dealId: d.id })
+        this.updatePositionWithOrder(o)
+        m.avgPrice = this.avgPrice(undefined, m)
+        const profit = this.createTransaction(o, m)
+        total += this.profitBase ? profit.profitBase : profit.profitQuote
+        totalUsd += profit.profitUsdt
+      })
+
+      const lastFilledSell = filledSell[filledSell.length - 1]
+      if (lastFilledSell) {
+        const lastPrice = lastFilledSell.price
+        grids = this.generateGridsOnPrice(m, lastPrice)
+        m.lastPrice = lastFilledSell.price
+        m.lastSide = lastFilledSell.side
+      }
+      if (filledBuy.length || filledSell.length) {
+        m.activeOrders = grids
+        d.ordersHistory = d.ordersHistory.map((o) => {
+          if (
+            o.minigridId === m.id &&
+            o.type === DCAOrderTypeEnum.grid &&
+            !o.filledTime
+          ) {
+            if (
+              !grids.find(
+                (g) =>
+                  g.price === o.price && g.side === o.side && g.qty === o.qty,
+              )
+            ) {
+              o.filledTime = b.time
+            }
+          }
+          return o
+        })
+        d.ordersHistory = [
+          ...d.ordersHistory,
+          ...m.activeOrders
+            .filter(
+              (g) =>
+                !d.ordersHistory.find(
+                  (oh) =>
+                    g.type === DCAOrderTypeEnum.grid &&
+                    !oh.filledTime &&
+                    g.price === oh.price &&
+                    g.side === oh.side &&
+                    g.qty === oh.qty,
+                ),
+            )
+            .map((o) => ({ ...o, startTime: b.time, dealId: d.id })),
+        ]
+        m.transactions.buy += filledBuy.length
+        m.transactions.sell += filledSell.length
+        const buys = grids.filter((g) => g.side === BotOrderSideEnum.buy)
+        const sells = grids.filter((g) => g.side === BotOrderSideEnum.sell)
+        m.grids.buy = buys.length
+        m.grids.sell = sells.length
+        const balance = {
+          base: sells.reduce((acc, s) => acc + s.qty, 0),
+          quote: buys.reduce((acc, B) => acc + B.qty * B.price, 0),
+        }
+        m.currentBalances = balance
+        m.assets = {
+          used: balance,
+          required: balance,
+        }
+        m.profit.total += total
+        m.profit.totalUsd += totalUsd
+        const closed = this.long ? m.grids.sell === 0 : m.grids.buy === 0
+        if (closed) {
+          m.status = 'close'
+          m.activeOrders = []
+          d.lastFilled -= 1
+          d.levels.complete = Math.max(d.lastFilled, 0)
+          d.levels.max = Math.max(d.lastFilled, d.levels.max)
+          m.closeTime = b.time
+        }
+
+        d.profit.total += total
+        d.profit.totalUsd += totalUsd
+        d.mingrids = [...d.mingrids.filter((mm) => mm.id !== m.id), m]
+        d.activeOrders = [
+          ...d.activeOrders.filter((o) => o.minigridId !== m.id),
+          ...m.activeOrders,
+        ]
+        d = this.updateDeal(d, b)
+        if (closed) {
+          const order = d.filledOrders.find((o) => o.id === m.dcaOrderId)
+          if (order?.type === DCAOrderTypeEnum.bo) {
+            return this.closeDeal(d, b)
+          }
+          if (order) {
+            d.activeOrders.push({
+              ...order,
+              filledTime: undefined,
+              id: this.botFunctions.utils.id(20),
+            })
+            d.ordersHistory = d.ordersHistory.map((o) =>
+              o.minigridId === m.id && !o.filledTime
+                ? { ...o, filledTime: b.time }
+                : { ...o },
+            )
+            d.ordersHistory.push({
+              ...order,
+              startTime: b.time,
+              filledTime: undefined,
+              dealId: d.id,
+            })
+          }
+        }
+      }
+    }
+    return d
+  }
+
+  private replaceSlHistoryLine(d: Deal, slLines: FullGrid[], time: number) {
+    const localSlLines = d.ordersHistory
+      .filter(
+        (o) =>
+          o.slLine &&
+          !o.filledTime &&
+          !slLines.find((sl) => sl.price === o.price),
+      )
+      .map((l) => {
+        l.filledTime = time
+        return l
+      })
+    d.ordersHistory = [
+      ...d.ordersHistory.filter(
+        (o) => !localSlLines.map((l) => l.id).includes(o.id),
+      ),
+      ...slLines,
+      ...localSlLines,
+    ].map((o) => ({ ...o, dealId: d.id }))
+    return d
+  }
+
   private processDCAOrders(d: Deal, b: Bar) {
     const filledDCA = d.activeOrders
-      .filter((o) => o.type === DCAOrderTypeEnum.dca)
+      .filter(
+        (o) =>
+          o.type === DCAOrderTypeEnum.dca || o.type === DCAOrderTypeEnum.bo,
+      )
       .filter(this.filterFn.filledOrders(b))
       .map((o) => ({ ...o, filledTime: b.time }))
     if (filledDCA.length > 0) {
-      for (const o of filledDCA) {
+      for (const o of filledDCA.sort((a, B) =>
+        this.long ? B.price - a.price : a.price - B.price,
+      )) {
+        if (this.combo) {
+          d.lastFilled = o.levelNumber ?? d.lastFilled
+          const m = this.createMinigrid(d, o)
+          d.mingrids.push(m)
+          m.activeOrders.forEach((ao) =>
+            d.activeOrders.push({ ...ao, startTime: b.time }),
+          )
+        }
         this.updatePositionWithOrder(o)
       }
-      d.filledOrders = [...d.filledOrders, ...filledDCA]
-      const filledBase = filledDCA.reduce((acc, o) => acc + o.qty, 0)
-      const filledQuote = filledDCA.reduce((acc, o) => acc + o.qty * o.price, 0)
-      d.currentBalance.base = this.long
-        ? d.currentBalance.base + filledBase
-        : d.currentBalance.base - filledBase
-      d.currentBalance.quote = this.long
-        ? d.currentBalance.quote - filledQuote
-        : d.currentBalance.quote + filledQuote
-      const usage = this.getUsage(d.filledOrders)
-      if (
-        (!this.long || this.coinm) &&
-        usage.current.base > Strategy.maxUsage.deal
-      ) {
-        Strategy.maxUsage.deal = usage.current.base
-      }
-      if (
-        (this.long || (this.futures && !this.coinm)) &&
-        usage.current.quote > Strategy.maxUsage.deal
-      ) {
-        Strategy.maxUsage.deal = usage.current.quote
-      }
-      const filledOrders = d.filledOrders.filter(
-        (fo) =>
-          fo.type &&
-          [DCAOrderTypeEnum.dca, DCAOrderTypeEnum.bo].includes(fo.type),
-      )
-      const quote = filledOrders.reduce(
-        (acc, fo) => (acc += fo.qty * fo.price),
-        0,
-      )
-      const base = filledOrders.reduce((acc, fo) => (acc += fo.qty), 0)
-      d.avgPrice = quote / base
+      d.filledOrders = [...d.filledOrders, ...filledDCA].map((o) => ({
+        ...o,
+        dealId: d.id,
+      }))
+      d = this.updateDeal(d, b)
       if (
         this.settings.useTp &&
-        this.settings.dealCloseCondition === CloseConditionEnum.tp
+        this.settings.dealCloseCondition === CloseConditionEnum.tp &&
+        !this.combo
       ) {
         const tpOrdersCurrent = this.getTP(d)
         d.activeOrders = [
@@ -749,19 +1464,62 @@ export abstract class Strategy implements StrategyInterface {
           ...tpOrdersCurrent,
         ]
       }
-      d.usage = { ...d.usage, ...usage }
-      d.levels.complete += filledDCA.length
+      d.levels.max = Math.max(d.lastFilled, d.levels.max)
+      d.levels.complete = this.combo
+        ? Math.max(d.lastFilled, 0)
+        : d.levels.complete + filledDCA.length
       d.activeOrders = d.activeOrders.filter(
         (o) => !d.filledOrders.map((fo) => fo.id).includes(o.id),
       )
-      d.duration = b.time - d.startTime
-      d.splitDuration = friendlyTime(d.duration)
+      d.ordersHistory = d.ordersHistory.map((o) => {
+        if (
+          (o.type === DCAOrderTypeEnum.dca ||
+            o.type === DCAOrderTypeEnum.bo ||
+            o.type === DCAOrderTypeEnum.tp) &&
+          !o.filledTime
+        ) {
+          if (
+            !d.activeOrders.find(
+              (g) =>
+                g.price === o.price && g.side === o.side && g.qty === o.qty,
+            )
+          ) {
+            o.filledTime = b.time
+          }
+        }
+        return o
+      })
+      d.ordersHistory = [
+        ...d.ordersHistory,
+        ...d.activeOrders
+          .filter(
+            (g) =>
+              !d.ordersHistory.find(
+                (oh) =>
+                  (oh.type === DCAOrderTypeEnum.dca ||
+                    oh.type === DCAOrderTypeEnum.bo ||
+                    oh.type === DCAOrderTypeEnum.tp) &&
+                  !oh.filledTime &&
+                  g.price === oh.price &&
+                  g.side === oh.side &&
+                  g.qty === oh.qty,
+              ),
+          )
+          .map((o) => ({ ...o, startTime: b.time })),
+      ].map((o) => ({ ...o, dealId: d.id }))
+      if (!this.combo) {
+        const slLine = this.getSlHistoryLine(d, b.time)
+        d = this.replaceSlHistoryLine(d, slLine, b.time)
+      }
     }
     return d
   }
 
-  private getSLOrder(d: Deal, b: Bar): { deal: Deal; order?: DCAGrid } {
-    if (this.settings.dealCloseConditionSL !== CloseConditionEnum.tp) {
+  private getSLOrder(d: Deal, b: Bar): { deal: Deal; order?: FullGrid } {
+    if (
+      this.settings.dealCloseConditionSL !== CloseConditionEnum.tp &&
+      !this.combo
+    ) {
       return { deal: d }
     }
     let close = false
@@ -769,20 +1527,27 @@ export abstract class Strategy implements StrategyInterface {
     if (
       this.settings.useMultiSl &&
       this.settings.multiSl &&
-      this.settings.multiSl.length > 0
+      this.settings.multiSl.length > 0 &&
+      !this.combo
     ) {
       const slOrders = this.getTP(d, undefined, false, true)
       const filledSl = slOrders.filter((o) =>
         this.long ? o.price >= b.low : o.price <= b.high,
       )
       if (slOrders.length && filledSl.length) {
+        d.ordersHistory = d.ordersHistory.map((o) => {
+          if (o.slLine && filledSl.find((fsl) => fsl.price === o.price)) {
+            o.filledTime = b.time
+          }
+          return o
+        })
         const lastSl = filledSl.sort((a, bb) =>
           this.long ? a.price - bb.price : bb.price - a.price,
         )[0]
         d.filledOrders = [
           ...d.filledOrders,
           ...filledSl.map((fsl) => ({ ...fsl, filledTime: b.time })),
-        ]
+        ].map((o) => ({ ...o, dealId: d.id }))
         const filledBase = filledSl.reduce((acc, o) => acc + o.qty, 0)
         const filledQuote = filledSl.reduce(
           (acc, o) => acc + o.qty * o.price,
@@ -830,17 +1595,18 @@ export abstract class Strategy implements StrategyInterface {
               d.currentBalance.quote / d.avgPrice,
               this.symbol.baseAsset.minAmount,
             )
-        const profit = this.getProfit(d)
+        /* const profit = this.getProfit(d)
         if (profit) {
           d.profit = profit
-        }
+        } */
         return { deal: d, order: allFilled ? lastSl : undefined }
       }
     } else if (
-      (this.botFunctions.isTrailingSl &&
+      ((this.botFunctions.isTrailingSl &&
         d.trailingMode === TrailingModeEnum.tsl) ||
-      (this.botFunctions.isTrailingTp &&
-        d.trailingMode === TrailingModeEnum.ttp)
+        (this.botFunctions.isTrailingTp &&
+          d.trailingMode === TrailingModeEnum.ttp)) &&
+      !this.combo
     ) {
       if (d.trailingMode && d.trailingLevel) {
         if (
@@ -851,26 +1617,100 @@ export abstract class Strategy implements StrategyInterface {
           closePrice = d.trailingLevel
         }
       }
-    } else if (this.settings.useSl && d.slPerc) {
+    } else if (this.settings.useSl && d.slPerc && !this.combo) {
       const sl = d.slPerc
       const diff = this.long ? b.low - d.avgPrice : d.avgPrice - b.high
+
       if (diff / d.avgPrice <= sl) {
         close = true
         closePrice = d.avgPrice * (this.long ? 1 - -sl : 1 + -sl)
+      }
+    } else if (this.combo) {
+      if (this.settings.useSl || this.settings.useTp) {
+        const slPerc = +(this.settings.slPerc || '0')
+        const tpPerc = +(this.settings.tpPerc || '0')
+        const useTp =
+          this.settings.useTp &&
+          this.settings.dealCloseCondition === CloseConditionEnum.tp
+        const useSl =
+          this.settings.useSl &&
+          this.settings.dealCloseConditionSL === CloseConditionEnum.tp
+        const price = b.close
+        const qty = this.long
+          ? d.currentBalance.base
+          : d.initialBalance.base - d.currentBalance.base
+        const quote = this.long
+          ? d.initialBalance.quote - d.currentBalance.quote
+          : d.currentBalance.quote
+        const quoteTp = qty * price
+        const commission = this.long
+          ? qty * this.userFee
+          : qty * price * this.userFee
+        const total =
+          d.profit.total + (quoteTp - quote) * (this.long ? 1 : -1) - commission
+        const denominator =
+          (this.futures
+            ? this.coinm
+              ? d.usage.max.base
+              : d.usage.max.quote
+            : this.long
+            ? d.usage.max.quote
+            : d.usage.max.base * d.startPrice) *
+          (this.combo ? this.leverage : 1)
+        const perc = total / denominator
+        if (
+          isFinite(Math.abs(perc)) &&
+          !isNaN(perc) &&
+          !isNaN(this.math.round(perc * 100)) &&
+          useSl &&
+          slPerc >= perc * 100
+        ) {
+          close = true
+          const requiredPrice =
+            (denominator * (slPerc / 100) -
+              d.profit.total +
+              commission +
+              quote * (this.long ? 1 : -1)) /
+            (qty * (this.long ? 1 : -1))
+          closePrice = requiredPrice
+        }
+        if (
+          isFinite(Math.abs(perc)) &&
+          !isNaN(perc) &&
+          !isNaN(this.math.round(perc * 100)) &&
+          useTp &&
+          tpPerc <= perc * 100
+        ) {
+          close = true
+          const requiredPrice =
+            (denominator * (tpPerc / 100) -
+              d.profit.total +
+              commission +
+              quote * (this.long ? 1 : -1)) /
+            (qty * (this.long ? 1 : -1))
+          closePrice = requiredPrice
+        }
       }
     }
     if (close) {
       const slOrder = this.getTP(d, undefined, false, true)[0]
       slOrder.price =
-        closePrice * (this.long ? 1 + this.userFee * 2 : 1 - this.userFee * 2)
+        closePrice *
+        (this.combo
+          ? 1
+          : this.long
+          ? 1 + this.userFee * 2
+          : 1 - this.userFee * 2)
+      const min = Math.min(b.low, b.close, b.open)
+      const max = Math.max(b.high, b.close, b.open)
       slOrder.price =
-        slOrder.price >= b.low && slOrder.price <= b.high
+        slOrder.price >= min && slOrder.price <= max
           ? slOrder.price
-          : slOrder.price >= b.high
-          ? b.high
-          : slOrder.price <= b.low
-          ? b.low
-          : b.low
+          : slOrder.price >= max
+          ? max
+          : slOrder.price <= min
+          ? min
+          : min
       this.updatePositionWithOrder(slOrder)
       return { deal: d, order: slOrder }
     }
@@ -896,31 +1736,65 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.deals = Strategy.deals.map((d) => {
       if (d.status === 'open' && this.checkMinTp(b.open, d)) {
         const tp = this.getTP(d, b.open, true, false)[0]
-        return this.closeDeal(tp, d, b)
+        return this.closeDeal(d, b, tp)
       }
       return d
     })
   }
 
+  private closeMinigrid(minigrid: Minigrid): Minigrid {
+    return { ...minigrid, status: 'close' }
+  }
+
   private closeDeal(
-    tpOrder: DCAGrid,
     d: Deal,
     b: Bar,
+    tpOrder?: FullGrid,
     cbClose?: (price: number) => void,
   ) {
-    const { price } = tpOrder
+    let closePrice = b.close
+    let profit: ReturnType<typeof this.getProfit> | undefined
     d.status = 'closed'
-    d.closePrice = price
     d.closedTime = b.time
-    d.filledOrders = [
-      ...d.filledOrders.filter((fo) => fo.id !== tpOrder.id),
-      { ...tpOrder, filledTime: b.time },
-    ]
+    d.ordersHistory = d.ordersHistory.map((o) =>
+      o.filledTime ? { ...o } : { ...o, filledTime: b.time },
+    )
     d.duration = d.closedTime - d.startTime
     d.splitDuration = friendlyTime(d.duration)
-    const profit = this.getProfit(d)
+    d.mingrids = d.mingrids.map((m) => this.closeMinigrid(m))
+    if (tpOrder) {
+      const { price } = tpOrder
+      closePrice = price
+      d.closePrice = price
+      d.filledOrders = [
+        ...d.filledOrders.filter((fo) => fo.id !== tpOrder.id),
+        { ...tpOrder, filledTime: b.time },
+      ].map((o) => ({ ...o, dealId: d.id }))
+
+      const _profit = this.getProfit(d)
+      if (_profit) {
+        d.profit = _profit
+        profit = d.profit
+      }
+    } else {
+      d.profit.perc = this.math.round(
+        (d.profit.total /
+          (this.futures
+            ? this.coinm
+              ? d.usage.max.base * d.startPrice
+              : d.usage.max.quote
+            : this.long
+            ? d.usage.max.quote
+            : d.usage.max.base * d.startPrice)) *
+          100,
+        2,
+      )
+      d.profit.total = this.math.round(d.profit.total, this.precision)
+      d.profit.totalUsd = this.math.round(d.profit.totalUsd, 2)
+      profit = d.profit
+    }
+
     if (profit) {
-      d.profit = profit
       if (profit.total > 0 && profit.total > Strategy.maxProfit) {
         Strategy.maxProfit = profit.total
       }
@@ -954,39 +1828,39 @@ export abstract class Strategy implements StrategyInterface {
         Strategy.seriesLoss.count += 1
       }
       Strategy.totalProfit += profit.total
-      if (Strategy.totalProfit > Strategy.seriesWin.max) {
-        Strategy.seriesWin.max = Strategy.totalProfit
-        const tempValue = Strategy.seriesWin.max - Strategy.seriesWin.min
-        if (tempValue > Strategy.seriesWin.value) {
-          Strategy.seriesWin.value = tempValue
-        }
-      }
-      if (Strategy.totalProfit < Strategy.seriesWin.min) {
-        Strategy.seriesWin.min = Strategy.totalProfit
-        Strategy.seriesWin.max = Strategy.totalProfit
-      }
-      if (Strategy.totalProfit < Strategy.seriesLoss.min) {
-        Strategy.seriesLoss.min = Strategy.totalProfit
-        const tempValue = Strategy.seriesLoss.max - Strategy.seriesLoss.min
-        if (tempValue > Strategy.seriesLoss.value) {
-          Strategy.seriesLoss.value = tempValue
-        }
-      }
-      if (Strategy.totalProfit > Strategy.seriesLoss.max) {
-        Strategy.seriesLoss.min = Strategy.totalProfit
-        Strategy.seriesLoss.max = Strategy.totalProfit
-      }
-      if (Strategy.seriesWin.count > Strategy.maxConsecutiveWins) {
-        Strategy.maxConsecutiveWins = Strategy.seriesWin.count
-      }
-      if (Strategy.seriesLoss.count > Strategy.maxConsecutiveLosses) {
-        Strategy.maxConsecutiveLosses = Strategy.seriesLoss.count
-      }
-      Strategy.previousDeal = d
     }
+    if (Strategy.totalProfit > Strategy.seriesWin.max) {
+      Strategy.seriesWin.max = Strategy.totalProfit
+      const tempValue = Strategy.seriesWin.max - Strategy.seriesWin.min
+      if (tempValue > Strategy.seriesWin.value) {
+        Strategy.seriesWin.value = tempValue
+      }
+    }
+    if (Strategy.totalProfit < Strategy.seriesWin.min) {
+      Strategy.seriesWin.min = Strategy.totalProfit
+      Strategy.seriesWin.max = Strategy.totalProfit
+    }
+    if (Strategy.totalProfit < Strategy.seriesLoss.min) {
+      Strategy.seriesLoss.min = Strategy.totalProfit
+      const tempValue = Strategy.seriesLoss.max - Strategy.seriesLoss.min
+      if (tempValue > Strategy.seriesLoss.value) {
+        Strategy.seriesLoss.value = tempValue
+      }
+    }
+    if (Strategy.totalProfit > Strategy.seriesLoss.max) {
+      Strategy.seriesLoss.min = Strategy.totalProfit
+      Strategy.seriesLoss.max = Strategy.totalProfit
+    }
+    if (Strategy.seriesWin.count > Strategy.maxConsecutiveWins) {
+      Strategy.maxConsecutiveWins = Strategy.seriesWin.count
+    }
+    if (Strategy.seriesLoss.count > Strategy.maxConsecutiveLosses) {
+      Strategy.maxConsecutiveLosses = Strategy.seriesLoss.count
+    }
+    Strategy.previousDeal = d
     Strategy.lastClosedDeal = b.time
     if (cbClose) {
-      cbClose(price)
+      cbClose(closePrice)
     }
     return d
   }
@@ -995,7 +1869,7 @@ export abstract class Strategy implements StrategyInterface {
     return b.close >= b.open ? CandleTypeEnum.bull : CandleTypeEnum.bear
   }
 
-  private checkTrailing(d: Deal, price: number) {
+  private checkTrailing(d: Deal, price: number, time: number) {
     if (!(this.botFunctions.isTrailingSl || this.botFunctions.isTrailingTp)) {
       return d
     }
@@ -1032,13 +1906,19 @@ export abstract class Strategy implements StrategyInterface {
     }
     const sl = (+slPerc / 100) * (this.long ? 1 : -1)
     const tp = (+(trailingTpPerc ?? '0') / 100) * (this.long ? 1 : -1)
-    d.trailingLevel = d.bestPrice
+    const newTrailingLevel = d.bestPrice
       ? d.trailingMode === TrailingModeEnum.tsl && slPerc
         ? d.bestPrice * (1 + sl)
         : d.trailingMode === TrailingModeEnum.ttp && trailingTpPerc
         ? d.bestPrice * (1 - tp)
         : 0
       : 0
+    if (newTrailingLevel !== d.trailingLevel && !this.combo) {
+      const newSl = this.getSlHistoryLine(d, time)
+
+      d = this.replaceSlHistoryLine(d, newSl, time)
+    }
+    d.trailingLevel = newTrailingLevel
     return d
   }
 
@@ -1056,7 +1936,7 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.deals = Strategy.deals.map((d) => {
         if (d.status === 'open') {
           const tp = this.getTP(d, current.liquidationPrice, true, false)[0]
-          return this.closeDeal(tp, d, b)
+          return this.closeDeal(d, b, tp)
         }
         return d
       })
@@ -1072,7 +1952,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.deals
       .filter((d) => d.status === 'open')
       .forEach((d) => {
-        let tpOrder: DCAGrid | undefined
+        let tpOrder: FullGrid | undefined
         const bOpenHigh = { ...b, low: b.open }
         const bLowClose = { ...b, high: b.close }
         const bHighClose = { ...b, low: b.close }
@@ -1081,6 +1961,10 @@ export abstract class Strategy implements StrategyInterface {
         if (this.long) {
           if (candleType === CandleTypeEnum.bull) {
             // open -> low. Check DCA and SL
+            d = this.processGridOrders(d, b)
+            if (d.status === 'closed') {
+              return
+            }
             d = this.processDCAOrders(d, b)
             const slReturn = this.getSLOrder(d, b)
             d = slReturn.deal
@@ -1092,8 +1976,8 @@ export abstract class Strategy implements StrategyInterface {
               const tpReturn = this.filterTP(d, bOpenHigh)
               d = tpReturn.deal
               tpOrder = tpReturn.order
-              this.checkValue(b, d)
-              d = this.checkTrailing(d, b.high)
+              d = this.checkValue(b, d)
+              d = this.checkTrailing(d, b.high, b.time)
             }
             // high -> close. Check SL if it was moved
             if (!tpOrder) {
@@ -1109,8 +1993,8 @@ export abstract class Strategy implements StrategyInterface {
             const tpReturn = this.filterTP(d, bOpenHigh)
             d = tpReturn.deal
             tpOrder = tpReturn.order
-            this.checkValue(bOpenHigh, d)
-            d = this.checkTrailing(d, b.high)
+            d = this.checkValue(bOpenHigh, d)
+            d = this.checkTrailing(d, b.high, b.time)
             // high -> low movement. Check SL if it was moved. If SL not filled check DCA
             if (!tpOrder) {
               const slReturn = this.getSLOrder(d, b)
@@ -1119,6 +2003,10 @@ export abstract class Strategy implements StrategyInterface {
                 tpOrder = slReturn.order
               }
               if (!tpOrder) {
+                d = this.processGridOrders(d, b)
+                if (d.status === 'closed') {
+                  return
+                }
                 d = this.processDCAOrders(d, b)
               }
             }
@@ -1130,7 +2018,7 @@ export abstract class Strategy implements StrategyInterface {
             }
           }
           if (tpOrder) {
-            d = this.closeDeal(tpOrder, d, b, cbClose)
+            d = this.closeDeal(d, b, tpOrder, cbClose)
           }
         } else {
           if (candleType === CandleTypeEnum.bull) {
@@ -1138,8 +2026,8 @@ export abstract class Strategy implements StrategyInterface {
             const tpReturn = this.filterTP(d, bOpenLow)
             d = tpReturn.deal
             tpOrder = tpReturn.order
-            this.checkValue(bOpenLow, d)
-            d = this.checkTrailing(d, b.low)
+            d = this.checkValue(bOpenLow, d)
+            d = this.checkTrailing(d, b.low, b.time)
             // low -> high movement. Check moved SL, If SL not filled, check DCA
             if (!tpOrder) {
               const slReturn = this.getSLOrder(d, b)
@@ -1148,6 +2036,10 @@ export abstract class Strategy implements StrategyInterface {
                 tpOrder = slReturn.order
               }
               if (!tpOrder) {
+                d = this.processGridOrders(d, b)
+                if (d.status === 'closed') {
+                  return
+                }
                 d = this.processDCAOrders(d, b)
               }
             }
@@ -1160,6 +2052,10 @@ export abstract class Strategy implements StrategyInterface {
           }
           if (candleType === CandleTypeEnum.bear) {
             // open -> high movement. Check for filled DCA and SL
+            d = this.processGridOrders(d, bOpenHigh)
+            if (d.status === 'closed') {
+              return
+            }
             d = this.processDCAOrders(d, bOpenHigh)
             const slReturn = this.getSLOrder(d, bOpenHigh)
             d = slReturn.deal
@@ -1172,8 +2068,8 @@ export abstract class Strategy implements StrategyInterface {
               const tpReturn = this.filterTP(d, b)
               d = tpReturn.deal
               tpOrder = tpReturn.order
-              this.checkValue(b, d)
-              d = this.checkTrailing(d, b.low)
+              d = this.checkValue(b, d)
+              d = this.checkTrailing(d, b.low, b.time)
             }
             // low -> close. Check SL if it was moved
             if (!tpOrder) {
@@ -1185,7 +2081,7 @@ export abstract class Strategy implements StrategyInterface {
             }
           }
           if (tpOrder) {
-            d = this.closeDeal(tpOrder, d, b, cbClose)
+            d = this.closeDeal(d, b, tpOrder, cbClose)
           }
         }
         Strategy.deals = [...Strategy.deals.filter((dd) => dd.id !== d.id), d]
@@ -1227,10 +2123,10 @@ export abstract class Strategy implements StrategyInterface {
 
   private checkValue(b: Bar, d: Deal) {
     if (d.changed) {
-      return
+      return d
     }
     if (this.botFunctions.isTrailingSl || this.botFunctions.isTrailingTp) {
-      return
+      return d
     }
     let unPnL = 0
     let usage = 0
@@ -1258,8 +2154,11 @@ export abstract class Strategy implements StrategyInterface {
       if (unPnL / usage >= trigger) {
         d.changed = true
         d.slPerc = value
+        const slOrder = this.getSlHistoryLine(d, b.time)
+        d = this.replaceSlHistoryLine(d, slOrder, b.time)
       }
     }
+    return d
   }
 
   private getTP(deal: Deal, _price?: number, aggregate = false, sl = false) {
@@ -1277,12 +2176,16 @@ export abstract class Strategy implements StrategyInterface {
       (o) =>
         o.type && [DCAOrderTypeEnum.tp, DCAOrderTypeEnum.sl].includes(o.type),
     )
-    const qty =
-      filledRegular.reduce((acc, g) => acc + g.qty, 0) -
-      filledTP.reduce((acc, g) => acc + g.qty, 0)
-    const quote =
-      filledRegular.reduce((acc, g) => acc + g.qty * g.price, 0) -
-      filledTP.reduce((acc, g) => acc + g.qty * g.price, 0)
+    const qty = this.combo
+      ? this.long
+        ? deal.currentBalance.base
+        : deal.initialBalance.base - deal.currentBalance.base
+      : filledRegular.reduce((acc, g) => acc + g.qty, 0) -
+        filledTP.reduce((acc, g) => acc + g.qty, 0)
+    const quote = this.combo
+      ? deal.currentBalance.quote
+      : filledRegular.reduce((acc, g) => acc + g.qty * g.price, 0) -
+        filledTP.reduce((acc, g) => acc + g.qty * g.price, 0)
     const sellDisplacement = this.userFee * 2
     const priceDisplacement = this.long
       ? 1 + sellDisplacement
@@ -1480,17 +2383,27 @@ export abstract class Strategy implements StrategyInterface {
     return tpOrders
   }
 
-  private getUsage(_filledOrders: DCAGrid[]) {
-    const filledOrders = _filledOrders.filter(
-      (fo) =>
-        fo.type &&
-        [DCAOrderTypeEnum.dca, DCAOrderTypeEnum.bo].includes(fo.type),
-    )
-    const base = filledOrders.reduce((acc, fo) => acc + fo.qty, 0)
-    const quote = filledOrders.reduce(
-      (acc, fo) => (acc += fo.qty * fo.price),
-      0,
-    )
+  private getUsage(d: Deal) {
+    const base = this.futures
+      ? this.coinm
+        ? this.long
+          ? d.currentBalance.base
+          : d.initialBalance.base - d.currentBalance.base
+        : 0
+      : this.long
+      ? 0
+      : d.initialBalance.base - d.currentBalance.base
+
+    const quote = this.futures
+      ? this.coinm
+        ? 0
+        : !this.long
+        ? d.currentBalance.quote
+        : d.initialBalance.quote - d.currentBalance.quote
+      : this.long
+      ? d.initialBalance.quote - d.currentBalance.quote
+      : 0
+
     const usage = {
       current: {
         base: this.futures ? (this.coinm ? base : 0) : this.long ? 0 : base,
@@ -1503,22 +2416,31 @@ export abstract class Strategy implements StrategyInterface {
   private getProfit(d: Deal) {
     const { filledOrders } = d
     const { userFee, usdRate } = this
-    const commission = filledOrders.reduce(
-      (acc, v) =>
-        (acc += this.profitBase ? v.qty * userFee : v.qty * v.price * userFee),
-      0,
-    )
+    const commission = filledOrders
+      .filter((o) => (this.combo ? o.type === DCAOrderTypeEnum.tp : true))
+      .reduce(
+        (acc, v) =>
+          (acc += this.profitBase
+            ? v.qty * userFee
+            : v.qty * v.price * userFee),
+        0,
+      )
     const regularOrders = filledOrders.filter(
       (fo) =>
         fo.type &&
         [DCAOrderTypeEnum.dca, DCAOrderTypeEnum.bo].includes(fo.type),
     )
 
-    const quote = regularOrders.reduce(
-      (acc, ro) => (acc += ro.qty * ro.price),
-      0,
-    )
-    const base = regularOrders.reduce((acc, ro) => (acc += ro.qty), 0)
+    const quote = this.combo
+      ? this.long
+        ? d.initialBalance.quote - d.currentBalance.quote
+        : d.currentBalance.quote
+      : regularOrders.reduce((acc, ro) => (acc += ro.qty * ro.price), 0)
+    const base = this.combo
+      ? this.long
+        ? d.currentBalance.base
+        : d.initialBalance.base - d.currentBalance.base
+      : regularOrders.reduce((acc, ro) => (acc += ro.qty), 0)
     const tpOrder = filledOrders.filter(
       (fo) =>
         fo.type && [DCAOrderTypeEnum.tp, DCAOrderTypeEnum.sl].includes(fo.type),
@@ -1527,19 +2449,39 @@ export abstract class Strategy implements StrategyInterface {
     const quoteTp = tpOrder.reduce((acc, tpo) => acc + tpo.qty * tpo.price, 0)
     const price = quoteTp / qty
     const total =
-      (this.profitBase
-        ? base - qty + (qty * price - quote) / price
-        : qty * price - quote + (qty - base) * price) *
+      d.profit.total +
+      /* this.combo
+        ? qty * (this.long ? price - d.avgPrice : d.avgPrice - price)
+        : */ (this.profitBase
+        ? base - qty + (quoteTp - quote) / price
+        : quoteTp - quote + (qty - base) * price) *
         (this.long ? 1 : -1) -
       commission
-    const totalUsd = total * usdRate
 
+    const totalUsd = total * usdRate
+    const denominator = this.combo
+      ? this.futures
+        ? this.coinm
+          ? d.usage.max.base
+          : d.usage.max.quote
+        : this.long
+        ? d.usage.max.quote
+        : d.usage.max.base * d.startPrice
+      : this.profitBase
+      ? base
+      : quote
+    const perc = this.math.round(
+      (total / (denominator * (this.combo ? this.leverage : 1))) *
+        100 *
+        (this.combo ? 1 : this.leverage),
+      2,
+      false,
+      true,
+    )
     return {
       total: this.math.round(total, this.precision, false, true),
       totalUsd: this.math.round(totalUsd, 2),
-      perc: this.math.round(
-        (total / (this.profitBase ? base : quote)) * 100 * this.leverage,
-      ),
+      perc,
     }
   }
 
@@ -1583,10 +2525,12 @@ export abstract class Strategy implements StrategyInterface {
         this.symbol.priceAssetPrecision,
       ),
       duration:
-        d.status === 'open' ? new Date().getTime() - d.startTime : d.duration,
+        d.status === 'open'
+          ? (lastData.time ?? new Date().getTime()) - d.startTime
+          : d.duration,
       splitDuration:
         d.status === 'open'
-          ? friendlyTime(new Date().getTime() - d.startTime)
+          ? friendlyTime((lastData.time ?? new Date().getTime()) - d.startTime)
           : d.splitDuration,
     }))
     let maxTheoreticalUsage =
@@ -1674,7 +2618,12 @@ export abstract class Strategy implements StrategyInterface {
       openedDeals.forEach((od) => {
         const price = this.prices.find((p) => p.symbol === this.symbol.pair)
         if (price) {
-          const tp = this.getTP(od, price.price, true, false)[0]
+          const tp = this.getTP(
+            od,
+            lastData.close ?? price.price,
+            true,
+            false,
+          )[0]
           const { qty, price: tpPrice } = tp
           const filledOrders = od.filledOrders.filter(
             (fo) =>
@@ -1686,12 +2635,18 @@ export abstract class Strategy implements StrategyInterface {
               fo.type &&
               [DCAOrderTypeEnum.tp, DCAOrderTypeEnum.sl].includes(fo.type),
           )
-          const quote =
-            filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
-            filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
-          const base =
-            filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
-            filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
+          const quote = this.combo
+            ? this.long
+              ? od.initialBalance.quote - od.currentBalance.quote
+              : od.currentBalance.quote
+            : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
+              filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
+          const base = this.combo
+            ? this.long
+              ? od.currentBalance.base
+              : od.initialBalance.base - od.currentBalance.base
+            : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
+              filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
           const commission = od.filledOrders.reduce(
             (acc, v) =>
               (acc += this.profitBase
@@ -1700,15 +2655,26 @@ export abstract class Strategy implements StrategyInterface {
             0,
           )
           const unPnl =
+            od.profit.total +
             (this.profitBase
               ? base - qty + (qty * tpPrice - quote) / tpPrice
+              : this.combo
+              ? qty * tpPrice - quote
               : qty * tpPrice - quote + (qty - base) * tpPrice) *
               (this.long ? 1 : -1) -
             commission
           unrealizedPnL += unPnl
           unrealizedPnLUsd += unPnl * this.usdRate
           unrealizedUsage +=
-            (this.futures
+            (this.combo
+              ? this.futures
+                ? this.coinm
+                  ? od.usage.max.base * (this.profitBase ? 1 : tpPrice)
+                  : od.usage.max.quote / (this.profitBase ? tpPrice : 1)
+                : this.long
+                ? od.usage.max.quote / (this.profitBase ? tpPrice : 1)
+                : od.usage.max.base * (this.profitBase ? 1 : tpPrice)
+              : this.futures
               ? this.coinm
                 ? od.usage.current.base * (this.profitBase ? 1 : tpPrice)
                 : od.usage.current.quote / (this.profitBase ? tpPrice : 1)
@@ -1730,7 +2696,10 @@ export abstract class Strategy implements StrategyInterface {
     )
     const priceDeviation = (orders: FullGrid[]) => {
       const initialOrders = orders
-        .filter((io) => io.type !== DCAOrderTypeEnum.tp)
+        .filter(
+          (io) =>
+            io.type === DCAOrderTypeEnum.bo || io.type === DCAOrderTypeEnum.dca,
+        )
         .sort((a, b) => a.price - b.price)
       if (initialOrders.length > 1) {
         const [first] = initialOrders
@@ -1751,9 +2720,8 @@ export abstract class Strategy implements StrategyInterface {
     const actualPriceDeviation = () => {
       if (Strategy.deals.length > 0) {
         return priceDeviation(
-          Strategy.deals.sort(
-            (a, b) => b.levels.complete - a.levels.complete,
-          )[0].filledOrders,
+          Strategy.deals.sort((a, b) => b.levels.max - a.levels.max)[0]
+            .filledOrders,
         )
       }
       return 0
@@ -1802,9 +2770,18 @@ export abstract class Strategy implements StrategyInterface {
     const buyAndHoldUsage =
       maxTheoreticalUsageWithRate * (this.profitBase ? lastPrice : 1)
     const buyAndHold =
-      firstPrice && lastPrice
+      (firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
-        : 0
+        : 0) * this.leverage
+    Strategy.deals = Strategy.deals.map((d) => {
+      if (!this.combo) {
+        d.ordersHistory = d.ordersHistory.filter(
+          (oh) =>
+            oh.type !== DCAOrderTypeEnum.bo && oh.type !== DCAOrderTypeEnum.dca,
+        )
+      }
+      return d
+    })
     const result = {
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
@@ -1999,10 +2976,7 @@ export abstract class Strategy implements StrategyInterface {
         buyAndHold: {
           value: this.math.round(buyAndHold, this.precisionQuote),
           valueUsd: this.math.round(buyAndHold * this.usdRateQuote, 2),
-          perc: this.math.round(
-            (buyAndHold / buyAndHoldUsage) * 100 * this.leverage,
-            2,
-          ),
+          perc: this.math.round((buyAndHold / buyAndHoldUsage) * 100, 2),
         },
         periodRatio,
       },
