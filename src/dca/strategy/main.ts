@@ -2685,7 +2685,7 @@ export abstract class Strategy implements StrategyInterface {
         }
       })
     }
-    const levels = Strategy.deals.map((d) => d.levels.complete - 1)
+    const levels = Strategy.deals.map((d) => d.levels.max)
     const maxDealUsage = this.math.round(
       Math.max(Strategy.maxUsage.deal, avgUsable) / this.leverage,
       this.precision,
