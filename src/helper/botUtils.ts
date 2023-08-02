@@ -120,7 +120,7 @@ class BotUtils {
       startPrice !== '0'
     const initPrice = useStart ? +startPrice : +initialPrice
 
-    const sells = prices.filter((p) => p.sell > initPrice)
+    const sells = prices.filter((p) => p.buy >= initPrice)
     const buys = prices.filter((p) => p.buy < initPrice)
     let sellCount = sells.length
     let buyCount = buys.length
