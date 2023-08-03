@@ -18,6 +18,7 @@ import {
   FasterStochasticRSITV,
   SupportResistance,
   QFL,
+  FasterPSAR,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorsEnum } from '../../../types'
 
@@ -47,6 +48,7 @@ export default class InternalIndicator {
     | FasterStochasticRSITV
     | SupportResistance
     | QFL
+    | FasterPSAR
 
   private data: IndicatorHistory[] = []
 
@@ -59,6 +61,13 @@ export default class InternalIndicator {
       indicatorConfig.type === IndicatorsEnum.ma
         ? indicatorConfig.maType ?? indicatorConfig.type
         : indicatorConfig.type
+    if (indicatorConfig.type === IndicatorsEnum.psar) {
+      this.indicator = new FasterPSAR(
+        indicatorConfig.start,
+        indicatorConfig.inc,
+        indicatorConfig.max,
+      )
+    }
     if (indicatorConfig.type === IndicatorsEnum.rsi) {
       this.indicator = new FasterRSI(indicatorConfig.interval)
     }
@@ -182,7 +191,8 @@ export default class InternalIndicator {
         this.indicator instanceof FasterStochasticOscillator ||
         this.indicator instanceof FasterStochasticRSITV ||
         this.indicator instanceof SupportResistance ||
-        this.indicator instanceof QFL)
+        this.indicator instanceof QFL ||
+        this.indicator instanceof FasterPSAR)
     ) {
       this.indicator?.update({
         high: +value.h,
@@ -212,7 +222,12 @@ export default class InternalIndicator {
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore
           value:
-            this.type !== IndicatorsEnum.ma
+            this.type === IndicatorsEnum.psar
+              ? {
+                  psar: result as unknown as number,
+                  price: value.c,
+                }
+              : this.type !== IndicatorsEnum.ma
               ? this.type !== IndicatorsEnum.bb
                 ? result
                 : {

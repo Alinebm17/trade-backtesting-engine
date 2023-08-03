@@ -61,6 +61,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
         pumpPeriods,
         pump,
         baseCrack,
+        psarInc,
+        psarMax,
+        psarStart,
       } = i
       const ind = new InternalIndicator(
         type === IndicatorsEnum.macd
@@ -116,6 +119,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
               pumpPeriods: pumpPeriods ?? 8,
               pump: (pump ?? 3) / 100,
               baseCrack: (baseCrack ?? 3) / 100,
+            }
+          : type === IndicatorsEnum.psar
+          ? {
+              type,
+              max: psarMax ?? 0.2,
+              inc: psarInc ?? 0.02,
+              start: psarStart ?? 0.02,
             }
           : ({
               type,
@@ -421,6 +431,15 @@ class TIStrategy extends Strategy implements StrategyInterface {
               last = 0
               prev = 0
             }
+          }
+          if (
+            lastData.type === IndicatorsEnum.psar &&
+            prevData.type === IndicatorsEnum.psar
+          ) {
+            last = lastData.value.psar
+            prev = prevData.value.psar
+            value = lastData.value.price
+            prevValue = prevData.value.price
           }
           if (
             lastData.type === IndicatorsEnum.bb &&

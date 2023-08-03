@@ -18,6 +18,7 @@ export enum IndicatorsEnum {
   sr = 'SR',
   qfl = 'QFL',
   mfi = 'MFI',
+  psar = 'PSAR',
 }
 
 export enum TradingviewAnalysisConditionEnum {
@@ -174,6 +175,12 @@ export type IndicatorConfigBackTesting =
       pump: number
       baseCrack: number
     }
+  | {
+      type: IndicatorsEnum.psar
+      start: number
+      inc: number
+      max: number
+    }
 
 export type IndicatorHistory = { time: number } & (
   | {
@@ -206,6 +213,7 @@ export type IndicatorHistory = { time: number } & (
       value: PivotResult
     }
   | { type: IndicatorsEnum.qfl; value: boolean }
+  | { type: IndicatorsEnum.psar; value: { psar: number; price: number } }
 )
 
 export type SettingsIndicators = {
@@ -243,6 +251,9 @@ export type SettingsIndicators = {
   baseCrack?: number
   indicatorAction: IndicatorAction
   section?: IndicatorSection
+  psarStart?: number
+  psarInc?: number
+  psarMax?: number
 }
 
 export enum IndicatorSection {
