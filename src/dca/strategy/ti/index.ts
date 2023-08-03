@@ -436,10 +436,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
             lastData.type === IndicatorsEnum.psar &&
             prevData.type === IndicatorsEnum.psar
           ) {
-            last = lastData.value.psar
-            prev = prevData.value.psar
-            value = lastData.value.price
-            prevValue = prevData.value.price
+            last = lastData.value.price
+            prev = prevData.value.price
+            value = lastData.value.psar
+            prevValue = prevData.value.psar
           }
           if (
             lastData.type === IndicatorsEnum.bb &&
