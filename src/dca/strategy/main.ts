@@ -246,7 +246,7 @@ export abstract class Strategy implements StrategyInterface {
     this.precision =
       this.botFunctions.utils.getPrecision(symbol)[
         this.profitBase ? 'base' : 'quote'
-      ]
+      ] + 3
     this.precisionQuote = this.botFunctions.utils.getPrecision(symbol).quote
     this.openDeal = this.openDeal.bind(this)
     this.checkDeals = this.checkDeals.bind(this)
@@ -1789,7 +1789,7 @@ export abstract class Strategy implements StrategyInterface {
           100,
         2,
       )
-      d.profit.total = this.math.round(d.profit.total, this.precision)
+      d.profit.total = this.math.round(d.profit.total, this.precision + 3)
       d.profit.totalUsd = this.math.round(d.profit.totalUsd, 2)
       profit = d.profit
     }

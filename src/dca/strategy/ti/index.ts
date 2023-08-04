@@ -268,8 +268,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
         })
       }
     })
-    this.checkDeals(bar)
+
     this.checkIndicators(bar)
+    this.checkDeals(bar)
   }
 
   private updateIndicatorData(i: Indicator) {
