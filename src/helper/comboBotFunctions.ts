@@ -194,10 +194,17 @@ class ComboBotFunctions extends DcaBotFunctions {
       gridType: 'arithmetic' as const,
       initialPrice: baseOrder.price,
       futures: !!settings.futures,
-      profitCurrency: 'quote' as const,
-      orderFixedIn:
-        long || settings.futures ? ('base' as const) : ('quote' as const),
       coinm: !!settings.coinm,
+      profitCurrency: settings.futures
+        ? 'quote'
+        : settings.profitCurrency /*  'quote' as const */,
+      orderFixedIn: settings.futures
+        ? settings.coinm
+          ? ('quote' as const)
+          : ('base' as const)
+        : settings.profitCurrency === 'quote'
+        ? ('base' as const)
+        : ('quote' as const),
       futuresStrategy: long
         ? FuturesStrategyEnum.long
         : FuturesStrategyEnum.short,
@@ -219,6 +226,7 @@ class ComboBotFunctions extends DcaBotFunctions {
         relatedTo: baseOrder.id,
       }))
     const gridStep = latestPrice * step
+    const useBase = long && settings.profitCurrency === 'quote'
     if (coinm) {
       const qtyByGrids = this.math.round(
         (grids.reduce(
@@ -247,7 +255,7 @@ class ComboBotFunctions extends DcaBotFunctions {
       baseOrder.base = baseOrder.qty
     } else {
       const qtyByGrids =
-        long || settings.futures
+        useBase || settings.futures
           ? this.math.round(
               grids.reduce((acc, v) => acc + v.qty, 0) *
                 (settings.futures ? 1 : feeFactor),
@@ -267,12 +275,12 @@ class ComboBotFunctions extends DcaBotFunctions {
         !long && qtyByGrids > baseOrder.quote * (2 - feeFactor),
       ) */
       if (
-        (long && qtyByGrids > baseOrder.qty) ||
-        (!long && qtyByGrids > baseOrder.quote * (2 - feeFactor)) ||
+        (useBase && qtyByGrids > baseOrder.qty) ||
+        (!useBase && qtyByGrids > baseOrder.quote * (2 - feeFactor)) ||
         settings.futures
       ) {
         grids =
-          settings.futures || !long
+          settings.futures || !useBase
             ? grids
             : this.utils
                 .createGridOrders(
@@ -286,7 +294,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                 )
                 .map((g) => ({ ...g, type: DCAOrderTypeEnum.grid }))
         baseOrder.qty =
-          long || settings.futures
+          useBase || settings.futures
             ? qtyByGrids
             : this.math.round(
                 (qtyByGrids / baseOrder.price) * feeFactor,
@@ -295,7 +303,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                 true,
               )
         baseOrder.quote =
-          long || settings.futures
+          useBase || settings.futures
             ? this.math.round(
                 baseOrder.qty * baseOrder.price,
                 symbol.priceAssetPrecision,
@@ -495,7 +503,7 @@ class ComboBotFunctions extends DcaBotFunctions {
           base = baseOrder.qty + orders.reduce((acc, v) => acc + v.qty, 0) + qty
         } else {
           const dcaQtyByGrids =
-            long || settings.futures
+            useBase || settings.futures
               ? this.math.round(
                   dcaMinigridOrders.reduce((acc, v) => acc + v.qty, 0) *
                     (settings.futures ? 1 : feeFactor),
@@ -513,8 +521,8 @@ class ComboBotFunctions extends DcaBotFunctions {
                   true,
                 )
           if (
-            (long && dcaQtyByGrids > baseOrder.qty) ||
-            (!long && dcaQtyByGrids > qty * price * (2 - feeFactor)) ||
+            (useBase && dcaQtyByGrids > qty) ||
+            (!useBase && dcaQtyByGrids > qty * price * (2 - feeFactor)) ||
             settings.futures
           ) {
             dcaMinigridOrders =
@@ -542,7 +550,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                       noLabel: true,
                     }))
             qty =
-              long || settings.futures
+              useBase || settings.futures
                 ? dcaQtyByGrids
                 : this.math.round(
                     (dcaQtyByGrids / price) *

@@ -487,8 +487,8 @@ export abstract class Strategy implements StrategyInterface {
     const levels = Math.floor(+(settings.gridLevel ?? '1'))
     const fee = userFee
     const sellDisplacement = fee * 2 * 100
-    const profitCurrency = 'quote'
-    const orderFixedIn = 'base'
+    const profitCurrency = settings.profitCurrency
+    const orderFixedIn = settings.orderFixedIn
     let asset = {
       base: 0,
       quote: 0,
@@ -1643,19 +1643,26 @@ export abstract class Strategy implements StrategyInterface {
           ? d.initialBalance.quote - d.currentBalance.quote
           : d.currentBalance.quote
         const quoteTp = qty * price
+        const base = quote / price
         const commission = this.long
-          ? qty * this.userFee
-          : qty * price * this.userFee
+          ? (this.profitBase ? base : qty) * this.userFee
+          : (this.profitBase ? base : qty) *
+            (this.profitBase ? 1 : price) *
+            this.userFee
         const total =
-          d.profit.total + (quoteTp - quote) * (this.long ? 1 : -1) - commission
+          d.profit.total +
+          (this.profitBase ? qty - base : quoteTp - quote) *
+            (this.long ? 1 : -1) -
+          commission
+
         const denominator =
           (this.futures
             ? this.coinm
               ? d.usage.max.base
               : d.usage.max.quote
             : this.long
-            ? d.usage.max.quote
-            : d.usage.max.base * d.startPrice) *
+            ? d.usage.max.quote * (this.profitBase ? 1 / d.startPrice : 1)
+            : d.usage.max.base * (this.profitBase ? 1 : d.startPrice)) *
           (this.combo ? this.leverage : 1)
         const perc = total / denominator
         if (
@@ -1666,12 +1673,17 @@ export abstract class Strategy implements StrategyInterface {
           slPerc >= perc * 100
         ) {
           close = true
-          const requiredPrice =
-            (denominator * (slPerc / 100) -
-              d.profit.total +
-              commission +
-              quote * (this.long ? 1 : -1)) /
-            (qty * (this.long ? 1 : -1))
+          const requiredPrice = this.profitBase
+            ? -(quote * (this.long ? 1 : -1)) /
+              (denominator * (slPerc / 100) -
+                d.profit.total +
+                commission -
+                qty * (this.long ? 1 : -1))
+            : (denominator * (slPerc / 100) -
+                d.profit.total +
+                commission +
+                quote * (this.long ? 1 : -1)) /
+              (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
         if (
@@ -1682,13 +1694,39 @@ export abstract class Strategy implements StrategyInterface {
           tpPerc <= perc * 100
         ) {
           close = true
-          const requiredPrice =
-            (denominator * (tpPerc / 100) -
-              d.profit.total +
-              commission +
-              quote * (this.long ? 1 : -1)) /
-            (qty * (this.long ? 1 : -1))
+          const requiredPrice = this.profitBase
+            ? -(quote * (this.long ? 1 : -1)) /
+              (denominator * (tpPerc / 100) -
+                d.profit.total +
+                commission -
+                qty * (this.long ? 1 : -1))
+            : (denominator * (tpPerc / 100) -
+                d.profit.total +
+                commission +
+                quote * (this.long ? 1 : -1)) /
+              (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
+        }
+        if (close) {
+          console.log(
+            'sl order',
+            qty,
+            'base',
+            base,
+            'qty',
+            d.profit.total,
+            'deal',
+            perc,
+            'perc',
+            total,
+            'total',
+            denominator,
+            'deno',
+            commission,
+            'fee',
+            closePrice,
+            'close price',
+          )
         }
       }
     }
@@ -1784,8 +1822,8 @@ export abstract class Strategy implements StrategyInterface {
               ? d.usage.max.base * d.startPrice
               : d.usage.max.quote
             : this.long
-            ? d.usage.max.quote
-            : d.usage.max.base * d.startPrice)) *
+            ? d.usage.max.quote * (this.profitBase ? 1 / d.startPrice : 1)
+            : d.usage.max.base * (this.profitBase ? 1 : d.startPrice))) *
           100,
         2,
       )
@@ -2178,7 +2216,10 @@ export abstract class Strategy implements StrategyInterface {
     )
     const qty = this.combo
       ? this.long
-        ? deal.currentBalance.base
+        ? this.profitBase
+          ? (deal.initialBalance.quote - deal.currentBalance.quote) /
+            deal.startPrice
+          : deal.currentBalance.base
         : deal.initialBalance.base - deal.currentBalance.base
       : filledRegular.reduce((acc, g) => acc + g.qty, 0) -
         filledTP.reduce((acc, g) => acc + g.qty, 0)
@@ -2465,8 +2506,8 @@ export abstract class Strategy implements StrategyInterface {
           ? d.usage.max.base
           : d.usage.max.quote
         : this.long
-        ? d.usage.max.quote
-        : d.usage.max.base * d.startPrice
+        ? d.usage.max.quote * (this.profitBase ? 1 / d.startPrice : 1)
+        : d.usage.max.base * (this.profitBase ? 1 : d.startPrice)
       : this.profitBase
       ? base
       : quote
@@ -2477,6 +2518,23 @@ export abstract class Strategy implements StrategyInterface {
       2,
       false,
       true,
+    )
+    console.log(
+      'profit',
+      base,
+      'base',
+      qty,
+      'qty',
+      d.profit.total,
+      'deal',
+      perc,
+      'perc',
+      total,
+      'total',
+      denominator,
+      'deno',
+      commission,
+      'fee',
     )
     return {
       total: this.math.round(total, this.precision, false, true),
