@@ -573,6 +573,7 @@ export type Minigrid = {
 }
 
 export type Deal = {
+  transactions: BacktestingTransaction[]
   mingrids: Minigrid[]
   initialOrders: FullGrid[]
   id: string

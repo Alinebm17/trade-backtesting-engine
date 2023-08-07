@@ -1,3 +1,4 @@
+import { v4 } from 'uuid'
 import { checkNumber } from '../../helper/utils'
 import DCABotFunctions from '../../helper/dcaBotFunctions'
 import ComboBotFunctions from '../../helper/comboBotFunctions'
@@ -13,6 +14,7 @@ import {
   BotMarginTypeEnum,
   StartConditionEnum,
   FuturesStrategyEnum,
+  BacktestingTransaction,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -147,6 +149,8 @@ export abstract class Strategy implements StrategyInterface {
 
   private readonly precisionQuote: number
 
+  private readonly precisionBase: number
+
   private readonly prices: Prices
 
   private readonly balances?: Asset[] | null
@@ -166,6 +170,8 @@ export abstract class Strategy implements StrategyInterface {
   static indicators: Indicator[] = []
 
   static next = 0
+
+  static transactionIndex = 0
 
   static resetData() {
     Strategy.workingShift = []
@@ -200,6 +206,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.data = []
     Strategy.next = 0
     Strategy.rangeStatus = false
+    Strategy.transactionIndex = 0
   }
 
   static position = Strategy.emptyPositon
@@ -248,6 +255,7 @@ export abstract class Strategy implements StrategyInterface {
         this.profitBase ? 'base' : 'quote'
       ] + 3
     this.precisionQuote = this.botFunctions.utils.getPrecision(symbol).quote
+    this.precisionBase = this.botFunctions.utils.getPrecision(symbol).base
     this.openDeal = this.openDeal.bind(this)
     this.checkDeals = this.checkDeals.bind(this)
     this.prices = prices
@@ -665,6 +673,7 @@ export abstract class Strategy implements StrategyInterface {
 
     const step = baseOrder.price * (+this.settings.step / 100)
     let deal: Deal = {
+      transactions: [],
       step,
       mingrids: [],
       id,
@@ -1075,6 +1084,10 @@ export abstract class Strategy implements StrategyInterface {
     let profitBase = 0
     let matchedId = ''
     let profitUsdt = 0
+    let amountBaseBuy = side === BotOrderSideEnum.sell ? 0 : qty
+    let amountQuoteBuy = side === BotOrderSideEnum.sell ? 0 : qty * price
+    let amountBaseSell = side === BotOrderSideEnum.buy ? 0 : qty
+    let amountQuoteSell = side === BotOrderSideEnum.buy ? 0 : qty * price
     if (!this.futures) {
       if (side === BotOrderSideEnum.sell && _profitBase) {
         comBase = comQuote / price
@@ -1097,7 +1110,7 @@ export abstract class Strategy implements StrategyInterface {
               ? prices[index - 1]?.buy || 0
               : prices[index + 1]?.sell || 0) &&
           g.side !== o.side &&
-          (g.filledTime ?? 0) < (filledTime ?? 0) &&
+          (g.filledTime ?? 0) <= (filledTime ?? 0) &&
           !this.usedOrderId.has(g.id),
       )
       const needMatch = this.long
@@ -1134,6 +1147,14 @@ export abstract class Strategy implements StrategyInterface {
         profitQuote +=
           pnlQuote +
           pnlBase * (side === BotOrderSideEnum.buy ? price : matchedPrice)
+        if (side === 'BUY') {
+          amountBaseSell = matchQty
+          amountQuoteSell = matchQty * matchedPrice
+        }
+        if (side === 'SELL') {
+          amountBaseBuy = matchQty
+          amountQuoteBuy = matchQty * matchedPrice
+        }
       }
     } else {
       if (!_profitBase && !this.futures) {
@@ -1156,6 +1177,8 @@ export abstract class Strategy implements StrategyInterface {
             profitQuote =
               qty * price - buyMatch.qty * buyMatch.price + profitBase * price
             matchedPrice = buyMatch.price
+            amountBaseBuy = buyMatch.qty
+            amountQuoteBuy = buyMatch.qty * buyMatch.price
           }
         }
       }
@@ -1191,6 +1214,14 @@ export abstract class Strategy implements StrategyInterface {
                 pnlQuote +
                 pnlBase *
                   (o.side === BotOrderSideEnum.buy ? price : matchedPrice)
+              if (side === 'BUY') {
+                amountBaseSell = matchQty
+                amountQuoteSell = matchQty * matchedPrice
+              }
+              if (side === 'SELL') {
+                amountBaseBuy = matchQty
+                amountQuoteBuy = matchQty * matchedPrice
+              }
             }
           } else {
             let index = prices.findIndex(
@@ -1233,6 +1264,14 @@ export abstract class Strategy implements StrategyInterface {
               profitQuote +=
                 pnlQuote +
                 pnlBase * (side === BotOrderSideEnum.buy ? price : matchedPrice)
+              if (side === 'BUY') {
+                amountBaseSell = matchQty
+                amountQuoteSell = matchQty * matchedPrice
+              }
+              if (side === 'SELL') {
+                amountBaseBuy = matchQty
+                amountQuoteBuy = matchQty * matchedPrice
+              }
             }
           }
         }
@@ -1242,7 +1281,66 @@ export abstract class Strategy implements StrategyInterface {
       profitQuote - (comQuote === 0 ? comBase * price : comQuote)
     const usdRate = this.usdRateQuote
     profitUsdt = totalQuote * usdRate
-
+    const transaction: BacktestingTransaction = {
+      _id: v4(),
+      updateTime: filledTime ?? 0,
+      side,
+      amountBaseBuy: this.math.convertFromExponential(
+        this.math.round(amountBaseBuy, this.precisionBase),
+        this.precisionBase,
+      ),
+      amountQuoteBuy: this.math.convertFromExponential(
+        this.math.round(amountQuoteBuy, this.precisionQuote),
+        this.precisionQuote,
+      ),
+      amountBaseSell: this.math.convertFromExponential(
+        this.math.round(amountBaseSell, this.precisionBase),
+        this.precisionBase,
+      ),
+      amountQuoteSell: this.math.convertFromExponential(
+        this.math.round(amountQuoteSell, this.precisionQuote),
+        this.precisionQuote,
+      ),
+      priceSell: this.math.convertFromExponential(
+        this.math.round(
+          side === BotOrderSideEnum.sell ? price : matchedPrice,
+          this.symbol.priceAssetPrecision,
+        ),
+        this.symbol.priceAssetPrecision,
+      ),
+      priceBuy: this.math.convertFromExponential(
+        this.math.round(
+          side === BotOrderSideEnum.buy ? price : matchedPrice,
+          this.symbol.priceAssetPrecision,
+        ),
+        this.symbol.priceAssetPrecision,
+      ),
+      profit: this.math.convertFromExponential(
+        this.math.round(
+          this.profitBase ? profitBase - comBase : profitQuote - comQuote,
+          this.precision + 3,
+        ),
+        this.precision + 3,
+      ),
+      profitUsd: this.math.round(profitUsdt, 2),
+      baseAsset: this.symbol.baseAsset.name,
+      quoteAsset: this.symbol.quoteAsset.name,
+      profitAsset: this.futures
+        ? this.coinm
+          ? this.symbol.baseAsset.name
+          : this.symbol.quoteAsset.name
+        : this.profitBase
+        ? this.symbol.baseAsset.name
+        : this.symbol.quoteAsset.name,
+      index: Strategy.transactionIndex,
+    }
+    Strategy.transactionIndex++
+    Strategy.deals = Strategy.deals.map((d) => {
+      if (d.id === minigrid.dealId) {
+        d.transactions.push(transaction)
+      }
+      return d
+    })
     return {
       profitBase: profitBase - comBase,
       profitQuote: profitQuote - comQuote,
@@ -1270,8 +1368,9 @@ export abstract class Strategy implements StrategyInterface {
         .filter((g) => g.side === BotOrderSideEnum.buy && g.price >= b.low)
         .sort((a, B) => B.price - a.price)
       filledBuy.forEach((o) => {
-        m.filledOrders.push({ ...o, filledTime: b.time })
-        d.filledOrders.push({ ...o, filledTime: b.time, dealId: d.id })
+        o.filledTime = b.time
+        m.filledOrders.push(o)
+        d.filledOrders.push({ ...o, dealId: d.id })
         this.updatePositionWithOrder(o)
         m.avgPrice = this.avgPrice(undefined, m)
         const profit = this.createTransaction(o, m)
@@ -1289,8 +1388,9 @@ export abstract class Strategy implements StrategyInterface {
         .filter((g) => g.side === BotOrderSideEnum.sell && g.price <= b.high)
         .sort((a, B) => a.price - B.price)
       filledSell.forEach((o) => {
-        m.filledOrders.push({ ...o, filledTime: b.time })
-        d.filledOrders.push({ ...o, filledTime: b.time, dealId: d.id })
+        o.filledTime = b.time
+        m.filledOrders.push(o)
+        d.filledOrders.push({ ...o, dealId: d.id })
         this.updatePositionWithOrder(o)
         m.avgPrice = this.avgPrice(undefined, m)
         const profit = this.createTransaction(o, m)
@@ -1639,15 +1739,13 @@ export abstract class Strategy implements StrategyInterface {
         const qty = this.long
           ? d.currentBalance.base
           : d.initialBalance.base - d.currentBalance.base
-        const quote = this.long
-          ? d.initialBalance.quote - d.currentBalance.quote
-          : d.currentBalance.quote
-        const quoteTp = qty * price
         const commission = this.long
           ? qty * this.userFee
           : qty * price * this.userFee
         const total =
-          d.profit.total + (quoteTp - quote) * (this.long ? 1 : -1) - commission
+          d.profit.total +
+          qty * (price - d.avgPrice) * (this.long ? 1 : -1) -
+          commission
         const denominator =
           (this.futures
             ? this.coinm
@@ -1670,7 +1768,7 @@ export abstract class Strategy implements StrategyInterface {
             (denominator * (slPerc / 100) -
               d.profit.total +
               commission +
-              quote * (this.long ? 1 : -1)) /
+              qty * d.avgPrice * (this.long ? 1 : -1)) /
             (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
@@ -1686,7 +1784,7 @@ export abstract class Strategy implements StrategyInterface {
             (denominator * (tpPerc / 100) -
               d.profit.total +
               commission +
-              quote * (this.long ? 1 : -1)) /
+              qty * d.avgPrice * (this.long ? 1 : -1)) /
             (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
@@ -2450,9 +2548,9 @@ export abstract class Strategy implements StrategyInterface {
     const price = quoteTp / qty
     const total =
       d.profit.total +
-      /* this.combo
-        ? qty * (this.long ? price - d.avgPrice : d.avgPrice - price)
-        : */ (this.profitBase
+      (this.combo
+        ? qty * (price - d.avgPrice)
+        : this.profitBase
         ? base - qty + (quoteTp - quote) / price
         : quoteTp - quote + (qty - base) * price) *
         (this.long ? 1 : -1) -
