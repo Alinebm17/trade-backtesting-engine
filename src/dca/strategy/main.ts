@@ -1779,7 +1779,7 @@ export abstract class Strategy implements StrategyInterface {
             (denominator * (slPerc / 100) -
               d.profit.total +
               commission +
-              qty * d.avgPrice * (this.long ? 1 : -1)) /
+              quote * (this.long ? 1 : -1)) /
             (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
@@ -1795,11 +1795,11 @@ export abstract class Strategy implements StrategyInterface {
             (denominator * (tpPerc / 100) -
               d.profit.total +
               commission +
-              qty * d.avgPrice * (this.long ? 1 : -1)) /
+              quote * (this.long ? 1 : -1)) /
             (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
-        /* if (d.startPrice === 1.355 && close) {
+        /*  if (close) {
           console.log(
             'sl',
             total,
@@ -2607,25 +2607,24 @@ export abstract class Strategy implements StrategyInterface {
       false,
       true,
     )
-    /*  if (d.startPrice === 1.355) {
-      console.log(
-        total,
-        'total',
-        perc,
-        'perc',
-        price,
-        'price',
-        d.profit.total,
-        'deal',
-        base,
-        'qty',
-        quoteTp,
-        'qtp',
-        quote,
-        'q',
-        tpOrder,
-      )
-    } */
+    /* console.log(
+      'profit',
+      total,
+      'total',
+      perc,
+      'perc',
+      price,
+      'price',
+      d.profit.total,
+      'deal',
+      base,
+      'qty',
+      quoteTp,
+      'qtp',
+      quote,
+      'q',
+      tpOrder,
+    ) */
     return {
       total: this.math.round(total, this.precision, false, true),
       totalUsd: this.math.round(totalUsd, 2),
