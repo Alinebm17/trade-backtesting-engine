@@ -1752,7 +1752,7 @@ export abstract class Strategy implements StrategyInterface {
             ? d.initialBalance.quote - d.currentBalance.quote
             : d.currentBalance.quote) + d.profit.total
         const quoteTp = qty * price
-        const commission = this.long
+        const commission = !this.long
           ? qty * this.userFee
           : qty * price * this.userFee
         const unpnl = (quoteTp - quote) * (this.long ? 1 : -1)
