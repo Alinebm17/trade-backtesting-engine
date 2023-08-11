@@ -173,6 +173,10 @@ export abstract class Strategy implements StrategyInterface {
 
   static transactionIndex = 0
 
+  static minPrice = 0
+
+  static maxPrice = 0
+
   static resetData() {
     Strategy.workingShift = []
     Strategy.maxUsage = {
@@ -207,6 +211,8 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.next = 0
     Strategy.rangeStatus = false
     Strategy.transactionIndex = 0
+    Strategy.minPrice = 0
+    Strategy.maxPrice = 0
   }
 
   static position = Strategy.emptyPositon
@@ -395,9 +401,9 @@ export abstract class Strategy implements StrategyInterface {
       const liquidationPrice = (entryPrice: number, position: PositionSide) =>
         entryPrice *
         (this.leverage > 1
-          ? (1 +
-              (1 / this.leverage) * (position === PositionSide.LONG ? -1 : 1)) *
-            (1 + this.userFee * (position === PositionSide.LONG ? -1 : 1))
+          ? 1 +
+            (1 / this.leverage) * (position === PositionSide.LONG ? -1 : 1) /* *
+              (1 + this.userFee * (position === PositionSide.LONG ? 1 : -1)) */
           : position === PositionSide.LONG
           ? this.userFee
           : 1 / this.userFee)
@@ -1880,6 +1886,7 @@ export abstract class Strategy implements StrategyInterface {
     b: Bar,
     tpOrder?: FullGrid,
     cbClose?: (price: number) => void,
+    liquidationPrice?: number,
   ) {
     let closePrice = b.close
     let profit: ReturnType<typeof this.getProfit> | undefined
@@ -1891,6 +1898,7 @@ export abstract class Strategy implements StrategyInterface {
     d.duration = d.closedTime - d.startTime
     d.splitDuration = friendlyTime(d.duration)
     d.mingrids = d.mingrids.map((m) => this.closeMinigrid(m))
+    d.liquidationPrice = liquidationPrice
     if (tpOrder) {
       const { price } = tpOrder
       closePrice = price
@@ -2058,6 +2066,12 @@ export abstract class Strategy implements StrategyInterface {
     const current = Strategy.position
     const long = current.side === PositionSide.LONG
     const price = long ? b.low : b.high
+    if (Strategy.minPrice === 0 || Strategy.minPrice > b.low) {
+      Strategy.minPrice = b.low
+    }
+    if (Strategy.maxPrice === 0 || Strategy.maxPrice < b.high) {
+      Strategy.maxPrice = b.high
+    }
     const close = long
       ? current.liquidationPrice > price
       : current.liquidationPrice < price
@@ -2065,7 +2079,7 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.deals = Strategy.deals.map((d) => {
         if (d.status === 'open') {
           const tp = this.getTP(d, current.liquidationPrice, true, false)[0]
-          return this.closeDeal(d, b, tp)
+          return this.closeDeal(d, b, tp, undefined, current.liquidationPrice)
         }
         return d
       })
@@ -2585,7 +2599,7 @@ export abstract class Strategy implements StrategyInterface {
         ? base - qty + (quoteTp - quote) / price
         : quoteTp - quote + (qty - base) * price) *
         (this.long ? 1 : -1) -
-      commission
+      (d.liquidationPrice ? 0 : commission)
 
     const totalUsd = total * usdRate
     const denominator = this.combo
@@ -2652,6 +2666,34 @@ export abstract class Strategy implements StrategyInterface {
       ? 1
       : quoteRate
     return numQuote / denQuote
+  }
+
+  private getMaxLeverage() {
+    if (!this.futures) {
+      return
+    }
+    const startPrice = this.long ? Strategy.maxPrice : Strategy.minPrice
+    const extremum = this.long ? Strategy.minPrice : Strategy.maxPrice
+    const dealOrders = this.botFunctions.createOrders(
+      startPrice,
+      true,
+      undefined,
+      undefined,
+      this.balances,
+    )
+    const regular = dealOrders
+      .filter(
+        (d) =>
+          d.type === DCAOrderTypeEnum.bo || d.type === DCAOrderTypeEnum.dca,
+      )
+      .filter((o) => (this.long ? o.price > extremum : o.price < extremum))
+    if (regular.length) {
+      const avgPrice = regular[regular.length - 1]?.avgPrice || 0
+      const maxLeverage = this.long
+        ? 1 / (1 - extremum / avgPrice)
+        : 1 / (extremum / avgPrice - 1)
+      return Math.max(this.math.round(maxLeverage, 0, true), 1)
+    }
   }
 
   public returnResult(
@@ -2933,6 +2975,7 @@ export abstract class Strategy implements StrategyInterface {
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
         .map((d, ind) => ({ ...d, number: ind + 1 })),
+      maxLeverage: this.getMaxLeverage(),
       financial: {
         netProfitTotal: totalProfit,
         netProfitTotalUsd: totalProfitUsd,

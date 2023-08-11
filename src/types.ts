@@ -607,6 +607,7 @@ export type Deal = {
   number?: number
   avgPrice: number
   startPrice: number
+  liquidationPrice?: number
   closePrice?: number
   currentBalance: Balance
   initialBalance: Balance
@@ -661,6 +662,7 @@ export type DCABacktestingResult = {
   // pair: string
   deals: Deal[]
   noData?: boolean
+  maxLeverage?: number
   financial: {
     netProfitTotal: number
     netProfitTotalUsd: number
