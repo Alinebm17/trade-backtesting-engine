@@ -84,6 +84,16 @@ export enum ExchangeIntervals {
   oneW = '1w',
 }
 
+export type TradeResponse = {
+  aggId: string
+  symbol: string
+  price: string
+  quantity: string
+  firstId: number
+  lastId: number
+  timestamp: number
+}
+
 export const timeIntervalMap = {
   [ExchangeIntervals.oneM]: 60 * 1000,
   [ExchangeIntervals.threeM]: 3 * 60 * 1000,
@@ -649,6 +659,7 @@ export type BacktestingInput<T> = {
   prices: Prices
   settings: T
   combo?: boolean
+  trades?: boolean
 }
 
 export type LoadDataFn = (

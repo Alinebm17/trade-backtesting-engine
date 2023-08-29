@@ -21,6 +21,7 @@ import type {
   IndicatorConfigBackTesting,
   MAResult,
   SettingsIndicators,
+  TradeResponse,
 } from '../../../types'
 import type { StrategyInput, Bar } from '../main'
 
@@ -193,13 +194,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
     const [lowest] = data
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
-    lowest.bar.forEach((b, i) => this.processBar(b, lowest.bar[i + 1]))
+    lowest.bar.forEach((b) => this.processBar(b))
   }
 
-  private checkStatuses(bar: Bar) {
+  private checkStatuses(time: number) {
     Strategy.indicators = Strategy.indicators.map((i) => {
       const findStatus = i.statuses.find(
-        (s) => bar.time >= s.statusSince && bar.time < s.statusTo,
+        (s) => time >= s.statusSince && time < s.statusTo,
       )
       if (findStatus) {
         i.statuses = i.statuses.filter(
@@ -214,11 +215,53 @@ class TIStrategy extends Strategy implements StrategyInterface {
     })
   }
 
-  public processBar(bar: Bar, _nextBar: Bar): void {
+  public processTrade(
+    trade: TradeResponse,
+    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+  ): void {
+    if (Strategy.workingShift.length === 0) {
+      this.startWorkingShift(trade.timestamp)
+    }
+    this.checkStatuses(trade.timestamp)
+    this.checkInRange(+trade.price, trade.timestamp)
+    if (candles.length) {
+      candles.forEach((c) => {
+        if (!c.candle) {
+          return
+        }
+        const indicator = Strategy.indicators.find(
+          (i) => i.interval === c.interval,
+        )
+        if (indicator) {
+          indicator.instance.updateValue(
+            {
+              o: c.candle.open,
+              h: c.candle.high,
+              l: c.candle.low,
+              c: c.candle.close,
+              v: c.candle.volume ?? 0,
+            },
+            c.candle.time,
+            this.updateIndicatorData(indicator),
+          )
+        }
+        this.checkIndicators(c.candle)
+      })
+    }
+    this.checkDeals({
+      open: +trade.price,
+      high: +trade.price,
+      low: +trade.price,
+      close: +trade.price,
+      time: trade.timestamp,
+    })
+  }
+
+  public processBar(bar: Bar): void {
     if (Strategy.workingShift.length === 0) {
       this.startWorkingShift(bar.time)
     }
-    this.checkStatuses(bar)
+    this.checkStatuses(bar.time)
     this.checkInRange(bar.close, bar.time)
     const lowestIndicators = Strategy.indicators.filter(
       (i) => i.interval === Strategy.lowestInterval,

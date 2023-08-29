@@ -2,7 +2,7 @@ import { Strategy, StrategyInterface } from './main'
 
 import type { StrategyInput, Bar } from './main'
 
-import type { ExchangeIntervals } from '../../types'
+import type { ExchangeIntervals, TradeResponse } from '../../types'
 
 import { timeIntervalMap } from '../../types'
 
@@ -31,6 +31,22 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
   public processBar(b: Bar, nextBar: Bar): void {
     for (const s of this.strategies) {
       s.processBar(b, nextBar)
+    }
+  }
+
+  public passTradeCandleData(
+    trade: TradeResponse,
+    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+  ) {
+    this.processTrade(trade, candles)
+  }
+
+  public processTrade(
+    trade: TradeResponse,
+    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+  ): void {
+    for (const s of this.strategies) {
+      s.processTrade(trade, candles)
     }
   }
 

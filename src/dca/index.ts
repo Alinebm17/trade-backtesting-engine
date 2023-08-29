@@ -6,7 +6,7 @@ import getStrategyBySettings, { StrategyInterface } from './strategy'
 
 import CombinedStrategy from './strategy/combined'
 
-import type { DCABacktestingInput } from '../types'
+import type { DCABacktestingInput, TradeResponse } from '../types'
 
 class DCABacktesting extends Backtesting {
   private strategy?: StrategyInterface
@@ -20,6 +20,7 @@ class DCABacktesting extends Backtesting {
     balances,
     slippage,
     combo,
+    trades,
     ...rest
   }: DCABacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
@@ -30,6 +31,7 @@ class DCABacktesting extends Backtesting {
       userFee,
       prices,
       settings,
+      trades,
     })
     const strategy = getStrategyBySettings(settings)
     if (strategy) {
@@ -43,6 +45,7 @@ class DCABacktesting extends Backtesting {
           balances,
           slippage,
           combo,
+          trades,
         },
         ...strategy,
       )
@@ -61,6 +64,9 @@ class DCABacktesting extends Backtesting {
     )
     this.interval = lowestInterval
     this.period = this.calculatePeriod(lowestInterval)
+    if (this.trades) {
+      return
+    }
     let testData: { bar: Bar[]; interval: ExchangeIntervals }[] = []
     if (bars) {
       testData = bars
@@ -90,6 +96,21 @@ class DCABacktesting extends Backtesting {
       loadingTime,
       processingTime,
     )
+  }
+
+  public returnResult(firstData: Bar, lastData: Bar) {
+    if (this.strategy) {
+      return this.strategy.returnResult(firstData, lastData, 0, 0)
+    }
+  }
+
+  public passTradeCandleData(
+    trade: TradeResponse,
+    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+  ) {
+    if (this.strategy?.passTradeCandleData) {
+      this.strategy.passTradeCandleData(trade, candles)
+    }
   }
 
   public getTestingPeriod() {

@@ -32,12 +32,15 @@ class Backtesting {
 
   private loadFn?: LoadDataFn
 
+  public trades?: boolean
+
   constructor({
     exchange,
     symbol,
     interval,
     from,
     to,
+    trades,
   }: BacktestingInput<unknown>) {
     this.exchange = exchange
     this.interval = interval ?? ExchangeIntervals.fiveM
@@ -45,6 +48,7 @@ class Backtesting {
     this.from = from
     this.to = to
     this.period = this.calculatePeriod(this.interval)
+    this.trades = trades
   }
 
   public calculatePeriod(

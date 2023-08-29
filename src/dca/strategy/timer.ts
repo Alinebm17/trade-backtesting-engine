@@ -2,6 +2,8 @@ import { Strategy, StrategyInterface } from './main'
 
 import type { StrategyInput, Bar } from './main'
 
+import type { TradeResponse } from '../../types'
+
 class TimerStrategy extends Strategy implements StrategyInterface {
   constructor(input: StrategyInput) {
     super(input)
@@ -19,6 +21,34 @@ class TimerStrategy extends Strategy implements StrategyInterface {
       Strategy.next = tempDate.getTime()
     }
     Strategy.data[0].bar.forEach((b) => this.processBar(b))
+  }
+
+  public processTrade(trade: TradeResponse): void {
+    if (Strategy.workingShift.length === 0) {
+      this.startWorkingShift(trade.timestamp)
+      const firstTime = trade.timestamp
+      Strategy.next = new Date(
+        `${new Date(firstTime).toDateString()} ${this.settings.hodlAt}`,
+      ).getTime()
+      if (Strategy.next < firstTime) {
+        const tempDate = new Date(Strategy.next)
+        tempDate.setDate(tempDate.getDate() + 1)
+        Strategy.next = tempDate.getTime()
+      }
+    }
+    if (trade.timestamp === Strategy.next) {
+      this.openDeal(+trade.price, trade.timestamp, +trade.price, +trade.price)
+      const date = new Date(Strategy.next)
+      date.setDate(date.getDate() + +this.settings.hodlDay)
+      Strategy.next = date.getTime()
+    }
+    this.checkDeals({
+      open: +trade.price,
+      high: +trade.price,
+      low: +trade.price,
+      close: +trade.price,
+      time: trade.timestamp,
+    })
   }
 
   public processBar(bar: Bar): void {

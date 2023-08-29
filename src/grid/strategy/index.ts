@@ -31,6 +31,7 @@ export type GRIDStrategyInput = {
   userFee: number
   prices: Prices
   interval?: ExchangeIntervals
+  trades?: boolean
 }
 
 export interface StrategyInterface {

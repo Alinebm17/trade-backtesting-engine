@@ -32,6 +32,7 @@ import type {
   Asset,
   Bar as BarTV,
   Minigrid,
+  TradeResponse,
 } from '../../types'
 
 export type Bar = BarTV
@@ -45,6 +46,7 @@ export type StrategyInput = {
   balances?: Asset[] | null
   slippage?: number
   combo?: boolean
+  trades?: boolean
 }
 
 export type DataType = {
@@ -58,6 +60,14 @@ export interface StrategyInterface {
   test(): void
   startWorkingShift(start: number): void
   processBar(bar: Bar, nextBar?: Bar): void
+  processTrade(
+    trade: TradeResponse,
+    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+  ): void
+  passTradeCandleData?: (
+    trade: TradeResponse,
+    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+  ) => void
   openDeal(price: number, startTime: number, high: number, low: number): void
   checkDeals(b: Bar, cbClose?: (price: number) => void): void
   checkInRange(price: number, time: number): boolean
@@ -213,6 +223,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.transactionIndex = 0
     Strategy.minPrice = 0
     Strategy.maxPrice = 0
+    Strategy.trades = false
   }
 
   static position = Strategy.emptyPositon
@@ -220,6 +231,8 @@ export abstract class Strategy implements StrategyInterface {
   private combo = false
 
   private usedOrderId: Set<string> = new Set()
+
+  static trades?: boolean
 
   constructor(input: StrategyInput) {
     const {
@@ -231,7 +244,9 @@ export abstract class Strategy implements StrategyInterface {
       balances,
       slippage,
       combo,
+      trades,
     } = input
+    Strategy.trades = trades
     this.combo = !!combo
     this.settings = settings
     this.botFunctions = this.combo
@@ -285,6 +300,11 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   public abstract processBar(bar: Bar, nextBar?: Bar): void
+
+  public abstract processTrade(
+    trade: TradeResponse,
+    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+  ): void
 
   public checkInRange(price: number, time: number) {
     const { maxOpenDeal, minOpenDeal } = this.settings
