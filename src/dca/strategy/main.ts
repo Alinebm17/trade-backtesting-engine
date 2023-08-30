@@ -1632,7 +1632,8 @@ export abstract class Strategy implements StrategyInterface {
                 (oh) =>
                   (oh.type === DCAOrderTypeEnum.dca ||
                     oh.type === DCAOrderTypeEnum.bo ||
-                    oh.type === DCAOrderTypeEnum.tp) &&
+                    oh.type === DCAOrderTypeEnum.tp ||
+                    oh.type === DCAOrderTypeEnum.grid) &&
                   !oh.filledTime &&
                   g.price === oh.price &&
                   g.side === oh.side &&
