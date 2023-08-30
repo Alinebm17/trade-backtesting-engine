@@ -5,16 +5,22 @@ import type {
   PivotResult,
 } from '../indicators/src'
 
-export enum IndicatorsEnum {
+export enum IndicatorEnum {
   rsi = 'RSI',
   adx = 'ADX',
   bbw = 'BBW',
+  bb = 'BB',
   macd = 'MACD',
+  stoch = 'Stoch',
+  cci = 'CCI',
+  ao = 'AO',
+  stochRSI = 'StochRSI',
+  wr = 'WR',
+  bullBear = 'BullBear',
+  uo = 'UO',
+  ic = 'IC',
   tv = 'TV',
   ma = 'MA',
-  bb = 'BB',
-  stoch = 'Stoch',
-  stochRSI = 'StochRSI',
   sr = 'SR',
   qfl = 'QFL',
   mfi = 'MFI',
@@ -132,61 +138,61 @@ export type MAResult = {
 
 export type IndicatorConfigBackTesting =
   | {
-      type: IndicatorsEnum.tv
+      type: IndicatorEnum.tv
       checkLevel?: number
       useAsEntryExitPoints?: boolean
     }
   | {
-      type: IndicatorsEnum.rsi | IndicatorsEnum.adx | IndicatorsEnum.mfi
+      type: IndicatorEnum.rsi | IndicatorEnum.adx | IndicatorEnum.mfi
       interval: number
     }
   | {
-      type: IndicatorsEnum.bbw
+      type: IndicatorEnum.bbw
       interval: number
       deviationMultiplier?: number
     }
   | {
-      type: IndicatorsEnum.bb
+      type: IndicatorEnum.bb
       interval: number
     }
   | {
-      type: IndicatorsEnum.macd
+      type: IndicatorEnum.macd
       longInterval: number
       shortInterval: number
       signalInterval: number
     }
   | {
-      type: IndicatorsEnum.ma
+      type: IndicatorEnum.ma
       maType: MAEnum
       interval: number
     }
   | {
-      type: IndicatorsEnum.stoch
+      type: IndicatorEnum.stoch
       length: number
       smoothK: number
       smoothD: number
     }
   | {
-      type: IndicatorsEnum.stochRSI
+      type: IndicatorEnum.stochRSI
       length: number
       rsiLength: number
       smoothK: number
       smoothD: number
     }
   | {
-      type: IndicatorsEnum.sr
+      type: IndicatorEnum.sr
       leftBars: number
       rightBars: number
     }
   | {
-      type: IndicatorsEnum.qfl
+      type: IndicatorEnum.qfl
       basePeriods: number
       pumpPeriods: number
       pump: number
       baseCrack: number
     }
   | {
-      type: IndicatorsEnum.psar
+      type: IndicatorEnum.psar
       start: number
       inc: number
       max: number
@@ -195,39 +201,39 @@ export type IndicatorConfigBackTesting =
 export type IndicatorHistory = { time: number } & (
   | {
       type:
-        | IndicatorsEnum.rsi
-        | IndicatorsEnum.adx
-        | IndicatorsEnum.bbw
-        | IndicatorsEnum.mfi
+        | IndicatorEnum.rsi
+        | IndicatorEnum.adx
+        | IndicatorEnum.bbw
+        | IndicatorEnum.mfi
       value: number
     }
   | {
-      type: IndicatorsEnum.macd
+      type: IndicatorEnum.macd
       value: FasterMACDResult
     }
   | {
-      type: IndicatorsEnum.ma
+      type: IndicatorEnum.ma
       value: MAResult
     }
-  | { type: IndicatorsEnum.tv; value: number }
+  | { type: IndicatorEnum.tv; value: number }
   | {
-      type: IndicatorsEnum.bb
+      type: IndicatorEnum.bb
       value: { result: FasterBandsResult; price: number }
     }
   | {
-      type: IndicatorsEnum.stoch | IndicatorsEnum.stochRSI
+      type: IndicatorEnum.stoch | IndicatorEnum.stochRSI
       value: FasterStochasticResult
     }
   | {
-      type: IndicatorsEnum.sr
+      type: IndicatorEnum.sr
       value: PivotResult
     }
-  | { type: IndicatorsEnum.qfl; value: boolean }
-  | { type: IndicatorsEnum.psar; value: { psar: number; price: number } }
+  | { type: IndicatorEnum.qfl; value: boolean }
+  | { type: IndicatorEnum.psar; value: { psar: number; price: number } }
 )
 
 export type SettingsIndicators = {
-  type: IndicatorsEnum
+  type: IndicatorEnum
   indicatorLength: number
   indicatorValue: string
   indicatorCondition: IndicatorStartConditionEnum
@@ -334,8 +340,8 @@ export interface DCABotSettings extends BaseSettings {
   slPerc: string
   orderSize: string
   step: string
-  ordersCount: string
-  activeOrdersCount: string
+  ordersCount: string | number
+  activeOrdersCount: string | number
   volumeScale: string
   stepScale: string
   useTp: boolean
@@ -768,17 +774,17 @@ export enum FuturesStrategyEnum {
 export type Settings = {
   pair: string
   name: string
-  topPrice: string
-  lowPrice: string
-  levels: string
-  gridStep: string
-  budget: string
-  ordersInAdvance?: string
+  topPrice: string | number
+  lowPrice: string | number
+  levels: string | number
+  gridStep: string | number
+  budget: string | number
+  ordersInAdvance?: string | number
   useOrderInAdvance: boolean
   prioritize: 'gridStep' | 'level'
   profitCurrency: Currency
   orderFixedIn: Currency
-  sellDisplacement: string
+  sellDisplacement: string | number
   gridType: GridType
   tpSl?: boolean
   tpSlCondition?: TpSlCondition
@@ -786,10 +792,10 @@ export type Settings = {
   sl?: boolean
   slCondition?: TpSlCondition
   slAction?: TpSlAction
-  tpPerc?: string
-  slPerc?: string
-  tpTopPrice?: string
-  slLowPrice?: string
+  tpPerc?: string | number
+  slPerc?: string | number
+  tpTopPrice?: string | number
+  slLowPrice?: string | number
   updatedBudget?: boolean
   startPrice?: string
   useStartPrice?: boolean

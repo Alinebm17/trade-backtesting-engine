@@ -1,7 +1,7 @@
 import { Strategy, StrategyInterface } from '../main'
 import InternalIndicator from './indicatorLoader'
 import {
-  IndicatorsEnum,
+  IndicatorEnum,
   TradingviewAnalysisConditionEnum,
   MAEnum,
   TradingviewAnalysisSignalEnum,
@@ -67,34 +67,34 @@ class TIStrategy extends Strategy implements StrategyInterface {
         psarStart,
       } = i
       const ind = new InternalIndicator(
-        type === IndicatorsEnum.macd
+        type === IndicatorEnum.macd
           ? {
               type,
               shortInterval: 12,
               longInterval: 26,
               signalInterval: indicatorLength,
             }
-          : type === IndicatorsEnum.tv
+          : type === IndicatorEnum.tv
           ? {
               type,
               checkLevel,
               useAsEntryExitPoints:
                 condition === TradingviewAnalysisConditionEnum.entry,
             }
-          : type === IndicatorsEnum.ma
+          : type === IndicatorEnum.ma
           ? {
               type,
               interval: indicatorLength,
               maType: maType || MAEnum.ema,
             }
-          : type === IndicatorsEnum.stoch
+          : type === IndicatorEnum.stoch
           ? {
               type,
               length: indicatorLength,
               smoothD: stochSmoothD ?? 1,
               smoothK: stochSmoothK ?? 3,
             }
-          : type === IndicatorsEnum.stochRSI
+          : type === IndicatorEnum.stochRSI
           ? {
               type,
               length: indicatorLength,
@@ -102,18 +102,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
               smoothK: stochSmoothK ?? 3,
               rsiLength: stochRSI ?? 14,
             }
-          : type === IndicatorsEnum.sr
+          : type === IndicatorEnum.sr
           ? {
               type,
               leftBars: leftBars ?? 15,
               rightBars: rightBars ?? 15,
             }
-          : type === IndicatorsEnum.mfi
+          : type === IndicatorEnum.mfi
           ? {
               type,
               interval: indicatorLength ?? 14,
             }
-          : type === IndicatorsEnum.qfl
+          : type === IndicatorEnum.qfl
           ? {
               type,
               basePeriods: basePeriods ?? 36,
@@ -121,7 +121,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               pump: (pump ?? 3) / 100,
               baseCrack: (baseCrack ?? 3) / 100,
             }
-          : type === IndicatorsEnum.psar
+          : type === IndicatorEnum.psar
           ? {
               type,
               max: psarMax ?? 0.2,
@@ -143,7 +143,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         status: false,
       })
       if (
-        type === IndicatorsEnum.ma &&
+        type === IndicatorEnum.ma &&
         maCrossingValue !== MAEnum.price &&
         maCrossingInterval &&
         maCrossingLength &&
@@ -176,7 +176,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       .flatMap((i) => {
         const int = [i.settings.indicatorInterval]
         if (
-          i.settings.type === IndicatorsEnum.ma &&
+          i.settings.type === IndicatorEnum.ma &&
           i.settings.maCrossingValue !== MAEnum.price &&
           i.settings.maCrossingInterval
         ) {
@@ -364,10 +364,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
           },
           data,
         } = i
-        if (type === IndicatorsEnum.qfl) {
+        if (type === IndicatorEnum.qfl) {
           const [lastData] = [...data].sort((a, b) => b.time - a.time)
           action = lastData.value as boolean
-        } else if (type === IndicatorsEnum.tv && checkLevel && signal) {
+        } else if (type === IndicatorEnum.tv && checkLevel && signal) {
           /**
            * TradingViews Technical Analysis
            *
@@ -415,7 +415,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             action = true
           }
         } else if (
-          (indicatorValue !== undefined || type === IndicatorsEnum.ma) &&
+          (indicatorValue !== undefined || type === IndicatorEnum.ma) &&
           indicatorCondition
         ) {
           let value = indicatorValue !== undefined ? +indicatorValue : 0
@@ -425,28 +425,28 @@ class TIStrategy extends Strategy implements StrategyInterface {
           let prev = 0
           let checkValue = false
           if (
-            (lastData.type === IndicatorsEnum.rsi ||
-              lastData.type === IndicatorsEnum.mfi ||
-              lastData.type === IndicatorsEnum.adx ||
-              lastData.type === IndicatorsEnum.bbw) &&
-            (prevData.type === IndicatorsEnum.rsi ||
-              prevData.type === IndicatorsEnum.mfi ||
-              prevData.type === IndicatorsEnum.adx ||
-              prevData.type === IndicatorsEnum.bbw)
+            (lastData.type === IndicatorEnum.rsi ||
+              lastData.type === IndicatorEnum.mfi ||
+              lastData.type === IndicatorEnum.adx ||
+              lastData.type === IndicatorEnum.bbw) &&
+            (prevData.type === IndicatorEnum.rsi ||
+              prevData.type === IndicatorEnum.mfi ||
+              prevData.type === IndicatorEnum.adx ||
+              prevData.type === IndicatorEnum.bbw)
           ) {
             last = lastData.value
             prev = prevData.value
           }
           if (
-            lastData.type === IndicatorsEnum.macd &&
-            prevData.type === IndicatorsEnum.macd
+            lastData.type === IndicatorEnum.macd &&
+            prevData.type === IndicatorEnum.macd
           ) {
             last = lastData.value.histogram
             prev = prevData.value.histogram
           }
           if (
-            lastData.type === IndicatorsEnum.ma &&
-            prevData.type === IndicatorsEnum.ma
+            lastData.type === IndicatorEnum.ma &&
+            prevData.type === IndicatorEnum.ma
           ) {
             last = lastData.value.ma
             prev = prevData.value.ma
@@ -477,8 +477,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
             }
           }
           if (
-            lastData.type === IndicatorsEnum.psar &&
-            prevData.type === IndicatorsEnum.psar
+            lastData.type === IndicatorEnum.psar &&
+            prevData.type === IndicatorEnum.psar
           ) {
             last = lastData.value.price
             prev = prevData.value.price
@@ -486,8 +486,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
             prevValue = prevData.value.psar
           }
           if (
-            lastData.type === IndicatorsEnum.bb &&
-            prevData.type === IndicatorsEnum.bb
+            lastData.type === IndicatorEnum.bb &&
+            prevData.type === IndicatorEnum.bb
           ) {
             last = lastData.value.price
             prev = prevData.value.price
@@ -505,8 +505,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : prevData.value.result.upper
           }
           if (
-            lastData.type === IndicatorsEnum.sr &&
-            prevData.type === IndicatorsEnum.sr
+            lastData.type === IndicatorEnum.sr &&
+            prevData.type === IndicatorEnum.sr
           ) {
             last = lastData.value.price
             prev = prevData.value.price
@@ -520,8 +520,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : lastData.value.low
           }
           if (
-            lastData.type === IndicatorsEnum.bb &&
-            prevData.type === IndicatorsEnum.bb
+            lastData.type === IndicatorEnum.bb &&
+            prevData.type === IndicatorEnum.bb
           ) {
             last = lastData.value.price
             prev = prevData.value.price
@@ -539,10 +539,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : prevData.value.result.upper
           }
           if (
-            (lastData.type === IndicatorsEnum.stoch &&
-              prevData.type === IndicatorsEnum.stoch) ||
-            (lastData.type === IndicatorsEnum.stochRSI &&
-              prevData.type === IndicatorsEnum.stochRSI)
+            (lastData.type === IndicatorEnum.stoch &&
+              prevData.type === IndicatorEnum.stoch) ||
+            (lastData.type === IndicatorEnum.stochRSI &&
+              prevData.type === IndicatorEnum.stochRSI)
           ) {
             if (rsiValue === rsiValueEnum.k) {
               last = lastData.value.stochK
@@ -589,10 +589,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
             action = this.math.lt(last, value)
           }
           if (
-            ((lastData.type === IndicatorsEnum.stoch &&
-              prevData.type === IndicatorsEnum.stoch) ||
-              (lastData.type === IndicatorsEnum.stochRSI &&
-                prevData.type === IndicatorsEnum.stochRSI)) &&
+            ((lastData.type === IndicatorEnum.stoch &&
+              prevData.type === IndicatorEnum.stoch) ||
+              (lastData.type === IndicatorEnum.stochRSI &&
+                prevData.type === IndicatorEnum.stochRSI)) &&
             action &&
             checkValue
           ) {
@@ -625,7 +625,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
       )
       const lowest = data[data.length - 1]
-      const lowestBar = lowest.bar.find((l) => l.time === nextBar.time)
+      const lowestBar = lowest?.bar?.find((l) => l.time === nextBar.time)
       const closeDealSl = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.closeDeal &&

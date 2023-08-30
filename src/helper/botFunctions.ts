@@ -79,7 +79,7 @@ class BotFunctions {
       const ordersInAdvance =
         n ||
         (this.settings.ordersInAdvance
-          ? parseInt(this.settings.ordersInAdvance)
+          ? parseInt(`${this.settings.ordersInAdvance}`)
           : 0)
       const maxNumber =
         ordersInAdvance > copyArray.length ? copyArray.length : ordersInAdvance
@@ -142,15 +142,15 @@ class BotFunctions {
       settings: { lowPrice, topPrice, levels, sellDisplacement, gridType },
       symbol,
     } = this
-    const low = parseFloat(lowPrice)
-    const top = parseFloat(topPrice)
-    const newGS = (top / low) ** (1 / parseFloat(levels)) - 1
+    const low = parseFloat(`${lowPrice}`)
+    const top = parseFloat(`${topPrice}`)
+    const newGS = (top / low) ** (1 / parseFloat(`${levels}`)) - 1
     const prices: { buy: number; sell: number }[] = []
-    let sellD = parseFloat(sellDisplacement)
+    let sellD = parseFloat(`${sellDisplacement}`)
     sellD = isNaN(sellD) ? 0 : sellD / 100
     if (gridType === 'arithmetic') {
-      const step = (top - low) / parseFloat(levels)
-      for (let i = 0; i <= parseFloat(levels); i++) {
+      const step = (top - low) / parseFloat(`${levels}`)
+      for (let i = 0; i <= parseFloat(`${levels}`); i++) {
         const p = this.math.round(low + step * i, symbol.priceAssetPrecision)
         prices.push({
           buy: this.math.round(p, symbol.priceAssetPrecision),
@@ -336,7 +336,7 @@ class BotFunctions {
         (b, a) =>
           (b.updateTime || b.transactTime) - (a.updateTime || a.transactTime),
       )
-    const top = parseFloat(this.settings.topPrice)
+    const top = parseFloat(`${this.settings.topPrice}`)
     const prices = this.getPrices()
     prices[prices.length - 1].buy = this.math.round(
       top,
@@ -460,7 +460,7 @@ class BotFunctions {
     profBase = this.math.round(profBase, 8)
     profQuote = this.math.round(profQuote, 8)
     totalProfit = this.math.round(
-      (profQuote / parseFloat(this.settings.budget)) * 100,
+      (profQuote / parseFloat(`${this.settings.budget}`)) * 100,
       1,
     )
     return {

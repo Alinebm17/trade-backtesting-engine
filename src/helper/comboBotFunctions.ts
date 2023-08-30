@@ -312,7 +312,7 @@ class ComboBotFunctions extends DcaBotFunctions {
     )
     console.log('-----------------------') */
     if (settings.useDca) {
-      for (let i = 1; i <= parseInt(settings.ordersCount); i++) {
+      for (let i = 1; i <= parseInt(`${settings.ordersCount}`); i++) {
         const stepVal = stepScale ** (i - 1)
         const volumeVal = volumeScale ** (i - 1)
         let price = this.math.round(
@@ -594,7 +594,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                 ? b.price - a.price
                 : a.price - b.price,
             )
-            .slice(0, parseInt(activeOrdersCount)),
+            .slice(0, parseInt(`${activeOrdersCount}`)),
         ]
       }
     }
