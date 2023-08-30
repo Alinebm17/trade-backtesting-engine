@@ -21,6 +21,7 @@ import type {
   BacktestingTransaction,
   Precision,
   Bar as BarTV,
+  TradeResponse,
 } from '../../types'
 
 export type Bar = BarTV
@@ -39,6 +40,10 @@ export interface StrategyInterface {
   test(): void
   startWorkingShift(start: number): void
   processBar(bar: Bar): void
+  passTradeCandleData?: (
+    trade: TradeResponse,
+    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+  ) => void
   checkInRange(price: number, time: number): boolean
   returnResult(
     firstData: Bar,
@@ -202,6 +207,23 @@ export class Strategy implements StrategyInterface {
       }
       this.processBar(d)
     }
+  }
+
+  public passTradeCandleData(trade: TradeResponse) {
+    if (this.botClosed) {
+      return
+    }
+    const bar: Bar = {
+      open: +trade.price,
+      high: +trade.price,
+      low: +trade.price,
+      close: +trade.price,
+      time: trade.timestamp,
+    }
+    this.openPosition(bar)
+    this.checkPosition(bar)
+
+    this.processBar(bar)
   }
 
   private openPosition(d: BarTV) {

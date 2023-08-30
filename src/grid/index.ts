@@ -4,7 +4,7 @@ import { Bar, ExchangeIntervals } from '../types'
 
 import { Strategy, StrategyInterface } from './strategy'
 
-import type { GRIDBacktestingInput } from '../types'
+import type { GRIDBacktestingInput, TradeResponse } from '../types'
 
 class DCABacktesting extends Backtesting {
   private strategy: StrategyInterface
@@ -46,6 +46,9 @@ class DCABacktesting extends Backtesting {
     const startLoading = new Date().getTime()
     const data = _data || (await this._loadData())
     const loadingTime = (new Date().getTime() - startLoading) / 1000
+    if (this.trades) {
+      return
+    }
     const start = new Date().getTime()
     this.strategy.loadData(data)
     this.strategy.test()
@@ -56,6 +59,21 @@ class DCABacktesting extends Backtesting {
       loadingTime,
       processingTime,
     )
+  }
+
+  public passTradeCandleData(
+    trade: TradeResponse,
+    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+  ) {
+    if (this.strategy?.passTradeCandleData) {
+      this.strategy.passTradeCandleData(trade, candles)
+    }
+  }
+
+  public returnResult(firstData: Bar, lastData: Bar) {
+    if (this.strategy) {
+      return this.strategy.returnResult(firstData, lastData, 0, 0)
+    }
   }
 
   public getTestingPeriod() {
