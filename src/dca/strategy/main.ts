@@ -1756,7 +1756,7 @@ export abstract class Strategy implements StrategyInterface {
       const sl = d.slPerc
       const diff = this.long ? b.low - d.avgPrice : d.avgPrice - b.high
 
-      if (diff / d.avgPrice <= sl) {
+      if (diff / d.avgPrice - this.userFee * 2 <= sl) {
         close = true
         closePrice = d.avgPrice * (this.long ? 1 - -sl : 1 + -sl)
       }
@@ -1868,6 +1868,9 @@ export abstract class Strategy implements StrategyInterface {
           ? min
           : min
       this.updatePositionWithOrder(slOrder)
+      if (close) {
+        console.log('close sl', slOrder.price, 'sl price')
+      }
       return { deal: d, order: slOrder }
     }
     return { deal: d }
@@ -2299,13 +2302,21 @@ export abstract class Strategy implements StrategyInterface {
         d.currentBalance.base * b.high +
         d.currentBalance.quote -
         d.initialBalance.quote
-      usage = d.usage.current.quote
+      usage = this.futures
+        ? this.coinm
+          ? d.usage.current.quote / b.high
+          : d.usage.current.quote
+        : d.usage.current.quote
     }
     if (!this.long) {
       unPnL =
         d.currentBalance.quote -
         (d.initialBalance.base - d.currentBalance.base) * b.low
-      usage = d.usage.current.base * b.low
+      usage = this.futures
+        ? this.coinm
+          ? d.usage.current.base * b.low
+          : d.usage.current.quote
+        : d.usage.current.base * b.low
     }
     if (
       this.settings.moveSL &&
@@ -2315,7 +2326,7 @@ export abstract class Strategy implements StrategyInterface {
     ) {
       const trigger = +this.settings.moveSLTrigger / 100
       const value = +this.settings.moveSLValue / 100
-      if (unPnL / usage >= trigger) {
+      if (unPnL / usage - this.userFee * 2 >= trigger) {
         d.changed = true
         d.slPerc = value
         const slOrder = this.getSlHistoryLine(d, b.time)
@@ -2996,7 +3007,9 @@ export abstract class Strategy implements StrategyInterface {
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
         .map((d, ind) => ({ ...d, number: ind + 1 })),
-      maxLeverage: this.getMaxLeverage(),
+      maxLeverage: Strategy.deals.filter((d) => !!d.liquidationPrice).length
+        ? this.getMaxLeverage()
+        : 0,
       financial: {
         netProfitTotal: totalProfit,
         netProfitTotalUsd: totalProfitUsd,
