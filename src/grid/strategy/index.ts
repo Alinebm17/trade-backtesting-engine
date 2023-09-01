@@ -17,11 +17,11 @@ import type {
   Symbols,
   GridBacktestingResult,
   Prices,
-  Grid,
   BacktestingTransaction,
   Precision,
   Bar as BarTV,
   TradeResponse,
+  FullGrid,
 } from '../../types'
 
 export type Bar = BarTV
@@ -53,8 +53,6 @@ export interface StrategyInterface {
   ): GridBacktestingResult
 }
 
-type GridWithTime = Grid & { updateTime: number }
-
 /**
  * Enum for tpsl function
  * @enum {none|sl|tp}
@@ -64,6 +62,8 @@ enum TpSlReturn {
   sl = 'sl',
   tp = 'tp',
 }
+
+type FullGridWithTime = FullGrid & { filledTime: number }
 
 export class Strategy implements StrategyInterface {
   protected readonly settings: Settings
@@ -102,15 +102,15 @@ export class Strategy implements StrategyInterface {
 
   protected data: BarTV[] = []
 
-  private grids: Grid[] = []
+  private grids: FullGrid[] = []
 
-  private smartGrids: Grid[] = []
+  private smartGrids: FullGrid[] = []
 
   private initialGrids: { buy: number; sell: number }[] = []
 
   private usedOrderId: Set<string> = new Set()
 
-  private filledOrders: GridWithTime[] = []
+  private filledOrders: FullGridWithTime[] = []
 
   private initialBalancesByAsset = {
     base: 0,
@@ -322,7 +322,7 @@ export class Strategy implements StrategyInterface {
     return this.settings.strategy === StrategyEnum.short
   }
 
-  private createTransaction(order: GridWithTime) {
+  private createTransaction(order: FullGridWithTime) {
     this.filledOrders.push(order)
     const prices = this.initialGrids
     prices[prices.length - 1].buy = this.math.round(
@@ -333,7 +333,7 @@ export class Strategy implements StrategyInterface {
     this.botFunctions.lastPrice = +this.settings.topPrice * 2
     const grids = [...this.botFunctions.createOrders(true, true)]
     this.botFunctions.lastPrice = botFunctionsPrice
-    const { qty, price, side, id, updateTime } = order
+    const { qty, price, side, id, filledTime } = order
     let comBase = side === BotOrderSideEnum.buy ? qty * (this.userFee ?? 0) : 0
     let comQuote =
       side === BotOrderSideEnum.sell ? qty * price * (this.userFee ?? 0) : 0
@@ -370,7 +370,7 @@ export class Strategy implements StrategyInterface {
               ? prices[index - 1]?.buy || 0
               : prices[index + 1]?.sell || 0) &&
           g.side !== side &&
-          g.updateTime < updateTime &&
+          g.filledTime < filledTime &&
           !this.usedOrderId.has(g.id),
       )
       const needMatch = !this.isShort
@@ -505,7 +505,7 @@ export class Strategy implements StrategyInterface {
                     ? prices[index - 1]?.buy || 0
                     : prices[index + 1]?.sell || 0) &&
                 g.side !== side &&
-                g.updateTime < updateTime &&
+                g.filledTime < filledTime &&
                 !this.usedOrderId.has(g.id),
             )
             if (match) {
@@ -546,7 +546,7 @@ export class Strategy implements StrategyInterface {
     profitUsd = profit * this.usdRate
     const transaction: BacktestingTransaction = {
       _id: v4(),
-      updateTime,
+      updateTime: filledTime,
       side,
       amountBaseBuy: this.math.convertFromExponential(
         this.math.round(amountBaseBuy, this.allPrecision.base),
@@ -669,7 +669,7 @@ export class Strategy implements StrategyInterface {
       .filter((g) => g.side === BotOrderSideEnum.buy && g.price >= bar.low)
       .sort((a, b) => a.price - b.price)
     filledBuy.forEach((o) => {
-      this.createTransaction({ ...o, updateTime: bar.time })
+      this.createTransaction({ ...o, filledTime: bar.time })
       this.updatePositionWithOrder(o)
     })
     const [lastFilledBuy] = filledBuy
@@ -682,7 +682,7 @@ export class Strategy implements StrategyInterface {
       .filter((g) => g.side === BotOrderSideEnum.sell && g.price <= bar.high)
       .sort((a, b) => b.price - a.price)
     filledSell.forEach((o) => {
-      this.createTransaction({ ...o, updateTime: bar.time })
+      this.createTransaction({ ...o, filledTime: bar.time })
       this.updatePositionWithOrder(o)
     })
     const [lastFilledSell] = filledSell
@@ -732,7 +732,7 @@ export class Strategy implements StrategyInterface {
     )
   }
 
-  private updatePositionWithOrder(order: Grid) {
+  private updatePositionWithOrder(order: FullGrid) {
     if (this.futures) {
       const margin = order.qty
       const sameDirection =
