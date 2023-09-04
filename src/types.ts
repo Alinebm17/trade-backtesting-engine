@@ -679,9 +679,16 @@ export type LoadDataFn = (
   exchange: ExchangeEnum,
 ) => Promise<Bar[]>
 
+export type Profit = {
+  total: number
+  totalUsd: number
+  time: number
+}
+
 export type DCABacktestingResult = {
   // pair: string
   deals: Deal[]
+  profits: Profit[]
   noData?: boolean
   maxLeverage?: number
   financial: {
@@ -834,6 +841,12 @@ export type BacktestingTransaction = {
   quoteAsset: string
   profitAsset: string
   index: number
+  idBuy: string
+  idSell: string
+  cummulativeProfitBase: number
+  cummulativeProfitQuote: number
+  cummulativeProfitUsdt: number
+  executor: string
 }
 
 export type Grid = {
@@ -843,8 +856,13 @@ export type Grid = {
   id: string
 }
 
+export type FullGridWithTime = FullGrid & { filledTime: number }
+
 export type GridBacktestingResult = {
+  firstUsdRate: number
+  lastUsdRate: number
   transaction: BacktestingTransaction[]
+  filledOrders: FullGridWithTime[]
   orders: Grid[]
   ordersHistory?: (Grid & {
     startTime: number

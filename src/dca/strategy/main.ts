@@ -33,6 +33,7 @@ import type {
   Bar as BarTV,
   Minigrid,
   TradeResponse,
+  Profit,
 } from '../../types'
 
 export type Bar = BarTV
@@ -113,6 +114,8 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   static deals: Deal[] = []
+
+  static profits: Profit[] = []
 
   private filterFn: {
     filledOrders: (b: Bar) => (o: FullGrid) => boolean
@@ -195,6 +198,7 @@ export abstract class Strategy implements StrategyInterface {
       botQuote: 0,
     }
     Strategy.deals = []
+    Strategy.profits = []
     Strategy.maxProfit = 0
     Strategy.maxLoss = 0
     Strategy.seriesWin = {
@@ -1027,8 +1031,12 @@ export abstract class Strategy implements StrategyInterface {
     let base = filledDealOrder.reduce((acc, v) => acc + v.qty, 0)
     let quote = filledDealOrder.reduce((acc, v) => acc + v.qty * v.price, 0)
     if (minigrid) {
-      base += minigrid.initialBalances.base
-      quote += minigrid.initialPrice * minigrid.initialBalances.base
+      base += this.long
+        ? minigrid.initialBalances.base
+        : minigrid.initialBalances.quote / minigrid.initialPrice
+      quote += this.long
+        ? minigrid.initialPrice * minigrid.initialBalances.base
+        : minigrid.initialBalances.quote
     }
     return quote / base
   }
@@ -1367,6 +1375,12 @@ export abstract class Strategy implements StrategyInterface {
         ? this.symbol.baseAsset.name
         : this.symbol.quoteAsset.name,
       index: Strategy.transactionIndex,
+      idBuy: o.side === BotOrderSideEnum.buy ? o.id : matchedId,
+      idSell: o.side === BotOrderSideEnum.buy ? matchedId : o.id,
+      executor: o.id,
+      cummulativeProfitBase: 0,
+      cummulativeProfitQuote: 0,
+      cummulativeProfitUsdt: 0,
     }
     Strategy.transactionIndex++
     Strategy.deals = Strategy.deals.map((d) => {
@@ -1410,6 +1424,7 @@ export abstract class Strategy implements StrategyInterface {
         const profit = this.createTransaction(o, m)
         total += this.profitBase ? profit.profitBase : profit.profitQuote
         totalUsd += profit.profitUsdt
+        Strategy.profits.push({ total, totalUsd, time: b.time })
       })
       const lastFilledBuy = filledBuy[filledBuy.length - 1]
       if (lastFilledBuy) {
@@ -1932,7 +1947,7 @@ export abstract class Strategy implements StrategyInterface {
         { ...tpOrder, filledTime: b.time },
       ].map((o) => ({ ...o, dealId: d.id }))
 
-      const _profit = this.getProfit(d)
+      const _profit = this.getProfit(d, b.time)
       if (_profit) {
         d.profit = _profit
         profit = d.profit
@@ -2588,7 +2603,7 @@ export abstract class Strategy implements StrategyInterface {
     return usage
   }
 
-  private getProfit(d: Deal) {
+  private getProfit(d: Deal, time: number) {
     const { filledOrders } = d
     const { userFee, usdRate } = this
     const commission = filledOrders
@@ -2623,15 +2638,20 @@ export abstract class Strategy implements StrategyInterface {
     const qty = tpOrder.reduce((acc, tpo) => acc + tpo.qty, 0)
     const quoteTp = tpOrder.reduce((acc, tpo) => acc + tpo.qty * tpo.price, 0)
     const price = quoteTp / qty
-    const total =
-      d.profit.total +
-      /* this.combo
-        ? qty * (price - d.avgPrice)
-        : */ (this.profitBase
+    const pureProfit =
+      (this.profitBase
         ? base - qty + (quoteTp - quote) / price
         : quoteTp - quote + (qty - base) * price) *
         (this.long ? 1 : -1) -
       (d.liquidationPrice ? 0 : commission)
+    if (pureProfit !== 0 && this.combo) {
+      Strategy.profits.push({
+        total: pureProfit,
+        totalUsd: pureProfit * usdRate,
+        time,
+      })
+    }
+    const total = d.profit.total + pureProfit
 
     const totalUsd = total * usdRate
     const denominator = this.combo
@@ -3206,6 +3226,7 @@ export abstract class Strategy implements StrategyInterface {
       },
       interval: Strategy.interval,
       quoteRate: lastPrice ?? 0,
+      profits: Strategy.profits,
     }
     Strategy.resetData()
     return result

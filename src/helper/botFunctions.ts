@@ -69,6 +69,10 @@ class BotFunctions {
     this.initialPrice = initialPrice
   }
 
+  get initPrice() {
+    return this.initialPrice
+  }
+
   findClosestGrids(grids: Grid[], latestPrice: number, n?: number) {
     if (
       (this.settings.ordersInAdvance && this.settings.useOrderInAdvance) ||
