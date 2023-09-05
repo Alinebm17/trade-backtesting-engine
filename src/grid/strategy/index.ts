@@ -671,6 +671,15 @@ export class Strategy implements StrategyInterface {
     })
   }
 
+  private updatePriceWithOldPrice(price: number) {
+    return this.prices.map((p) => {
+      if (p.symbol === this.symbol.pair) {
+        p.price = price
+      }
+      return p
+    })
+  }
+
   public processBar(bar: Bar) {
     if (!this.firstBarPrice) {
       this.firstBarPrice = bar.close
@@ -680,8 +689,10 @@ export class Strategy implements StrategyInterface {
     }
     if (!this.firstUsdRate) {
       this.firstUsdRate =
-        findUSDRate(this.symbol.quoteAsset.name, this.prices) *
-        (this.profitBase ? bar.close : 1)
+        findUSDRate(
+          this.symbol.quoteAsset.name,
+          this.updatePriceWithOldPrice(bar.close),
+        ) * (this.profitBase ? bar.close : 1)
     }
     this.lastBarPrice = bar.close
     if (this.grids.length !== 0) {
@@ -1142,8 +1153,10 @@ export class Strategy implements StrategyInterface {
       positionPnL.perc = this.math.round(positionPnL.perc * 100, 2)
     }
     this.lastUsdRate =
-      findUSDRate(this.symbol.quoteAsset.name, this.prices) *
-      (this.profitBase ? this.lastBarPrice : 1)
+      findUSDRate(
+        this.symbol.quoteAsset.name,
+        this.updatePriceWithOldPrice(this.lastBarPrice),
+      ) * (this.profitBase ? this.lastBarPrice : 1)
     return {
       firstUsdRate: this.firstUsdRate,
       lastUsdRate: this.lastUsdRate,

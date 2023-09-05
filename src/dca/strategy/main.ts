@@ -1883,9 +1883,6 @@ export abstract class Strategy implements StrategyInterface {
           ? min
           : min
       this.updatePositionWithOrder(slOrder)
-      if (close) {
-        console.log('close sl', slOrder.price, 'sl price')
-      }
       return { deal: d, order: slOrder }
     }
     return { deal: d }
