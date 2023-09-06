@@ -629,6 +629,7 @@ export type Deal = {
   startPrice: number
   liquidationPrice?: number
   closePrice?: number
+  lastPrice: number
   currentBalance: Balance
   initialBalance: Balance
   slPerc?: number

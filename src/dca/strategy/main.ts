@@ -752,6 +752,7 @@ export abstract class Strategy implements StrategyInterface {
       avgPrice: orderPrice,
       startPrice: orderPrice,
       lastFilled: 0,
+      lastPrice: orderPrice,
     }
 
     if (
@@ -1596,6 +1597,7 @@ export abstract class Strategy implements StrategyInterface {
           )
         }
         this.updatePositionWithOrder(o)
+        d.lastPrice = o.price
       }
       d.filledOrders = [...d.filledOrders, ...filledDCA].map((o) => ({
         ...o,
