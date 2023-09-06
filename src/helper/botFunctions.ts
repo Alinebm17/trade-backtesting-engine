@@ -26,13 +26,14 @@ class BotFunctions {
     symbol: Symbols,
     latestPrice: number,
     initialPrice: number,
+    tradesBacktest?: boolean,
   ) {
     this.settings = settings
     this.userFee = userFee
     this.symbol = symbol
     this.latestPrice = latestPrice
     this.initialPrice = initialPrice
-    this.utils = new BotUtils()
+    this.utils = new BotUtils(tradesBacktest)
     this.math = this.utils.math
   }
 

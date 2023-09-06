@@ -254,7 +254,7 @@ export abstract class Strategy implements StrategyInterface {
     this.combo = !!combo
     this.settings = settings
     this.botFunctions = this.combo
-      ? new ComboBotFunctions(settings, symbol, userFee)
+      ? new ComboBotFunctions(settings, symbol, userFee, trades)
       : new DCABotFunctions(settings, symbol, userFee)
     this.filterFn = {
       filledOrders: this.long

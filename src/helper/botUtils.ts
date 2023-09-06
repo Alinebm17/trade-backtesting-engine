@@ -5,7 +5,7 @@ import type { Symbols, GridType, Grid, Currency } from '../types'
 class BotUtils {
   public math: MathHelper
 
-  constructor() {
+  constructor(private tradesBacktest?: boolean) {
     this.math = new MathHelper()
   }
 
@@ -516,7 +516,9 @@ class BotUtils {
         qty = this.math.round(qty * f, quotedAssetPrecision, false, !futures)
       }
       let gridQty = same ? (side === 'SELL' ? sellQty : buyQty) : qty
-      const mod = this.math.remainder(gridQty, symbol.baseAsset.step)
+      const mod = this.tradesBacktest
+        ? gridQty % symbol.baseAsset.step
+        : this.math.remainder(gridQty, symbol.baseAsset.step)
       if (mod > Number.EPSILON) {
         gridQty = this.math.round(
           gridQty - mod + symbol.baseAsset.step,

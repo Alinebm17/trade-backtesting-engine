@@ -169,9 +169,16 @@ export class Strategy implements StrategyInterface {
   private firstBarPrice = 0
 
   constructor(input: GRIDStrategyInput) {
-    const { settings, userFee, symbol, prices, interval } = input
+    const { settings, userFee, symbol, prices, interval, trades } = input
     this.settings = settings
-    this.botFunctions = new BotFunctions(settings, userFee, symbol, 0, 0)
+    this.botFunctions = new BotFunctions(
+      settings,
+      userFee,
+      symbol,
+      0,
+      0,
+      trades,
+    )
     this.botFunctions.forceLocal = true
     this.symbol = symbol
     this.userFee = userFee

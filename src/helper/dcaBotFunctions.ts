@@ -23,10 +23,15 @@ class DCABotFunctions {
 
   userFee: number
 
-  constructor(settings: DCABotSettings, symbol: Symbols, userFee: number) {
+  constructor(
+    settings: DCABotSettings,
+    symbol: Symbols,
+    userFee: number,
+    tradesBacktest?: boolean,
+  ) {
     this.settings = settings
     this.symbol = symbol
-    this.utils = new BotUtils()
+    this.utils = new BotUtils(tradesBacktest)
     this.math = this.utils.math
     this.userFee = userFee
   }
