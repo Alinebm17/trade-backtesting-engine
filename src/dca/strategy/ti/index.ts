@@ -423,7 +423,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           const [lastData, prevData] = [...data].sort((a, b) => b.time - a.time)
           let last = 0
           let prev = 0
-          let checkValue = false
+          let checkValue = true
           if (
             (lastData.type === IndicatorEnum.rsi ||
               lastData.type === IndicatorEnum.mfi ||
@@ -599,11 +599,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
             const upper = +(stochUpper ?? '')
             const lower = +(stochLower ?? '')
             action =
-              (!isNaN(upper) &&
-                !isNaN(lower) &&
-                last > upper &&
-                value > upper) ||
-              (last < lower && value < lower)
+              !isNaN(upper) &&
+              !isNaN(lower) &&
+              ((last > upper &&
+                value > upper &&
+                prev > upper &&
+                prevValue > upper) ||
+                (last < lower &&
+                  value < lower &&
+                  prev < lower &&
+                  prevValue < lower))
           }
         }
         const [last] = [...data].sort((a, b) => b.time - a.time)
