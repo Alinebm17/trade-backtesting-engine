@@ -270,6 +270,14 @@ export type SettingsIndicators = {
   psarStart?: number
   psarInc?: number
   psarMax?: number
+  stochRange?: StochRangeEnum
+}
+
+export enum StochRangeEnum {
+  upper = 'upper',
+  lower = 'lower',
+  both = 'both',
+  none = 'none',
 }
 
 export enum IndicatorSection {

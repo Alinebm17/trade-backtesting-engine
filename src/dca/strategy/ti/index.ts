@@ -14,6 +14,7 @@ import {
   SRCrossingEnum,
   IndicatorAction,
   IndicatorSection,
+  StochRangeEnum,
 } from '../../../types'
 
 import type {
@@ -361,6 +362,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             rsiValue2,
             valueInsteadof,
             srCrossingValue,
+            stochRange,
           },
           data,
         } = i
@@ -594,10 +596,21 @@ class TIStrategy extends Strategy implements StrategyInterface {
               (lastData.type === IndicatorEnum.stochRSI &&
                 prevData.type === IndicatorEnum.stochRSI)) &&
             action &&
-            checkValue
+            checkValue &&
+            stochRange !== StochRangeEnum.none
           ) {
-            const upper = +(stochUpper ?? '')
-            const lower = +(stochLower ?? '')
+            const upper =
+              stochRange === StochRangeEnum.lower
+                ? 100
+                : stochRange === StochRangeEnum.upper
+                ? +(stochLower ?? '')
+                : +(stochUpper ?? '')
+            const lower =
+              stochRange === StochRangeEnum.upper
+                ? 0
+                : stochRange === StochRangeEnum.lower
+                ? +(stochUpper ?? '')
+                : +(stochLower ?? '')
             action =
               !isNaN(upper) &&
               !isNaN(lower) &&
