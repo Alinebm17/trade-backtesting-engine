@@ -3013,7 +3013,7 @@ export abstract class Strategy implements StrategyInterface {
       (firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
         : 0) * this.leverage
-    Strategy.deals = Strategy.deals.map((d) => {
+    /* Strategy.deals = Strategy.deals.map((d) => {
       if (!this.combo) {
         d.ordersHistory = d.ordersHistory.filter(
           (oh) =>
@@ -3021,7 +3021,7 @@ export abstract class Strategy implements StrategyInterface {
         )
       }
       return d
-    })
+    }) */
     const result = {
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
