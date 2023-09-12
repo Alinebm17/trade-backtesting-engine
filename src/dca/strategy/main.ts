@@ -515,14 +515,32 @@ export abstract class Strategy implements StrategyInterface {
     return grids
   }
 
-  private createMinigrid(deal: Deal, startOrder: FullGrid) {
+  private createMinigrid(
+    deal: Deal,
+    startOrder: FullGrid,
+    _initialPrice?: number,
+  ) {
     const { settings, userFee, long } = this
     const price = deal.startPrice
     const gridStep = price * (+settings.step / 100)
     const startPrice = startOrder.price
-    const lowPrice = this.long ? startPrice : startPrice - gridStep
-    const topPrice = this.long ? startPrice + gridStep : startPrice
-    const levels = Math.floor(+(settings.gridLevel ?? '1'))
+    const initialPrice = _initialPrice ?? startPrice
+    let baseMinigridsMultiplier = 1
+    if (startOrder.type === DCAOrderTypeEnum.bo) {
+      const { comboUpperMinigrids, comboLowerMinigrids } = settings
+      baseMinigridsMultiplier = long
+        ? +(comboUpperMinigrids ?? '1')
+        : +(comboLowerMinigrids ?? '1')
+    }
+    const lowPrice = this.long
+      ? startPrice
+      : startPrice - gridStep * baseMinigridsMultiplier
+    const topPrice = this.long
+      ? startPrice + gridStep * baseMinigridsMultiplier
+      : startPrice
+    const levels = Math.floor(
+      +(settings.gridLevel ?? '1') * baseMinigridsMultiplier,
+    )
     const fee = userFee
     const sellDisplacement = fee * 2 * 100
     const profitCurrency = 'quote'
@@ -546,14 +564,14 @@ export abstract class Strategy implements StrategyInterface {
       status: 'open',
       initialBalances: asset,
       currentBalances: asset,
-      initialPrice: startPrice,
-      lastPrice: startPrice,
+      initialPrice: initialPrice,
+      lastPrice: initialPrice,
       lastSide: startOrder.side,
       profit: {
         total: 0,
         totalUsd: 0,
       },
-      avgPrice: startPrice,
+      avgPrice: initialPrice,
       createTime: time,
       updateTime: time,
       assets: { used: asset, required: asset },
@@ -574,7 +592,7 @@ export abstract class Strategy implements StrategyInterface {
     }
     const allOrders = this.generateGridsOnPrice(
       minigrid,
-      long ? lowPrice : topPrice,
+      _initialPrice ?? (long ? lowPrice : topPrice),
     )
     const buys = allOrders.filter((g) => g.side === BotOrderSideEnum.buy)
     const sells = allOrders.filter((g) => g.side === BotOrderSideEnum.sell)
@@ -686,6 +704,8 @@ export abstract class Strategy implements StrategyInterface {
         (o) =>
           o.type !== DCAOrderTypeEnum.sl && o.type !== DCAOrderTypeEnum.grid,
       )
+    const hiddenDCA = [...initialOrders.filter((o) => o.grey)]
+    initialOrders = [...initialOrders.filter((o) => !o.grey)]
     const id = this.botFunctions.utils.id(20)
     const filledOrders = initialOrders
       .filter((o) => o.type === DCAOrderTypeEnum.bo)
@@ -709,6 +729,7 @@ export abstract class Strategy implements StrategyInterface {
       id,
       initialOrders,
       filledOrders,
+      hiddenOrders: [],
       activeOrders: [],
       ordersHistory: [],
       status: 'open',
@@ -775,6 +796,17 @@ export abstract class Strategy implements StrategyInterface {
       minigrid.activeOrders.forEach((o) =>
         activeOrders.push({ ...o, startTime }),
       )
+      for (const h of hiddenDCA) {
+        const m = this.createMinigrid(deal, h, baseOrder.price)
+        deal.mingrids.push(m)
+        m.activeOrders.forEach((o) => activeOrders.push({ ...o, startTime }))
+        deal.hiddenOrders.push({
+          ...h,
+          startTime,
+          filledTime: startTime,
+          dealId: id,
+        })
+      }
     }
 
     const initialBase = this.long
@@ -1526,7 +1558,9 @@ export abstract class Strategy implements StrategyInterface {
         ]
         d = this.updateDeal(d, b)
         if (closed) {
-          const order = d.filledOrders.find((o) => o.id === m.dcaOrderId)
+          const order =
+            d.filledOrders.find((o) => o.id === m.dcaOrderId) ??
+            d.hiddenOrders.find((o) => o.id === m.dcaOrderId)
           if (order?.type === DCAOrderTypeEnum.bo) {
             return this.closeDeal(d, b)
           }

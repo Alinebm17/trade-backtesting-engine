@@ -404,6 +404,8 @@ export interface DCABotSettings extends BaseSettings {
   futures?: boolean
   coinm?: boolean
   gridLevel?: string
+  comboUpperMinigrids?: string
+  comboLowerMinigrids?: string
 }
 
 export enum BotStartTypeEnum {
@@ -526,6 +528,7 @@ export type DCAGrid = {
   minigridId?: string
   levelNumber?: number
   minigridBudget?: number
+  grey?: boolean
 }
 
 export type Asset = {
@@ -606,6 +609,7 @@ export type Deal = {
   initialOrders: FullGrid[]
   id: string
   filledOrders: (FullGrid & { dealId: string })[]
+  hiddenOrders: (FullGrid & { dealId: string })[]
   activeOrders: FullGrid[]
   ordersHistory: (FullGrid & {
     slLine?: boolean
