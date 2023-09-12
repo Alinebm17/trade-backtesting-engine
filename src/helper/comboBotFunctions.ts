@@ -124,8 +124,11 @@ class ComboBotFunctions extends DcaBotFunctions {
     }
     const long = settings.strategy === StrategyEnum.long
     const ordersSide = long ? BotOrderSideEnum.buy : BotOrderSideEnum.sell
+    const baseMinigridsMultiplier = long
+      ? +(comboUpperMinigrids ?? '1')
+      : +(comboLowerMinigrids ?? '1')
     const baseOrder: DCAGrid = {
-      qty: baseQty,
+      qty: baseQty * baseMinigridsMultiplier,
       price: latestPrice,
       type: DCAOrderTypeEnum.bo,
       side: ordersSide,
@@ -180,9 +183,7 @@ class ComboBotFunctions extends DcaBotFunctions {
     baseOrder.minigridBudget =
       +(coinm ? baseOrder.base : baseOrder.quote ?? '0') *
       (settings.futures ? 1 : !long ? 2 - feeFactor : 1)
-    const baseMinigridsMultiplier = long
-      ? +(comboUpperMinigrids ?? '1')
-      : +(comboLowerMinigrids ?? '1')
+
     const gridSettings = {
       lowPrice: long ? `${baseOrder.price}` : `${baseOrder.price * (1 - step)}`,
       topPrice: long ? `${baseOrder.price * (1 + step)}` : `${baseOrder.price}`,
