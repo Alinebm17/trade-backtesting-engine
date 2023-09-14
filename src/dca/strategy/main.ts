@@ -518,28 +518,23 @@ export abstract class Strategy implements StrategyInterface {
   private createMinigrid(
     deal: Deal,
     startOrder: FullGrid,
+    lockClose: boolean,
     _initialPrice?: number,
   ) {
     const { settings, userFee, long } = this
     const price = deal.startPrice
-    const gridStep = price * (+settings.step / 100)
     const startPrice = startOrder.price
     const initialPrice = _initialPrice ?? startPrice
-    let baseMinigridsMultiplier = 1
-    if (startOrder.type === DCAOrderTypeEnum.bo) {
-      const { comboUpperMinigrids, comboLowerMinigrids } = settings
-      baseMinigridsMultiplier = long
-        ? +(comboUpperMinigrids ?? '1')
-        : +(comboLowerMinigrids ?? '1')
-    }
-    const lowPrice = this.long
-      ? startPrice
-      : startPrice - gridStep * baseMinigridsMultiplier
-    const topPrice = this.long
-      ? startPrice + gridStep * baseMinigridsMultiplier
-      : startPrice
+    const baseOrder = startOrder.type === DCAOrderTypeEnum.bo
+    const gridStep = baseOrder
+      ? price * (+(settings.baseStep ?? settings.step) / 100)
+      : price * (+settings.step / 100)
+    const lowPrice = this.long ? startPrice : startPrice - gridStep
+    const topPrice = this.long ? startPrice + gridStep : startPrice
     const levels = Math.floor(
-      +(settings.gridLevel ?? '1') * baseMinigridsMultiplier,
+      +(baseOrder
+        ? settings.baseGridLevels ?? settings.gridLevel ?? '1'
+        : settings.gridLevel ?? '1'),
     )
     const fee = userFee
     const sellDisplacement = fee * 2 * 100
@@ -589,6 +584,7 @@ export abstract class Strategy implements StrategyInterface {
         buy: 0,
         sell: 0,
       },
+      lockClose,
     }
     const allOrders = this.generateGridsOnPrice(
       minigrid,
@@ -791,13 +787,13 @@ export abstract class Strategy implements StrategyInterface {
       .map((o) => ({ ...o, startTime }))
 
     if (this.combo) {
-      const minigrid = this.createMinigrid(deal, baseOrder)
+      const minigrid = this.createMinigrid(deal, baseOrder, false)
       deal.mingrids.push(minigrid)
       minigrid.activeOrders.forEach((o) =>
         activeOrders.push({ ...o, startTime }),
       )
       for (const h of hiddenDCA) {
-        const m = this.createMinigrid(deal, h, baseOrder.price)
+        const m = this.createMinigrid(deal, h, true, baseOrder.price)
         deal.mingrids.push(m)
         m.activeOrders.forEach((o) => activeOrders.push({ ...o, startTime }))
         deal.hiddenOrders.push({
@@ -1539,7 +1535,8 @@ export abstract class Strategy implements StrategyInterface {
         }
         m.profit.total += total
         m.profit.totalUsd += totalUsd
-        const closed = this.long ? m.grids.sell === 0 : m.grids.buy === 0
+        const closed =
+          !m.lockClose && (this.long ? m.grids.sell === 0 : m.grids.buy === 0)
         if (closed) {
           m.status = 'close'
           m.activeOrders = []
@@ -1624,7 +1621,7 @@ export abstract class Strategy implements StrategyInterface {
       )) {
         if (this.combo) {
           d.lastFilled = o.levelNumber ?? d.lastFilled
-          const m = this.createMinigrid(d, o)
+          const m = this.createMinigrid(d, o, false)
           d.mingrids.push(m)
           m.activeOrders.forEach((ao) =>
             d.activeOrders.push({ ...ao, startTime: b.time }),

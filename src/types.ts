@@ -404,8 +404,10 @@ export interface DCABotSettings extends BaseSettings {
   futures?: boolean
   coinm?: boolean
   gridLevel?: string
-  comboUpperMinigrids?: string
-  comboLowerMinigrids?: string
+  baseStep?: string
+  baseGridLevels?: string
+  useActiveMinigrids?: boolean
+  comboActiveMinigrids?: string
 }
 
 export enum BotStartTypeEnum {
@@ -601,6 +603,7 @@ export type Minigrid = {
     buy: number
     sell: number
   }
+  lockClose: boolean
 }
 
 export type Deal = {
