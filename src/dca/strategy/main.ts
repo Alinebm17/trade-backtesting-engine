@@ -526,9 +526,14 @@ export abstract class Strategy implements StrategyInterface {
     const startPrice = startOrder.price
     const initialPrice = _initialPrice ?? startPrice
     const baseOrder = startOrder.type === DCAOrderTypeEnum.bo
-    const gridStep = baseOrder
-      ? price * (+(settings.baseStep ?? settings.step) / 100)
-      : price * (+settings.step / 100)
+    const stepScale = parseFloat(settings.stepScale)
+    const stepVal = startOrder.levelNumber
+      ? stepScale ** (startOrder.levelNumber - 1)
+      : 1
+    const gridStep =
+      (baseOrder
+        ? price * (+(settings.baseStep ?? settings.step) / 100)
+        : price * (+settings.step / 100)) * stepVal
     const lowPrice = this.long ? startPrice : startPrice - gridStep
     const topPrice = this.long ? startPrice + gridStep : startPrice
     const levels = Math.floor(

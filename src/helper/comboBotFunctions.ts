@@ -469,8 +469,8 @@ class ComboBotFunctions extends DcaBotFunctions {
           .createGridOrders(
             {
               ...gridSettings,
-              lowPrice: long ? `${price}` : `${price - gridStep}`,
-              topPrice: long ? `${price + gridStep}` : `${price}`,
+              lowPrice: long ? `${price}` : `${price - gridStep * stepVal}`,
+              topPrice: long ? `${price + gridStep * stepVal}` : `${price}`,
               _latestPrice: isActiveMinigrid ? baseOrder.price : price,
               initialPrice: isActiveMinigrid ? baseOrder.price : price,
               budget: `${minigridBudget}`,
@@ -543,8 +543,12 @@ class ComboBotFunctions extends DcaBotFunctions {
                     .createGridOrders(
                       {
                         ...gridSettings,
-                        lowPrice: long ? `${price}` : `${price - gridStep}`,
-                        topPrice: long ? `${price + gridStep}` : `${price}`,
+                        lowPrice: long
+                          ? `${price}`
+                          : `${price - gridStep * stepVal}`,
+                        topPrice: long
+                          ? `${price + gridStep * stepVal}`
+                          : `${price}`,
                         _latestPrice: isActiveMinigrid
                           ? baseOrder.price
                           : price,
