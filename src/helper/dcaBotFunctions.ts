@@ -6,6 +6,8 @@ import {
   GridBreakpoint,
   CloseConditionEnum,
   TerminalDealTypeEnum,
+  DCAConditionEnum,
+  IndicatorAction,
 } from '../types'
 import BotUtils from './botUtils'
 import { checkNumber } from './utils'
@@ -455,8 +457,17 @@ class DCABotFunctions {
     const gridStep = latestPrice * step
     let orders: DCAGrid[] = []
     if (settings.useDca) {
-      for (let i = 1; i <= parseInt(`${settings.ordersCount}`); i++) {
-        const stepVal = stepScale ** (i - 1)
+      const ordersCount =
+        settings.dcaCondition === DCAConditionEnum.indicators
+          ? settings.indicators.filter(
+              (i) => i.indicatorAction === IndicatorAction.startDca,
+            ).length
+          : parseInt(`${settings.ordersCount}`)
+      for (let i = 1; i <= ordersCount; i++) {
+        const stepVal =
+          settings.dcaCondition === DCAConditionEnum.indicators
+            ? 1
+            : stepScale ** (i - 1)
         const volumeVal = volumeScale ** (i - 1)
         let price = this.math.round(
           (i === 1 ? latestPrice : orders[orders.length - 1].price) -
@@ -465,6 +476,22 @@ class DCABotFunctions {
               stepVal,
           symbol.priceAssetPrecision,
         )
+        if (settings.dcaCondition === DCAConditionEnum.indicators) {
+          const indicatorValue =
+            +(
+              settings.indicators.filter(
+                (ind) => ind.indicatorAction === IndicatorAction.startDca,
+              )[i - 1]?.minPercFromLast ?? '100'
+            ) / 100
+          price = this.math.round(
+            (i === 1 ? latestPrice : orders[orders.length - 1].price) *
+              (settings.strategy === StrategyEnum.long
+                ? 1 - indicatorValue
+                : 1 + indicatorValue),
+
+            symbol.priceAssetPrecision,
+          )
+        }
         if (i === 1) {
           if (price === baseOrder.price) {
             price = this.math.round(

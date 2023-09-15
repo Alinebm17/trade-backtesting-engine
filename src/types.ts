@@ -128,6 +128,7 @@ export enum SRCrossingEnum {
 export enum IndicatorAction {
   startDeal = 'startDeal',
   closeDeal = 'closeDeal',
+  startDca = 'startDca',
 }
 
 export type MAResult = {
@@ -271,6 +272,7 @@ export type SettingsIndicators = {
   psarInc?: number
   psarMax?: number
   stochRange?: StochRangeEnum
+  minPercFromLast?: string
 }
 
 export enum StochRangeEnum {
@@ -283,6 +285,7 @@ export enum StochRangeEnum {
 export enum IndicatorSection {
   tp = 'tp',
   sl = 'sl',
+  dca = 'dca',
 }
 
 export enum CloseConditionEnum {
@@ -337,7 +340,13 @@ export enum CooldownUnits {
   days = 'days',
 }
 
+export enum DCAConditionEnum {
+  percentage = 'percentage',
+  indicators = 'indicators',
+}
+
 export interface DCABotSettings extends BaseSettings {
+  dcaCondition?: DCAConditionEnum
   strategy: StrategyEnum
   baseOrderSize: string
   baseOrderPrice?: string
