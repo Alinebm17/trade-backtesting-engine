@@ -334,9 +334,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
     const closeIndicators = Strategy.indicators.filter(
       (ci) => ci.settings.indicatorAction === IndicatorAction.closeDeal,
     )
+    const dcaIndicators = Strategy.indicators.filter(
+      (ci) => ci.settings.indicatorAction === IndicatorAction.startDca,
+    )
     if (
       (startIndicators.filter((i) => i.data.length > 0).length ||
-        closeIndicators.filter((i) => i.data.length > 0).length) &&
+        closeIndicators.filter((i) => i.data.length > 0).length ||
+        dcaIndicators.filter((i) => i.data.length > 0).length) &&
       nextBar
     ) {
       const currentState = [...Strategy.indicators].filter(
@@ -657,9 +661,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const startDeal = [...Strategy.indicators].filter(
         (i) => i.settings.indicatorAction === IndicatorAction.startDeal,
       )
+      const startDca = [...Strategy.indicators].filter(
+        (i) => i.settings.indicatorAction === IndicatorAction.startDca,
+      )
       const closeDealSlStatus = closeDealSl.filter((i) => i.status)
       const closeDealTpStatus = closeDealTp.filter((i) => i.status)
       const startDealStatus = startDeal.filter((i) => i.status)
+      const startDcaStatus = startDca.filter((i) => i.status)
 
       if (
         closeDealSl.length === closeDealSlStatus.length &&
@@ -710,6 +718,22 @@ class TIStrategy extends Strategy implements StrategyInterface {
           lowestBar?.high ?? nextBar.high,
           lowestBar?.low ?? nextBar.low,
         )
+      }
+      if (startDcaStatus.length) {
+        for (const i of startDcaStatus) {
+          Strategy.indicators = Strategy.indicators.map((is) => {
+            if (i.id === is.id) {
+              return { ...is, status: false, statusSince: 0, statusTo: 0 }
+            }
+            return i
+          })
+          const index = startDca.findIndex((si) => si.id === i.id)
+          this.addDCAOrder(
+            index,
+            lowestBar?.close ?? nextBar.close,
+            nextBar.time,
+          )
+        }
       }
     }
   }

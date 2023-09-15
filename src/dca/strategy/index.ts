@@ -1,4 +1,8 @@
-import { CloseConditionEnum, StartConditionEnum } from '../../types'
+import {
+  CloseConditionEnum,
+  DCAConditionEnum,
+  StartConditionEnum,
+} from '../../types'
 import createStrategyFactory from './factory'
 import ASAPStrategy from './asap'
 import TIStrategy from './ti'
@@ -20,6 +24,8 @@ const getStrategyBySettings = (settings: DCABotSettings) => {
     (settings.dealCloseCondition === CloseConditionEnum.techInd &&
       settings.startCondition !== StartConditionEnum.ti) ||
     (settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
+      settings.startCondition !== StartConditionEnum.ti) ||
+    (settings.dcaCondition === DCAConditionEnum.indicators &&
       settings.startCondition !== StartConditionEnum.ti)
   ) {
     result.push(createStrategyFactory(TIStrategy))

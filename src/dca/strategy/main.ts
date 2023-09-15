@@ -15,6 +15,8 @@ import {
   StartConditionEnum,
   FuturesStrategyEnum,
   BacktestingTransaction,
+  DCAConditionEnum,
+  IndicatorAction,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -705,6 +707,12 @@ export abstract class Strategy implements StrategyInterface {
         (o) =>
           o.type !== DCAOrderTypeEnum.sl && o.type !== DCAOrderTypeEnum.grid,
       )
+    const allInitialOrder = [...initialOrders]
+    initialOrders = initialOrders.filter((o) =>
+      this.settings.dcaCondition === DCAConditionEnum.indicators
+        ? o.type !== DCAOrderTypeEnum.dca
+        : true,
+    )
     const hiddenDCA = [...initialOrders.filter((o) => o.grey)]
     initialOrders = [...initialOrders.filter((o) => !o.grey)]
     const id = this.botFunctions.utils.id(20)
@@ -812,7 +820,7 @@ export abstract class Strategy implements StrategyInterface {
 
     const initialBase = this.long
       ? 0
-      : initialOrders
+      : allInitialOrder
           .filter(
             (o) =>
               o.type &&
@@ -820,7 +828,7 @@ export abstract class Strategy implements StrategyInterface {
           )
           .reduce((acc, o) => acc + o.qty, 0)
     const initialQuote = this.long
-      ? initialOrders
+      ? allInitialOrder
           .filter(
             (o) =>
               o.type &&
@@ -847,8 +855,12 @@ export abstract class Strategy implements StrategyInterface {
       },
       levels: {
         all:
-          initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca).length +
-          1,
+          this.settings.dcaCondition === DCAConditionEnum.indicators
+            ? this.settings.indicators.filter(
+                (si) => si.indicatorAction === IndicatorAction.startDca,
+              ).length + 1
+            : initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca)
+                .length + 1,
         complete: 1,
         max: 1,
       },
@@ -872,23 +884,23 @@ export abstract class Strategy implements StrategyInterface {
         max: {
           base: this.futures
             ? this.coinm
-              ? initialOrders
+              ? allInitialOrder
                   .filter((io) => io.type !== DCAOrderTypeEnum.tp)
                   .reduce((acc, io) => (acc += io.qty), 0)
               : 0
             : this.long
             ? 0
-            : initialOrders
+            : allInitialOrder
                 .filter((io) => io.type !== DCAOrderTypeEnum.tp)
                 .reduce((acc, io) => (acc += io.qty), 0),
           quote: this.futures
             ? this.coinm
               ? 0
-              : initialOrders
+              : allInitialOrder
                   .filter((io) => io.type !== DCAOrderTypeEnum.tp)
                   .reduce((acc, io) => (acc += io.qty * io.price), 0)
             : this.long
-            ? initialOrders
+            ? allInitialOrder
                 .filter((io) => io.type !== DCAOrderTypeEnum.tp)
                 .reduce((acc, io) => (acc += io.qty * io.price), 0)
             : 0,
@@ -1612,6 +1624,42 @@ export abstract class Strategy implements StrategyInterface {
     return d
   }
 
+  addDCAOrder(index: number, price: number, time: number) {
+    Strategy.deals
+      .filter((d) => d.status === 'open' && d.lastFilled + 1 === index + 1)
+      .forEach((d) => {
+        const ind = this.settings.indicators[index]
+        if (ind) {
+          const { minPercFromLast } = ind
+          if (minPercFromLast && !isNaN(+minPercFromLast)) {
+            const diff = Math.abs(d.lastPrice - price)
+            const absDiff = diff / d.lastPrice
+
+            if (absDiff >= +minPercFromLast / 100) {
+              const orders = this.botFunctions.createOrders(
+                d.startPrice,
+                true,
+                undefined,
+                [],
+                this.balances,
+              )
+              const dcaOrder = orders.find((o) => o.levelNumber === index + 1)
+              if (dcaOrder) {
+                d.activeOrders.push({ ...dcaOrder, startTime: time, price })
+                this.processDCAOrders(d, {
+                  open: price,
+                  close: price,
+                  high: price,
+                  low: price,
+                  time,
+                })
+              }
+            }
+          }
+        }
+      })
+  }
+
   private processDCAOrders(d: Deal, b: Bar) {
     const filledDCA = d.activeOrders
       .filter(
@@ -1624,8 +1672,8 @@ export abstract class Strategy implements StrategyInterface {
       for (const o of filledDCA.sort((a, B) =>
         this.long ? B.price - a.price : a.price - B.price,
       )) {
+        d.lastFilled = o.levelNumber ?? d.lastFilled
         if (this.combo) {
-          d.lastFilled = o.levelNumber ?? d.lastFilled
           const m = this.createMinigrid(d, o, false)
           d.mingrids.push(m)
           m.activeOrders.forEach((ao) =>
