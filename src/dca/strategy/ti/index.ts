@@ -34,6 +34,7 @@ export type Indicator = {
   interval: ExchangeIntervals
   statuses: { status: boolean; statusSince: number; statusTo: number }[]
   status: boolean
+  ignore: boolean
 }
 
 class TIStrategy extends Strategy implements StrategyInterface {
@@ -142,6 +143,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         interval: indicatorInterval,
         statuses: [],
         status: false,
+        ignore: false,
       })
       if (
         type === IndicatorEnum.ma &&
@@ -164,6 +166,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           interval: maCrossingInterval,
           statuses: [],
           status: false,
+          ignore: true,
         })
       }
     })
@@ -577,11 +580,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
             if (indicatorCondition === IndicatorStartConditionEnum.cd) {
               action =
                 this.math.gt(value, last) && this.math.lt(prevValue, prev)
-              /* if (startNewDeal) {
-                console.log(
-                  `val - ${value}, last - ${last}, prevVal - ${prevValue}, prev - ${prev}`,
-                )
-              } */
             }
             if (indicatorCondition === IndicatorStartConditionEnum.cu) {
               action =
@@ -651,24 +649,27 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const closeDealSl = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.closeDeal &&
-          i.settings.section === IndicatorSection.sl,
+          i.settings.section === IndicatorSection.sl &&
+          !i.ignore,
       )
       const closeDealTp = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.closeDeal &&
-          i.settings.section !== IndicatorSection.sl,
+          i.settings.section !== IndicatorSection.sl &&
+          !i.ignore,
       )
       const startDeal = [...Strategy.indicators].filter(
-        (i) => i.settings.indicatorAction === IndicatorAction.startDeal,
+        (i) =>
+          i.settings.indicatorAction === IndicatorAction.startDeal && !i.ignore,
       )
       const startDca = [...Strategy.indicators].filter(
-        (i) => i.settings.indicatorAction === IndicatorAction.startDca,
+        (i) =>
+          i.settings.indicatorAction === IndicatorAction.startDca && !i.ignore,
       )
       const closeDealSlStatus = closeDealSl.filter((i) => i.status)
       const closeDealTpStatus = closeDealTp.filter((i) => i.status)
       const startDealStatus = startDeal.filter((i) => i.status)
       const startDcaStatus = startDca.filter((i) => i.status)
-
       if (
         closeDealSl.length === closeDealSlStatus.length &&
         closeDealSl.length
