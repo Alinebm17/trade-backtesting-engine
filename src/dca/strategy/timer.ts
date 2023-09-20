@@ -67,7 +67,11 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     if (bar.time === Strategy.next) {
       this.openDeal(bar.close, bar.time, bar.high, bar.low)
       const date = new Date(Strategy.next)
-      date.setDate(date.getDate() + +this.settings.hodlDay)
+      if (this.settings.hodlHourly) {
+        date.setHours(date.getHours() + +this.settings.hodlDay)
+      } else {
+        date.setDate(date.getDate() + +this.settings.hodlDay)
+      }
       Strategy.next = date.getTime()
     }
     this.checkDeals(bar)

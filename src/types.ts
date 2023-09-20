@@ -369,6 +369,7 @@ export interface DCABotSettings extends BaseSettings {
   useDca: boolean
   hodlDay: string
   hodlAt: string
+  hodlHourly?: boolean
   hodlNextBuy: number
   maxNumberOfOpenDeals?: string
   indicators: SettingsIndicators[]
