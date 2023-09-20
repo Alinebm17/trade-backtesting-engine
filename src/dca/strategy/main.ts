@@ -1628,7 +1628,9 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.deals
       .filter((d) => d.status === 'open' && d.lastFilled + 1 === index + 1)
       .forEach((d) => {
-        const ind = this.settings.indicators[index]
+        const ind = this.settings.indicators.filter(
+          (i) => i.indicatorAction === IndicatorAction.startDca,
+        )[index]
         if (ind) {
           const { minPercFromLast } = ind
           if (minPercFromLast && !isNaN(+minPercFromLast)) {
