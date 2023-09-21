@@ -81,7 +81,7 @@ class DCABotFunctions {
   ): DCAGrid[] {
     const { settings, symbol } = this
     const baseOrderSize = parseFloat(settings.baseOrderSize)
-    const orderSize = parseFloat(settings.orderSize)
+    const _orderSize = parseFloat(settings.orderSize)
     const tpPerc = parseFloat(settings.tpPerc) / 100
     const slPerc = parseFloat(settings.slPerc) / 100
     const precision = this.utils.getBaseAssetPrecision(symbol)
@@ -468,7 +468,10 @@ class DCABotFunctions {
           settings.dcaCondition === DCAConditionEnum.indicators
             ? 1
             : stepScale ** (i - 1)
-        const volumeVal = volumeScale ** (i - 1)
+        const volumeVal =
+          settings.dcaCondition === DCAConditionEnum.indicators
+            ? 1
+            : volumeScale ** (i - 1)
         let price = this.math.round(
           (i === 1 ? latestPrice : orders[orders.length - 1].price) -
             (settings.strategy === StrategyEnum.long ? 1 : -1) *
@@ -523,6 +526,15 @@ class DCABotFunctions {
             findBreakpoint.displacedPrice,
             symbol.priceAssetPrecision,
           )
+        }
+        let orderSize = _orderSize
+        if (settings.dcaCondition === DCAConditionEnum.indicators) {
+          orderSize =
+            +(
+              settings.indicators.filter(
+                (ind) => ind.indicatorAction === IndicatorAction.startDca,
+              )[i - 1]?.orderSize ?? '0'
+            ) || _orderSize
         }
         let qty =
           orderSizeType === OrderSizeTypeEnum.quote

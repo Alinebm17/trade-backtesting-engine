@@ -273,6 +273,7 @@ export type SettingsIndicators = {
   psarMax?: number
   stochRange?: StochRangeEnum
   minPercFromLast?: string
+  orderSize?: string
 }
 
 export enum StochRangeEnum {
