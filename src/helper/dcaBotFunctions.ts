@@ -462,14 +462,18 @@ class DCABotFunctions {
           ? settings.indicators.filter(
               (i) => i.indicatorAction === IndicatorAction.startDca,
             ).length
+          : settings.dcaCondition === DCAConditionEnum.custom
+          ? (settings.dcaCustom ?? []).length
           : parseInt(`${settings.ordersCount}`)
       for (let i = 1; i <= ordersCount; i++) {
         const stepVal =
-          settings.dcaCondition === DCAConditionEnum.indicators
+          settings.dcaCondition === DCAConditionEnum.indicators ||
+          settings.dcaCondition === DCAConditionEnum.custom
             ? 1
             : stepScale ** (i - 1)
         const volumeVal =
-          settings.dcaCondition === DCAConditionEnum.indicators
+          settings.dcaCondition === DCAConditionEnum.indicators ||
+          settings.dcaCondition === DCAConditionEnum.custom
             ? 1
             : volumeScale ** (i - 1)
         let price = this.math.round(
@@ -491,6 +495,18 @@ class DCABotFunctions {
               (settings.strategy === StrategyEnum.long
                 ? 1 - indicatorValue
                 : 1 + indicatorValue),
+
+            symbol.priceAssetPrecision,
+          )
+        }
+        if (settings.dcaCondition === DCAConditionEnum.custom) {
+          const dcaCustomValue =
+            +((settings.dcaCustom ?? [])[i - 1]?.step ?? '1') / 100
+          price = this.math.round(
+            (i === 1 ? latestPrice : orders[orders.length - 1].price) *
+              (settings.strategy === StrategyEnum.long
+                ? 1 - dcaCustomValue
+                : 1 + dcaCustomValue),
 
             symbol.priceAssetPrecision,
           )
@@ -535,6 +551,10 @@ class DCABotFunctions {
                 (ind) => ind.indicatorAction === IndicatorAction.startDca,
               )[i - 1]?.orderSize ?? '0'
             ) || _orderSize
+        }
+        if (settings.dcaCondition === DCAConditionEnum.custom) {
+          orderSize =
+            +((settings.dcaCustom ?? [])[i - 1]?.size ?? '0') || _orderSize
         }
         let qty =
           orderSizeType === OrderSizeTypeEnum.quote

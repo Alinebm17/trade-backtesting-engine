@@ -344,10 +344,18 @@ export enum CooldownUnits {
 export enum DCAConditionEnum {
   percentage = 'percentage',
   indicators = 'indicators',
+  custom = 'custom',
+}
+
+export type DCACustom = {
+  step: string
+  size: string
+  uuid: string
 }
 
 export interface DCABotSettings extends BaseSettings {
   dcaCondition?: DCAConditionEnum
+  dcaCustom?: DCACustom[]
   strategy: StrategyEnum
   baseOrderSize: string
   baseOrderPrice?: string

@@ -854,13 +854,16 @@ export abstract class Strategy implements StrategyInterface {
         quote: this.long ? initialQuote - currentQuote : currentQuote,
       },
       levels: {
-        all:
-          this.settings.dcaCondition === DCAConditionEnum.indicators
+        all: this.settings.useDca
+          ? this.settings.dcaCondition === DCAConditionEnum.indicators
             ? this.settings.indicators.filter(
                 (si) => si.indicatorAction === IndicatorAction.startDca,
               ).length + 1
+            : this.settings.dcaCondition === DCAConditionEnum.custom
+            ? (this.settings.dcaCustom ?? []).length + 1
             : initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca)
-                .length + 1,
+                .length + 1
+          : 1,
         complete: 1,
         max: 1,
       },
