@@ -1634,7 +1634,7 @@ export abstract class Strategy implements StrategyInterface {
         if (ind) {
           const { minPercFromLast } = ind
           if (minPercFromLast && !isNaN(+minPercFromLast)) {
-            const diff = Math.abs(d.lastPrice - price)
+            const diff = this.long ? d.lastPrice - price : price - d.lastPrice
             const absDiff = diff / d.lastPrice
 
             if (absDiff >= +minPercFromLast / 100) {
