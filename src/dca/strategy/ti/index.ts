@@ -15,6 +15,7 @@ import {
   IndicatorAction,
   IndicatorSection,
   StochRangeEnum,
+  DCAConditionEnum,
 } from '../../../types'
 
 import type {
@@ -613,6 +614,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : stochRange === StochRangeEnum.lower
                 ? +(stochUpper ?? '')
                 : +(stochLower ?? '')
+
             action =
               !isNaN(upper) &&
               !isNaN(lower) &&
@@ -720,13 +722,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
           lowestBar?.low ?? nextBar.low,
         )
       }
-      if (startDcaStatus.length) {
+      if (
+        startDcaStatus.length &&
+        this.settings.dcaCondition === DCAConditionEnum.indicators
+      ) {
         for (const i of startDcaStatus) {
           Strategy.indicators = Strategy.indicators.map((is) => {
             if (i.id === is.id) {
               return { ...is, status: false, statusSince: 0, statusTo: 0 }
             }
-            return i
+            return is
           })
           const index = startDca.findIndex((si) => si.id === i.id)
           this.addDCAOrder(
