@@ -1631,33 +1631,35 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.deals
       .filter((d) => d.status === 'open' && d.lastFilled + 1 === index + 1)
       .forEach((d) => {
-        const ind = this.settings.indicators.filter(
-          (i) => i.indicatorAction === IndicatorAction.startDca,
-        )[index]
-        if (ind) {
-          const { minPercFromLast } = ind
-          if (minPercFromLast && !isNaN(+minPercFromLast)) {
-            const diff = this.long ? d.lastPrice - price : price - d.lastPrice
-            const absDiff = diff / d.lastPrice
+        if (this.settings.dcaCondition === DCAConditionEnum.indicators) {
+          const ind = this.settings.indicators.filter(
+            (i) => i.indicatorAction === IndicatorAction.startDca,
+          )[index]
+          if (ind) {
+            const { minPercFromLast } = ind
+            if (minPercFromLast && !isNaN(+minPercFromLast)) {
+              const diff = this.long ? d.lastPrice - price : price - d.lastPrice
+              const absDiff = diff / d.lastPrice
 
-            if (absDiff >= +minPercFromLast / 100) {
-              const orders = this.botFunctions.createOrders(
-                d.startPrice,
-                true,
-                undefined,
-                [],
-                this.balances,
-              )
-              const dcaOrder = orders.find((o) => o.levelNumber === index + 1)
-              if (dcaOrder) {
-                d.activeOrders.push({ ...dcaOrder, startTime: time, price })
-                this.processDCAOrders(d, {
-                  open: price,
-                  close: price,
-                  high: price,
-                  low: price,
-                  time,
-                })
+              if (absDiff >= +minPercFromLast / 100) {
+                const orders = this.botFunctions.createOrders(
+                  d.startPrice,
+                  true,
+                  undefined,
+                  [],
+                  this.balances,
+                )
+                const dcaOrder = orders.find((o) => o.levelNumber === index + 1)
+                if (dcaOrder) {
+                  d.activeOrders.push({ ...dcaOrder, startTime: time, price })
+                  this.processDCAOrders(d, {
+                    open: price,
+                    close: price,
+                    high: price,
+                    low: price,
+                    time,
+                  })
+                }
               }
             }
           }
