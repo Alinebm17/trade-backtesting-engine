@@ -53,12 +53,17 @@ class DCABacktesting extends Backtesting {
     this.strategy.loadData(data)
     this.strategy.test()
     const processingTime = (new Date().getTime() - start) / 1000
-    return this.strategy.returnResult(
+    const result = this.strategy.returnResult(
       data[0],
       data[data.length - 1],
       loadingTime,
       processingTime,
     )
+    if (result.noDate) {
+      result.duration.firstDataTime = this.period.from * 1000
+      result.duration.lastDataTime = this.period.to * 1000
+    }
+    return result
   }
 
   public passTradeCandleData(

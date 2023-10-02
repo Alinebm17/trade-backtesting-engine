@@ -90,12 +90,17 @@ class DCABacktesting extends Backtesting {
     this.strategy.test()
     const processingTime = (new Date().getTime() - start) / 1000
     const [lowest] = testData.filter((d) => d.interval === lowestInterval)
-    return this.strategy.returnResult(
+    const result = this.strategy.returnResult(
       lowest.bar[0],
       lowest.bar[lowest.bar.length - 1],
       loadingTime,
       processingTime,
     )
+    if (result.noData) {
+      result.duration.firstDataTime = this.period.from * 1000
+      result.duration.lastDataTime = this.period.to * 1000
+    }
+    return result
   }
 
   public returnResult(firstData: Bar, lastData: Bar) {
