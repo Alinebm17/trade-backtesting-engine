@@ -23,6 +23,7 @@
     "uuid": "^9.0.0"
   },
   "scripts": {
+    "fullInit": "yarn submodule && cd indicators && yarn pull && yarn",
     "pull": "git pull origin master",
     "push": "git push origin master",
     "lint": "tsc --project tsconfig.json --noEmit && eslint . --cache",
