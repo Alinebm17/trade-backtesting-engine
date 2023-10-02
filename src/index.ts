@@ -111,8 +111,12 @@ class Backtesting {
       periodToUse = this.calculatePeriod(int, from)
     }
     if (this.loadFn) {
-      const result =
-        [] || (await this.loadFn(pair, resolution, periodToUse, this.exchange))
+      const result = await this.loadFn(
+        pair,
+        resolution,
+        periodToUse,
+        this.exchange,
+      )
       /*  localStorage.setItem(pair, JSON.stringify(result)) */
 
       return result
