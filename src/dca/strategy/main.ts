@@ -652,7 +652,8 @@ export abstract class Strategy implements StrategyInterface {
       ) {
         const price = deal.trailingLevel
           ? deal.trailingLevel
-          : deal.avgPrice * (1 - deal.slPerc * -1 * (this.long ? 1 : -1))
+          : deal.avgPrice *
+            (1 - deal.slPerc * -1 * (this.long ? 1 : -1) - this.userFee * 2)
         return [
           {
             qty: 0,
@@ -1964,7 +1965,7 @@ export abstract class Strategy implements StrategyInterface {
       const slOrder = this.getTP(d, undefined, false, true)[0]
       slOrder.price =
         closePrice *
-        (this.combo
+        (this.combo || (d.trailingLevel && d.trailingMode)
           ? 1
           : this.long
           ? 1 + this.userFee * 2
@@ -2174,8 +2175,9 @@ export abstract class Strategy implements StrategyInterface {
     if (!d.trailingMode) {
       d.bestPrice = 0
     }
-    const sl = (+slPerc / 100) * (this.long ? 1 : -1)
-    const tp = (+(trailingTpPerc ?? '0') / 100) * (this.long ? 1 : -1)
+    const sl = (+slPerc / 100 + this.userFee * 2) * (this.long ? 1 : -1)
+    const tp =
+      (+(trailingTpPerc ?? '0') / 100 + this.userFee * 2) * (this.long ? 1 : -1)
     const newTrailingLevel = d.bestPrice
       ? d.trailingMode === TrailingModeEnum.tsl && slPerc
         ? d.bestPrice * (1 + sl)
@@ -2184,11 +2186,11 @@ export abstract class Strategy implements StrategyInterface {
         : 0
       : 0
     if (newTrailingLevel !== d.trailingLevel && !this.combo) {
+      d.trailingLevel = newTrailingLevel
       const newSl = this.getSlHistoryLine(d, time)
-
       d = this.replaceSlHistoryLine(d, newSl, time)
     }
-    d.trailingLevel = newTrailingLevel
+
     return d
   }
 
