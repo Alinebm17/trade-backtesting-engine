@@ -628,7 +628,7 @@ export abstract class Strategy implements StrategyInterface {
       if (
         !this.botFunctions.isTrailingSl &&
         !this.settings.useMultiSl &&
-        deal.slPerc
+        typeof deal.slPerc !== 'undefined'
       ) {
         const price =
           deal.avgPrice *
@@ -648,7 +648,7 @@ export abstract class Strategy implements StrategyInterface {
       if (
         (this.botFunctions.isTrailingSl || this.botFunctions.isTrailingTp) &&
         !this.settings.useMultiSl &&
-        deal.slPerc
+        typeof deal.slPerc !== 'undefined'
       ) {
         const price = deal.trailingLevel
           ? deal.trailingLevel
@@ -1861,7 +1861,11 @@ export abstract class Strategy implements StrategyInterface {
           closePrice = d.trailingLevel
         }
       }
-    } else if (this.settings.useSl && d.slPerc && !this.combo) {
+    } else if (
+      this.settings.useSl &&
+      typeof d.slPerc !== 'undefined' &&
+      !this.combo
+    ) {
       const sl = d.slPerc
       const diff = this.long ? b.low - d.avgPrice : d.avgPrice - b.high
 
@@ -2431,8 +2435,8 @@ export abstract class Strategy implements StrategyInterface {
     }
     if (
       this.settings.moveSL &&
-      this.settings.moveSLTrigger &&
-      this.settings.moveSLValue &&
+      typeof this.settings.moveSLTrigger !== 'undefined' &&
+      typeof this.settings.moveSLValue !== 'undefined' &&
       this.settings.dealCloseConditionSL === CloseConditionEnum.tp
     ) {
       const trigger = +this.settings.moveSLTrigger / 100
