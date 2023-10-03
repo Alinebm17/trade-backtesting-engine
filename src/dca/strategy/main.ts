@@ -1495,6 +1495,7 @@ export abstract class Strategy implements StrategyInterface {
         const profit = this.createTransaction(o, m)
         total += this.profitBase ? profit.profitBase : profit.profitQuote
         totalUsd += profit.profitUsdt
+        Strategy.profits.push({ total, totalUsd, time: b.time })
       })
 
       const lastFilledSell = filledSell[filledSell.length - 1]
