@@ -274,6 +274,7 @@ export type SettingsIndicators = {
   stochRange?: StochRangeEnum
   minPercFromLast?: string
   orderSize?: string
+  keepConditionBars?: string
 }
 
 export enum StochRangeEnum {

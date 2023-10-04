@@ -207,14 +207,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const findStatus = i.statuses.find(
         (s) => time >= s.statusSince && time < s.statusTo,
       )
-      if (findStatus) {
-        i.statuses = i.statuses.filter(
-          (s) =>
-            s.statusSince !== findStatus.statusSince &&
-            s.statusTo !== findStatus.statusTo,
-        )
-        i.status = findStatus.status
-      }
+      i.statuses = i.statuses.filter((s) => s.statusTo > time)
+      i.status = !!findStatus?.status
 
       return i
     })
@@ -371,6 +365,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             valueInsteadof,
             srCrossingValue,
             stochRange,
+            keepConditionBars,
           },
           data,
         } = i
@@ -630,12 +625,24 @@ class TIStrategy extends Strategy implements StrategyInterface {
         }
         const [last] = [...data].sort((a, b) => b.time - a.time)
         const step = timeIntervalMap[i.interval]
-        const status = {
-          status: action,
-          statusSince: last.time + step,
-          statusTo: last.time + step * 2 - 1,
+        const toMultiplier = keepConditionBars
+          ? isNaN(+keepConditionBars)
+            ? 1
+            : +keepConditionBars < 1
+            ? 1
+            : +keepConditionBars
+          : 1
+        const changeStatus = !i.statuses.find(
+          (i) => i.status && i.statusTo > nextBar.time,
+        )
+        if (changeStatus && action) {
+          const status = {
+            status: action,
+            statusSince: last.time + step,
+            statusTo: last.time + step * (1 + toMultiplier) - 1,
+          }
+          i.statuses.push(status)
         }
-        i.statuses.push(status)
         Strategy.indicators = [
           ...Strategy.indicators.filter((si) => si.id !== i.id),
           { ...i, data: [] },
