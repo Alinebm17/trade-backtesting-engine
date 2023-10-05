@@ -36,6 +36,7 @@ import type {
   Minigrid,
   TradeResponse,
   Profit,
+  IndicatorsEvents,
 } from '../../types'
 
 export type Bar = BarTV
@@ -90,6 +91,8 @@ enum CandleTypeEnum {
 }
 
 export abstract class Strategy implements StrategyInterface {
+  static indicatorEvents: IndicatorsEvents[] = []
+
   static emptyPositon = {
     qty: 0,
     entryPrice: 0,
@@ -230,6 +233,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.minPrice = 0
     Strategy.maxPrice = 0
     Strategy.trades = false
+    Strategy.indicatorEvents = []
   }
 
   static position = Strategy.emptyPositon
@@ -3125,6 +3129,7 @@ export abstract class Strategy implements StrategyInterface {
       return d
     }) */
     const result = {
+      indicatorsEvents: [...Strategy.indicatorEvents],
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
         .map((d, ind) => ({ ...d, number: ind + 1 })),

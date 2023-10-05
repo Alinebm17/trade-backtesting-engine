@@ -16,6 +16,8 @@ import {
   IndicatorSection,
   StochRangeEnum,
   DCAConditionEnum,
+  StrategyEnum,
+  BotOrderSideEnum,
 } from '../../../types'
 
 import type {
@@ -207,8 +209,14 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const findStatus = i.statuses.find(
         (s) => time >= s.statusSince && time < s.statusTo,
       )
-      i.statuses = i.statuses.filter((s) => s.statusTo > time)
-      i.status = !!findStatus?.status
+      if (findStatus) {
+        i.statuses = i.statuses.filter(
+          (s) =>
+            s.statusSince !== findStatus.statusSince &&
+            s.statusTo !== findStatus.statusTo,
+        )
+        i.status = findStatus.status
+      }
 
       return i
     })
@@ -632,17 +640,24 @@ class TIStrategy extends Strategy implements StrategyInterface {
             ? 0
             : +keepConditionBars
           : 0
-        const changeStatus = !i.statuses.find(
-          (i) => i.status && i.statusTo > nextBar.time,
-        )
-        if (changeStatus && action) {
-          const status = {
-            status: action,
-            statusSince: last.time + step,
-            statusTo: last.time + step * (2 + toMultiplier) - 1,
-          }
-          i.statuses.push(status)
+
+        const status = {
+          status: action,
+          statusSince: last.time + step,
+          statusTo: last.time + step * 2 - 1,
         }
+
+        i.statuses.push(status)
+        if (toMultiplier > 0) {
+          ;[...Array(toMultiplier)].forEach((_v, ind) => {
+            i.statuses.push({
+              status: action,
+              statusSince: last.time + step * (ind + 2),
+              statusTo: last.time + step * (ind + 3) - 1,
+            })
+          })
+        }
+
         Strategy.indicators = [
           ...Strategy.indicators.filter((si) => si.id !== i.id),
           { ...i, data: [] },
@@ -683,6 +698,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
         closeDealSl.length === closeDealSlStatus.length &&
         closeDealSl.length
       ) {
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.closeDeal,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.sell
+              : BotOrderSideEnum.buy,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? lowestBar?.high ?? nextBar.high
+              : lowestBar?.low ?? nextBar.low,
+        })
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealSlStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
@@ -701,6 +728,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
         closeDealTp.length === closeDealTpStatus.length &&
         closeDealTp.length
       ) {
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.closeDeal,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.sell
+              : BotOrderSideEnum.buy,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? lowestBar?.high ?? nextBar.high
+              : lowestBar?.low ?? nextBar.low,
+        })
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealTpStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
@@ -716,6 +755,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
         })
       }
       if (startDeal.length === startDealStatus.length && startDeal.length) {
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.startDeal,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.buy
+              : BotOrderSideEnum.sell,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? lowestBar?.low ?? nextBar.low
+              : lowestBar?.high ?? nextBar.high,
+        })
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }

@@ -726,10 +726,18 @@ export type ValueChangeHistory = {
   time: number
 }
 
+export type IndicatorsEvents = {
+  type: IndicatorAction
+  time: number
+  side: BotOrderSideEnum
+  price: number
+}
+
 export type DCABacktestingResult = {
   // pair: string
+  indicatorsEvents?: IndicatorsEvents[]
   deals: Deal[]
-  profits: Profit[]
+  profits?: Profit[]
   noData?: boolean
   maxLeverage?: number
   financial: {
