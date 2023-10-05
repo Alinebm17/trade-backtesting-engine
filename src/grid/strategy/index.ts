@@ -23,6 +23,7 @@ import type {
   TradeResponse,
   FullGrid,
   FullGridWithTime,
+  ValueChangeHistory,
 } from '../../types'
 
 export type Bar = BarTV
@@ -74,6 +75,8 @@ export class Strategy implements StrategyInterface {
   private rangeStatus = false
 
   protected transactions: BacktestingTransaction[] = []
+
+  protected values: ValueChangeHistory[] = []
 
   private totalProfit = 0
 
@@ -741,6 +744,11 @@ export class Strategy implements StrategyInterface {
       this.createGrids(lastPrice)
       this.addAvgHistoryLine(bar.time)
     }
+
+    this.values.push({
+      value: this.currentBalances - this.initialBalances,
+      time: bar.time,
+    })
   }
 
   private closeWorkingShift(time: number) {
@@ -1165,6 +1173,7 @@ export class Strategy implements StrategyInterface {
         this.updatePriceWithOldPrice(this.lastBarPrice),
       ) * (this.profitBase ? this.lastBarPrice : 1)
     return {
+      values: this.values.sort((a, b) => a.time - b.time),
       firstUsdRate: this.firstUsdRate,
       lastUsdRate: this.lastUsdRate,
       filledOrders: this.filledOrders,

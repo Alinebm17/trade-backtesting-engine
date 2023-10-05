@@ -721,6 +721,11 @@ export type Profit = {
   time: number
 }
 
+export type ValueChangeHistory = {
+  value: number
+  time: number
+}
+
 export type DCABacktestingResult = {
   // pair: string
   deals: Deal[]
@@ -895,6 +900,7 @@ export type Grid = {
 export type FullGridWithTime = FullGrid & { filledTime: number }
 
 export type GridBacktestingResult = {
+  values: ValueChangeHistory[]
   firstUsdRate: number
   lastUsdRate: number
   transaction: BacktestingTransaction[]
