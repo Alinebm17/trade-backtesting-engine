@@ -627,11 +627,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
         const step = timeIntervalMap[i.interval]
         const toMultiplier = keepConditionBars
           ? isNaN(+keepConditionBars)
-            ? 1
-            : +keepConditionBars < 1
-            ? 1
+            ? 0
+            : +keepConditionBars < 0
+            ? 0
             : +keepConditionBars
-          : 1
+          : 0
         const changeStatus = !i.statuses.find(
           (i) => i.status && i.statusTo > nextBar.time,
         )
@@ -639,7 +639,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           const status = {
             status: action,
             statusSince: last.time + step,
-            statusTo: last.time + step * (1 + toMultiplier) - 1,
+            statusTo: last.time + step * (2 + toMultiplier) - 1,
           }
           i.statuses.push(status)
         }
