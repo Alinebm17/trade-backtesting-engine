@@ -1906,15 +1906,13 @@ export abstract class Strategy implements StrategyInterface {
           : qty * price * this.userFee
         const unpnl = (quoteTp - quote) * (this.long ? 1 : -1)
         const total = d.profit.total + unpnl - commission
-        const denominator =
-          (this.futures
-            ? this.coinm
-              ? d.usage.max.base
-              : d.usage.max.quote
-            : this.long
-            ? d.usage.max.quote
-            : d.usage.max.base * d.startPrice) *
-          (this.combo ? this.leverage : 1)
+        const denominator = this.futures
+          ? this.coinm
+            ? d.usage.max.base
+            : d.usage.max.quote
+          : this.long
+          ? d.usage.max.quote
+          : d.usage.max.base * d.startPrice
         const perc = total / denominator
         if (
           isFinite(Math.abs(perc)) &&
