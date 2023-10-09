@@ -807,6 +807,7 @@ export type DCABacktestingResult = {
     dealsPerDay: number
     coveredPriceDeviation: number
     actualPriceDeviation: number
+    liquidationEvents?: number
   }
   ratios: {
     profitFactor: number

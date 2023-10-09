@@ -3314,6 +3314,8 @@ export abstract class Strategy implements StrategyInterface {
           actualPriceDeviation(),
         ),
         actualPriceDeviation: actualPriceDeviation(),
+        liquidationEvents: Strategy.deals.filter((d) => !!d.liquidationPrice)
+          .length,
       },
       ratios: {
         profitFactor:
