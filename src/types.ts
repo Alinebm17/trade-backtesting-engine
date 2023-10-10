@@ -530,6 +530,14 @@ export enum ExchangeEnum {
   binanceSpot = 'binanceSpot',
   paperBinanceAll = 'paperBinanceAll',
   paperBinanceSpot = 'paperBinanceSpot',
+  bybitCoinm = 'bybitInverse',
+  bybitUsdm = 'bybitLinear',
+  paperBybitCoinm = 'paperBybitInverse',
+  paperBybitUsdm = 'paperBybitLinear',
+  bybitAll = 'bybitAll',
+  bybitSpot = 'bybitSpot',
+  paperBybitAll = 'paperBybitAll',
+  paperBybitSpot = 'paperBybitSpot',
 }
 
 export type DCAGrid = {
