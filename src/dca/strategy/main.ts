@@ -1946,7 +1946,7 @@ export abstract class Strategy implements StrategyInterface {
             (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
-        /*  if (close) {
+        /* if (close) {
           console.log(
             'sl',
             total,
@@ -2769,9 +2769,7 @@ export abstract class Strategy implements StrategyInterface {
       ? base
       : quote
     const perc = this.math.round(
-      (total / (denominator * (this.combo ? this.leverage : 1))) *
-        100 *
-        (this.combo ? 1 : this.leverage),
+      (total / denominator) * 100 * (this.combo ? 1 : this.leverage),
       2,
       false,
       true,
