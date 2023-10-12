@@ -1895,7 +1895,8 @@ export abstract class Strategy implements StrategyInterface {
         const quote =
           (this.long
             ? d.initialBalance.quote - d.currentBalance.quote
-            : d.currentBalance.quote) + d.profit.total
+            : d.currentBalance.quote) +
+          d.profit.total * (this.long ? 1 : -1)
         const quoteTp = qty * price
         const commission = this.futures
           ? this.coinm
@@ -2727,7 +2728,8 @@ export abstract class Strategy implements StrategyInterface {
     const quote = this.combo
       ? (this.long
           ? d.initialBalance.quote - d.currentBalance.quote
-          : d.currentBalance.quote) + d.profit.total
+          : d.currentBalance.quote) +
+        d.profit.total * (this.long ? 1 : -1)
       : regularOrders.reduce((acc, ro) => (acc += ro.qty * ro.price), 0)
     const base = this.combo
       ? this.long
