@@ -70,6 +70,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
         psarInc,
         psarMax,
         psarStart,
+        voLong,
+        voShort,
       } = i
       const ind = new InternalIndicator(
         type === IndicatorEnum.macd
@@ -132,6 +134,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
               max: psarMax ?? 0.2,
               inc: psarInc ?? 0.02,
               start: psarStart ?? 0.02,
+            }
+          : type === IndicatorEnum.vo
+          ? {
+              type,
+              voLong: voLong ?? 10,
+              voShort: voShort ?? 5,
             }
           : ({
               type,
@@ -441,11 +449,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
             (lastData.type === IndicatorEnum.rsi ||
               lastData.type === IndicatorEnum.mfi ||
               lastData.type === IndicatorEnum.adx ||
-              lastData.type === IndicatorEnum.bbw) &&
+              lastData.type === IndicatorEnum.bbw ||
+              lastData.type === IndicatorEnum.vo) &&
             (prevData.type === IndicatorEnum.rsi ||
               prevData.type === IndicatorEnum.mfi ||
               prevData.type === IndicatorEnum.adx ||
-              prevData.type === IndicatorEnum.bbw)
+              prevData.type === IndicatorEnum.bbw ||
+              prevData.type === IndicatorEnum.vo)
           ) {
             last = lastData.value
             prev = prevData.value

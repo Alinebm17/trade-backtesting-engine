@@ -19,6 +19,7 @@ import {
   SupportResistance,
   QFL,
   FasterPSAR,
+  FasterVO,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -49,6 +50,7 @@ export default class InternalIndicator {
     | SupportResistance
     | QFL
     | FasterPSAR
+    | FasterVO
 
   private data: IndicatorHistory[] = []
 
@@ -70,6 +72,12 @@ export default class InternalIndicator {
     }
     if (indicatorConfig.type === IndicatorEnum.rsi) {
       this.indicator = new FasterRSI(indicatorConfig.interval)
+    }
+    if (indicatorConfig.type === IndicatorEnum.vo) {
+      this.indicator = new FasterVO(
+        indicatorConfig.voShort,
+        indicatorConfig.voLong,
+      )
     }
     if (indicatorConfig.type === IndicatorEnum.mfi) {
       this.indicator = new FasterMFI(indicatorConfig.interval)
@@ -169,6 +177,9 @@ export default class InternalIndicator {
     time: number,
     cb: (data: IndicatorHistory[]) => void,
   ) {
+    if (this.indicator && this.indicator instanceof FasterVO) {
+      this.indicator.update(+value.v)
+    }
     if (
       this.indicator &&
       (this.indicator instanceof FasterRSI ||

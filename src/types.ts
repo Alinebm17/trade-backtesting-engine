@@ -25,6 +25,7 @@ export enum IndicatorEnum {
   qfl = 'QFL',
   mfi = 'MFI',
   psar = 'PSAR',
+  vo = 'VO',
 }
 
 export enum TradingviewAnalysisConditionEnum {
@@ -198,6 +199,11 @@ export type IndicatorConfigBackTesting =
       inc: number
       max: number
     }
+  | {
+      type: IndicatorEnum.vo
+      voLong: number
+      voShort: number
+    }
 
 export type IndicatorHistory = { time: number } & (
   | {
@@ -206,6 +212,7 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.adx
         | IndicatorEnum.bbw
         | IndicatorEnum.mfi
+        | IndicatorEnum.vo
       value: number
     }
   | {
@@ -275,6 +282,8 @@ export type SettingsIndicators = {
   minPercFromLast?: string
   orderSize?: string
   keepConditionBars?: string
+  voLong?: number
+  voShort?: number
 }
 
 export enum StochRangeEnum {
