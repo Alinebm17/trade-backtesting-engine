@@ -2233,18 +2233,41 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
+  private checkCloseTimer(d: Deal, b: Bar) {
+    if (
+      this.settings.closeByTimer &&
+      this.settings.closeByTimerValue &&
+      this.settings.closeByTimerUnits
+    ) {
+      const closeTime =
+        d.startTime +
+        this.settings.closeByTimerValue *
+          (this.settings.closeByTimerUnits === CooldownUnits.seconds
+            ? 1000
+            : this.settings.closeByTimerUnits === CooldownUnits.minutes
+            ? 60 * 1000
+            : this.settings.closeByTimerUnits === CooldownUnits.hours
+            ? 60 * 60 * 1000
+            : 24 * 60 * 60 * 1000)
+      if (closeTime <= b.time) {
+        return this.getTP(d, b.open, true, false)[0]
+      }
+    }
+  }
+
   public checkDeals(b: Bar, cbClose?: (price: number) => void) {
     this.checkPosition(b)
     Strategy.deals
       .filter((d) => d.status === 'open')
       .forEach((d) => {
         let tpOrder: FullGrid | undefined
+        tpOrder = this.checkCloseTimer(d, b)
         const bOpenHigh = { ...b, low: b.open }
         const bLowClose = { ...b, high: b.close }
         const bHighClose = { ...b, low: b.close }
         const bOpenLow = { ...b, high: b.open }
         const candleType = this.getCandleType(b)
-        if (this.long) {
+        if (this.long && tpOrder) {
           if (candleType === CandleTypeEnum.bull) {
             // open -> low. Check DCA and SL
             d = this.processGridOrders(d, b)
@@ -2303,10 +2326,7 @@ export abstract class Strategy implements StrategyInterface {
               tpOrder = tpReturnNext.order
             }
           }
-          if (tpOrder) {
-            d = this.closeDeal(d, b, tpOrder, cbClose)
-          }
-        } else {
+        } else if (!tpOrder) {
           if (candleType === CandleTypeEnum.bull) {
             // open -> low movement. Check TP and move SL and check trailing
             const tpReturn = this.filterTP(d, bOpenLow)
@@ -2366,9 +2386,9 @@ export abstract class Strategy implements StrategyInterface {
               }
             }
           }
-          if (tpOrder) {
-            d = this.closeDeal(d, b, tpOrder, cbClose)
-          }
+        }
+        if (tpOrder) {
+          d = this.closeDeal(d, b, tpOrder, cbClose)
         }
         Strategy.deals = [...Strategy.deals.filter((dd) => dd.id !== d.id), d]
       })
