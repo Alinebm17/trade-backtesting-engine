@@ -2017,6 +2017,7 @@ export abstract class Strategy implements StrategyInterface {
       }
       return d
     })
+    Strategy.position = Strategy.emptyPositon
   }
 
   private closeMinigrid(minigrid: Minigrid): Minigrid {
