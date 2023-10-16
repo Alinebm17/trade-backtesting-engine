@@ -50,12 +50,17 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     }
   }
 
-  public override getOtherIntervals(): ExchangeIntervals[] {
-    const set: Set<ExchangeIntervals> = new Set()
+  public override getOtherIntervals(): {
+    interval: ExchangeIntervals
+    countBack: number
+  }[] {
+    const map: Map<ExchangeIntervals, number> = new Map()
     for (const s of this.strategies) {
-      s.getOtherIntervals().forEach((i) => set.add(i))
+      s.getOtherIntervals().forEach((i) =>
+        map.set(i.interval, Math.max(map.get(i.interval) ?? 0, i.countBack)),
+      )
     }
-    return Array.from(set)
+    return Array.from(map).map(([k, v]) => ({ interval: k, countBack: v }))
   }
 }
 

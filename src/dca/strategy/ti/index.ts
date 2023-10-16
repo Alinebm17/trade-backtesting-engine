@@ -186,20 +186,29 @@ class TIStrategy extends Strategy implements StrategyInterface {
     Strategy.lowestInterval = Strategy.interval
   }
 
-  public override getOtherIntervals(): ExchangeIntervals[] {
-    return Strategy.indicators
-      .flatMap((i) => {
-        const int = [i.settings.indicatorInterval]
-        if (
-          i.settings.type === IndicatorEnum.ma &&
-          i.settings.maCrossingValue !== MAEnum.price &&
-          i.settings.maCrossingInterval
-        ) {
-          int.push(i.settings.maCrossingInterval)
-        }
-        return int
-      })
-      .filter((i) => i !== Strategy.interval)
+  public override getOtherIntervals(): {
+    interval: ExchangeIntervals
+    countBack: number
+  }[] {
+    return Strategy.indicators.flatMap((i) => {
+      const int = [
+        {
+          interval: i.settings.indicatorInterval,
+          countBack: i.instance.length,
+        },
+      ]
+      if (
+        i.settings.type === IndicatorEnum.ma &&
+        i.settings.maCrossingValue !== MAEnum.price &&
+        i.settings.maCrossingInterval
+      ) {
+        int.push({
+          interval: i.settings.maCrossingInterval,
+          countBack: i.instance.length,
+        })
+      }
+      return int
+    })
   }
 
   public test(): void {
@@ -675,6 +684,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       })
     }
     if (nextBar) {
+      const isProcess = nextBar.time >= Strategy.start
       const data = [...Strategy.data].sort(
         (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
       )
@@ -708,87 +718,93 @@ class TIStrategy extends Strategy implements StrategyInterface {
         closeDealSl.length === closeDealSlStatus.length &&
         closeDealSl.length
       ) {
-        Strategy.indicatorEvents.push({
-          type: IndicatorAction.closeDeal,
-          side:
-            this.settings.strategy === StrategyEnum.long
-              ? BotOrderSideEnum.sell
-              : BotOrderSideEnum.buy,
-          time: nextBar.time,
-          price:
-            this.settings.strategy === StrategyEnum.long
-              ? lowestBar?.high ?? nextBar.high
-              : lowestBar?.low ?? nextBar.low,
-        })
+        if (isProcess) {
+          Strategy.indicatorEvents.push({
+            type: IndicatorAction.closeDeal,
+            side:
+              this.settings.strategy === StrategyEnum.long
+                ? BotOrderSideEnum.sell
+                : BotOrderSideEnum.buy,
+            time: nextBar.time,
+            price:
+              this.settings.strategy === StrategyEnum.long
+                ? lowestBar?.high ?? nextBar.high
+                : lowestBar?.low ?? nextBar.low,
+          })
+          this.closeAllDeals({
+            open: lowestBar?.open ?? nextBar.open,
+            time: nextBar.time,
+            high: lowestBar?.open ?? nextBar.high,
+            low: lowestBar?.low ?? nextBar.low,
+            close: lowestBar?.close ?? nextBar.close,
+          })
+        }
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealSlStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
           }
           return i
         })
-        this.closeAllDeals({
-          open: lowestBar?.open ?? nextBar.open,
-          time: nextBar.time,
-          high: lowestBar?.open ?? nextBar.high,
-          low: lowestBar?.low ?? nextBar.low,
-          close: lowestBar?.close ?? nextBar.close,
-        })
       }
       if (
         closeDealTp.length === closeDealTpStatus.length &&
         closeDealTp.length
       ) {
-        Strategy.indicatorEvents.push({
-          type: IndicatorAction.closeDeal,
-          side:
-            this.settings.strategy === StrategyEnum.long
-              ? BotOrderSideEnum.sell
-              : BotOrderSideEnum.buy,
-          time: nextBar.time,
-          price:
-            this.settings.strategy === StrategyEnum.long
-              ? lowestBar?.high ?? nextBar.high
-              : lowestBar?.low ?? nextBar.low,
-        })
+        if (isProcess) {
+          Strategy.indicatorEvents.push({
+            type: IndicatorAction.closeDeal,
+            side:
+              this.settings.strategy === StrategyEnum.long
+                ? BotOrderSideEnum.sell
+                : BotOrderSideEnum.buy,
+            time: nextBar.time,
+            price:
+              this.settings.strategy === StrategyEnum.long
+                ? lowestBar?.high ?? nextBar.high
+                : lowestBar?.low ?? nextBar.low,
+          })
+          this.closeAllDeals({
+            open: lowestBar?.open ?? nextBar.open,
+            time: nextBar.time,
+            high: lowestBar?.open ?? nextBar.high,
+            low: lowestBar?.low ?? nextBar.low,
+            close: lowestBar?.close ?? nextBar.close,
+          })
+        }
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealTpStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
           }
           return i
         })
-        this.closeAllDeals({
-          open: lowestBar?.open ?? nextBar.open,
-          time: nextBar.time,
-          high: lowestBar?.open ?? nextBar.high,
-          low: lowestBar?.low ?? nextBar.low,
-          close: lowestBar?.close ?? nextBar.close,
-        })
       }
       if (startDeal.length === startDealStatus.length && startDeal.length) {
-        Strategy.indicatorEvents.push({
-          type: IndicatorAction.startDeal,
-          side:
-            this.settings.strategy === StrategyEnum.long
-              ? BotOrderSideEnum.buy
-              : BotOrderSideEnum.sell,
-          time: nextBar.time,
-          price:
-            this.settings.strategy === StrategyEnum.long
-              ? lowestBar?.low ?? nextBar.low
-              : lowestBar?.high ?? nextBar.high,
-        })
+        if (isProcess) {
+          Strategy.indicatorEvents.push({
+            type: IndicatorAction.startDeal,
+            side:
+              this.settings.strategy === StrategyEnum.long
+                ? BotOrderSideEnum.buy
+                : BotOrderSideEnum.sell,
+            time: nextBar.time,
+            price:
+              this.settings.strategy === StrategyEnum.long
+                ? lowestBar?.low ?? nextBar.low
+                : lowestBar?.high ?? nextBar.high,
+          })
+          this.openDeal(
+            lowestBar?.open ?? nextBar.open,
+            nextBar.time,
+            lowestBar?.high ?? nextBar.high,
+            lowestBar?.low ?? nextBar.low,
+          )
+        }
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
           }
           return i
         })
-        this.openDeal(
-          lowestBar?.open ?? nextBar.open,
-          nextBar.time,
-          lowestBar?.high ?? nextBar.high,
-          lowestBar?.low ?? nextBar.low,
-        )
       }
       if (
         startDcaStatus.length &&

@@ -59,8 +59,8 @@ export type DataType = {
 }
 
 export interface StrategyInterface {
-  getOtherIntervals(): ExchangeIntervals[]
-  loadData(data: DataType[]): void
+  getOtherIntervals(): { interval: ExchangeIntervals; countBack: number }[]
+  loadData(data: DataType[], start?: number): void
   test(): void
   startWorkingShift(start: number): void
   processBar(bar: Bar, nextBar?: Bar): void
@@ -195,7 +195,10 @@ export abstract class Strategy implements StrategyInterface {
 
   static maxPrice = 0
 
+  static start = 0
+
   static resetData() {
+    Strategy.start = 0
     Strategy.workingShift = []
     Strategy.maxUsage = {
       deal: 0,
@@ -295,11 +298,15 @@ export abstract class Strategy implements StrategyInterface {
     this.slippage = slippage
   }
 
-  public loadData(data: DataType[]): void {
+  public loadData(data: DataType[], start?: number): void {
+    Strategy.start = start ?? 0
     Strategy.data = data
   }
 
-  public getOtherIntervals(): ExchangeIntervals[] {
+  public getOtherIntervals(): {
+    interval: ExchangeIntervals
+    countBack: number
+  }[] {
     return []
   }
 
@@ -3265,7 +3272,7 @@ export abstract class Strategy implements StrategyInterface {
           avgDuration > 0
             ? friendlyTime(avgDuration)
             : { d: '', h: '', min: '', s: '' },
-        firstDataTime: firstData?.time ?? +new Date(),
+        firstDataTime: Strategy.start || (firstData?.time ?? +new Date()),
         lastDataTime: lastData?.time ?? +new Date(),
         loadingDataTime: this.math.round(loadingTime, 3),
         processingDataTime: this.math.round(

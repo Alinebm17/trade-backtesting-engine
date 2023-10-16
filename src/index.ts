@@ -95,7 +95,11 @@ class Backtesting {
     this.loadFn = loadFn
   }
 
-  public async _loadData(int?: ExchangeIntervals, from?: number) {
+  public async _loadData(
+    int?: ExchangeIntervals,
+    from?: number,
+    periodParam?: PeriodParams,
+  ) {
     const {
       symbol: { pair },
       interval,
@@ -106,8 +110,8 @@ class Backtesting {
       return JSON.parse(local)
     } */
     const resolution = tvIntervalMap[int ?? interval] as ResolutionString
-    let periodToUse = period
-    if (int && int !== interval) {
+    let periodToUse = periodParam || period
+    if (int && int !== interval && !periodParam) {
       periodToUse = this.calculatePeriod(int, from)
     }
     if (this.loadFn) {

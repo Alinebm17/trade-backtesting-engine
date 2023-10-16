@@ -1,15 +1,28 @@
 import Backtesting from '..'
 
-import { Bar, ExchangeIntervals, timeIntervalMap } from '../types'
+import {
+  Bar,
+  CloseConditionEnum,
+  DCAConditionEnum,
+  ExchangeIntervals,
+  StartConditionEnum,
+  timeIntervalMap,
+} from '../types'
 
 import getStrategyBySettings, { StrategyInterface } from './strategy'
 
 import CombinedStrategy from './strategy/combined'
 
-import type { DCABacktestingInput, TradeResponse } from '../types'
+import type {
+  DCABacktestingInput,
+  DCABotSettings,
+  TradeResponse,
+} from '../types'
 
 class DCABacktesting extends Backtesting {
   private strategy?: StrategyInterface
+
+  private settings: DCABotSettings
 
   constructor({
     settings,
@@ -33,6 +46,7 @@ class DCABacktesting extends Backtesting {
       settings,
       trades,
     })
+    this.settings = settings
     const strategy = getStrategyBySettings(settings)
     if (strategy) {
       this.strategy = new CombinedStrategy(
@@ -57,7 +71,8 @@ class DCABacktesting extends Backtesting {
       return
     }
     const startLoading = new Date().getTime()
-    const intervals = this.strategy.getOtherIntervals()
+    const otherIntervals = this.strategy.getOtherIntervals()
+    const intervals = otherIntervals.map((oi) => oi.interval)
     intervals.push(this.interval)
     const [lowestInterval] = intervals.sort(
       (a, b) => timeIntervalMap[a] - timeIntervalMap[b],
@@ -71,22 +86,40 @@ class DCABacktesting extends Backtesting {
     if (bars) {
       testData = bars
     } else {
-      const data = await this._loadData()
-      testData = [{ bar: data, interval: this.interval }]
-      const otherIntervals = intervals.filter((i) => i !== this.interval)
-      const queries: Promise<void>[] = []
-      otherIntervals.forEach((oi) =>
-        queries.push(
-          this._loadData(oi, this.period.from).then((res) => {
-            testData.push({ bar: res, interval: oi })
-          }),
-        ),
-      )
-      await Promise.all(queries)
+      const isIndicators =
+        this.settings.startCondition === StartConditionEnum.ti ||
+        (this.settings.dealCloseCondition === CloseConditionEnum.techInd &&
+          this.settings.useTp) ||
+        (this.settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
+          this.settings.useSl) ||
+        (this.settings.dcaCondition === DCAConditionEnum.indicators &&
+          this.settings.useDca)
+      if (!isIndicators) {
+        const data = await this._loadData()
+        testData = [{ bar: data, interval: this.interval }]
+      } else {
+        const queries: Promise<void>[] = []
+        otherIntervals.forEach((oi) =>
+          queries.push(
+            this._loadData(oi.interval, undefined, {
+              from:
+                (this.period.from * 1000 -
+                  oi.countBack * timeIntervalMap[oi.interval]) /
+                1000,
+              to: this.period.to,
+              firstDataRequest: false,
+              countBack: oi.countBack,
+            }).then((res) => {
+              testData.push({ bar: res, interval: oi.interval })
+            }),
+          ),
+        )
+        await Promise.all(queries)
+      }
     }
     const loadingTime = (new Date().getTime() - startLoading) / 1000
     const start = new Date().getTime()
-    this.strategy.loadData(testData)
+    this.strategy.loadData(testData, this.period.from * 1000)
     this.strategy.test()
     const processingTime = (new Date().getTime() - start) / 1000
     const [lowest] = testData.filter((d) => d.interval === lowestInterval)
@@ -122,7 +155,8 @@ class DCABacktesting extends Backtesting {
     if (!this.strategy) {
       return
     }
-    const intervals = this.strategy.getOtherIntervals()
+    const otherIntervals = this.strategy.getOtherIntervals()
+    const intervals = otherIntervals.map((oi) => oi.interval)
 
     intervals.push(this.interval)
     const [lowestInterval] = intervals.sort(
