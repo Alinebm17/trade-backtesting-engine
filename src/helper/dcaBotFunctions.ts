@@ -8,6 +8,7 @@ import {
   TerminalDealTypeEnum,
   DCAConditionEnum,
   IndicatorAction,
+  BotMarginTypeEnum,
 } from '../types'
 import BotUtils from './botUtils'
 import { checkNumber } from './utils'
@@ -156,6 +157,12 @@ class DCABotFunctions {
           ? +findBalance.free
           : +findBalance.locked + +findBalance.free
         : 0
+      if (settings.futures) {
+        qtyToUse *=
+          settings.marginType !== BotMarginTypeEnum.inherit
+            ? settings.leverage ?? 1
+            : 1
+      }
       baseQty = this.math.round(
         Math.max(
           symbol.quoteAsset.minAmount
