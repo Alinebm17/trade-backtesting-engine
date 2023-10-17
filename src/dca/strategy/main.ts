@@ -1442,6 +1442,12 @@ export abstract class Strategy implements StrategyInterface {
       cummulativeProfitBase: 0,
       cummulativeProfitQuote: 0,
       cummulativeProfitUsdt: 0,
+      freeProfit: 0,
+      freeProfitUsd: 0,
+      amountFreeBaseBuy: 0,
+      amountFreeBaseSell: 0,
+      amountFreeQuoteBuy: 0,
+      amountFreeQuoteSell: 0,
     }
     Strategy.transactionIndex++
     Strategy.deals = Strategy.deals.map((d) => {

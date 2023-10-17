@@ -82,6 +82,8 @@ export class Strategy implements StrategyInterface {
 
   private totalProfitUsd = 0
 
+  private freeTotalProfit = 0
+
   protected math = new MathHelper()
 
   private symbol: Symbols
@@ -320,7 +322,7 @@ export class Strategy implements StrategyInterface {
         ? this.initialBalancesByAsset.base + this.totalProfit
         : this.initialBalancesByAsset.quote + this.totalProfit
       : (this.profitBase ? quote / price + base : base * price + quote) +
-        this.totalProfit
+        this.freeTotalProfit
     this.currentBalancesUsd =
       this.currentBalances * (this.lastUsdRate || this.usdRate)
     this.currentBalancesByAsset = {
@@ -328,12 +330,12 @@ export class Strategy implements StrategyInterface {
         ? this.coinm
           ? base + this.totalProfit
           : 0
-        : base + (this.profitBase ? this.totalProfit : 0),
+        : base + (this.profitBase ? this.freeTotalProfit : 0),
       quote: this.futures
         ? this.coinm
           ? 0
           : quote + this.totalProfit
-        : quote + (this.profitBase ? 0 : this.totalProfit),
+        : quote + (this.profitBase ? 0 : this.freeTotalProfit),
     }
   }
 
@@ -349,7 +351,9 @@ export class Strategy implements StrategyInterface {
       this.symbol.priceAssetPrecision,
     )
     const botFunctionsPrice = this.botFunctions.lastPrice
-    this.botFunctions.lastPrice = +this.settings.topPrice * 2
+    this.botFunctions.lastPrice = this.isShort
+      ? +this.settings.lowPrice / 2
+      : +this.settings.topPrice * 2
     const grids = [...this.botFunctions.createOrders(true, true)]
     this.botFunctions.lastPrice = botFunctionsPrice
     const { qty, price, side, id, filledTime } = order
@@ -360,12 +364,19 @@ export class Strategy implements StrategyInterface {
     let matchedPrice = 0
     let matchQty = 0
     let profitBase = 0
+    let profitFreeBase = 0
+    let profitFreeQuote = 0
     let matchedId = ''
     let profitUsd = 0
+    let freeProfitUsd = 0
     let amountBaseBuy = side === BotOrderSideEnum.sell ? 0 : qty
+    let amountFreeBaseBuy = amountBaseBuy
     let amountQuoteBuy = side === BotOrderSideEnum.sell ? 0 : qty * price
+    let amountFreeQuoteBuy = amountQuoteBuy
     let amountBaseSell = side === BotOrderSideEnum.buy ? 0 : qty
+    let amountFreeBaseSell = amountBaseSell
     let amountQuoteSell = side === BotOrderSideEnum.buy ? 0 : qty * price
+    let amountFreeQuoteSell = amountQuoteSell
     const initialPriceStart = this.firstBarPrice
     if (this.settings.newProfit && !this.futures) {
       if (side === BotOrderSideEnum.sell && this.profitBase) {
@@ -401,6 +412,8 @@ export class Strategy implements StrategyInterface {
           (initialPriceStart &&
             side === BotOrderSideEnum.buy &&
             price >= initialPriceStart)
+      let matchedFreeQty = 0
+      let matchedFreePrice = 0
       if (!needMatch && !match) {
         this.usedOrderId.add(id)
         matchedId = 'initial price'
@@ -408,6 +421,30 @@ export class Strategy implements StrategyInterface {
           ? (price * qty) / (initialPriceStart ?? price)
           : qty
         matchedPrice = initialPriceStart ?? price
+        let selfFind = prices.findIndex((p) =>
+          this.isShort ? p.buy === price : p.sell === price,
+        )
+        if (selfFind === -1) {
+          selfFind = prices.findIndex((p) =>
+            this.isShort ? p.sell === price : p.buy === price,
+          )
+        }
+        const correspondingOrder = grids.find(
+          (g) =>
+            g.price ===
+              (selfFind === -1 ||
+              (this.isShort ? selfFind === prices.length - 1 : selfFind === 0)
+                ? prices.find((p) =>
+                    this.isShort ? p.buy === price : p.sell === price,
+                  )?.[this.isShort ? 'sell' : 'buy']
+                : prices[this.isShort ? selfFind + 1 : selfFind - 1]?.[
+                    this.isShort ? 'sell' : 'buy'
+                  ]) && g.side !== side,
+        )
+        if (correspondingOrder) {
+          matchedFreeQty = correspondingOrder.qty
+          matchedFreePrice = correspondingOrder.price
+        }
       } else if (match) {
         matchedId = match.id
         matchQty = match.qty
@@ -422,19 +459,48 @@ export class Strategy implements StrategyInterface {
           side === BotOrderSideEnum.sell
             ? qty * price - matchQty * matchedPrice
             : matchQty * matchedPrice - qty * price
+        const pnlFreeBase =
+          side === BotOrderSideEnum.sell
+            ? (matchedFreeQty || matchQty) - qty
+            : qty - (matchedFreeQty || matchQty)
+        const pnlFreeQuote =
+          side === BotOrderSideEnum.sell
+            ? qty * price -
+              (matchedFreeQty || matchQty) * (matchedFreePrice || matchedPrice)
+            : (matchedFreeQty || matchQty) *
+                (matchedFreePrice || matchedPrice) -
+              qty * price
         profitBase +=
           pnlBase +
           pnlQuote / (side === BotOrderSideEnum.buy ? price : matchedPrice)
         profitQuote +=
           pnlQuote +
           pnlBase * (side === BotOrderSideEnum.buy ? price : matchedPrice)
+        profitFreeBase +=
+          (pnlFreeBase || pnlBase) +
+          (pnlFreeQuote || pnlQuote) /
+            (side === BotOrderSideEnum.buy
+              ? price
+              : matchedFreePrice || matchedPrice)
+        profitFreeQuote +=
+          (pnlFreeQuote || pnlQuote) +
+          (pnlFreeBase || pnlBase) *
+            (side === BotOrderSideEnum.buy
+              ? price
+              : matchedFreePrice || matchedPrice)
         if (side === 'BUY') {
           amountBaseSell = matchQty
           amountQuoteSell = matchQty * matchedPrice
+          amountFreeBaseSell = matchedFreeQty || matchQty
+          amountFreeQuoteSell =
+            (matchedFreeQty || matchQty) * (matchedFreePrice || matchedPrice)
         }
         if (side === 'SELL') {
           amountBaseBuy = matchQty
           amountQuoteBuy = matchQty * matchedPrice
+          amountFreeBaseBuy = matchedFreeQty || matchQty
+          amountFreeQuoteBuy =
+            (matchedFreeQty || matchQty) * (matchedFreePrice || matchedPrice)
         }
       }
     } else {
@@ -562,7 +628,13 @@ export class Strategy implements StrategyInterface {
     const profit =
       (this.profitBase ? profitBase : profitQuote) -
       (this.profitBase ? comBase : comQuote)
+    const freeProfit =
+      (this.profitBase
+        ? profitFreeBase || profitBase
+        : profitFreeQuote || profitQuote) -
+      (this.profitBase ? comBase : comQuote)
     profitUsd = profit * this.usdRate
+    freeProfitUsd = (freeProfit || profit) * this.usdRate
     this.cummulativeProfit = {
       base: this.profitBase ? this.cummulativeProfit.base + profit : 0,
       quote: this.profitBase ? 0 : this.cummulativeProfit.quote + profit,
@@ -576,18 +648,22 @@ export class Strategy implements StrategyInterface {
         this.math.round(amountBaseBuy, this.allPrecision.base),
         this.allPrecision.base,
       ),
+      amountFreeBaseBuy,
       amountQuoteBuy: this.math.convertFromExponential(
         this.math.round(amountQuoteBuy, this.allPrecision.quote),
         this.allPrecision.quote,
       ),
+      amountFreeQuoteBuy,
       amountBaseSell: this.math.convertFromExponential(
         this.math.round(amountBaseSell, this.allPrecision.base),
         this.allPrecision.base,
       ),
+      amountFreeBaseSell,
       amountQuoteSell: this.math.convertFromExponential(
         this.math.round(amountQuoteSell, this.allPrecision.quote),
         this.allPrecision.quote,
       ),
+      amountFreeQuoteSell,
       priceSell: this.math.convertFromExponential(
         this.math.round(
           side === BotOrderSideEnum.sell ? price : matchedPrice,
@@ -607,6 +683,8 @@ export class Strategy implements StrategyInterface {
         this.precision + 3,
       ),
       profitUsd: this.math.round(profitUsd, 2),
+      freeProfit,
+      freeProfitUsd,
       baseAsset: this.symbol.baseAsset.name,
       quoteAsset: this.symbol.quoteAsset.name,
       profitAsset: this.futures
@@ -625,6 +703,7 @@ export class Strategy implements StrategyInterface {
       cummulativeProfitUsdt: this.cummulativeProfit.usd,
     }
     this.transactionIndex++
+    this.freeTotalProfit += freeProfit
     this.totalProfit += profit
     this.totalProfitUsd += profitUsd
     this.transactions.push(transaction)
@@ -874,10 +953,10 @@ export class Strategy implements StrategyInterface {
     let currentBase = this.initialBalancesByAsset.base
     let currentQuote = this.initialBalancesByAsset.quote
     if (this.profitBase) {
-      currentBase += this.totalProfit
+      currentBase += this.freeTotalProfit
     }
     if (!this.profitBase) {
-      currentQuote += this.totalProfit
+      currentQuote += this.freeTotalProfit
     }
     const currentValue = currentBase * firstPrice + currentQuote
     const initialValue =
@@ -904,12 +983,12 @@ export class Strategy implements StrategyInterface {
         currentGridsOnPrice
           .filter((gr) => gr.side === BotOrderSideEnum.sell)
           .reduce((acc, v) => acc + v.qty, 0) +
-        (this.profitBase ? this.totalProfit : 0)
+        (this.profitBase ? this.freeTotalProfit : 0)
       const newQuote =
         currentGridsOnPrice
           .filter((gr) => gr.side === BotOrderSideEnum.buy)
           .reduce((acc, v) => acc + v.qty * v.price, 0) +
-        (!this.profitBase ? this.totalProfit : 0)
+        (!this.profitBase ? this.freeTotalProfit : 0)
       if (
         (currentValue > initialValue &&
           newBase * g.price + newQuote > initialValue) ||
