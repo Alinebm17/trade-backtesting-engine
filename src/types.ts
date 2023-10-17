@@ -945,6 +945,8 @@ export type GridBacktestingResult = {
   })[]
   noDate?: boolean
   financial: {
+    freeProfitTotal: number
+    freeProfitTotalUsd: number
     profitTotal: string
     profitTotalUsd: number
     profitTotalPerc: number

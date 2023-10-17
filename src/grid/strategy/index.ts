@@ -1278,6 +1278,8 @@ export class Strategy implements StrategyInterface {
           .map((g) => ({ ...g, side: 'GREY' })),
       ],
       financial: {
+        freeProfitTotal: this.freeTotalProfit,
+        freeProfitTotalUsd: this.freeTotalProfit * this.usdRate,
         profitTotal: this.math.convertFromExponential(
           totalProfit,
           this.precision,
