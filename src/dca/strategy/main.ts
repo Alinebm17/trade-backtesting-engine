@@ -2865,6 +2865,26 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
+  private getConfidenceGrade() {
+    const number = Strategy.deals.filter(
+      (d) =>
+        d.status === 'closed' && d.closedTime && d.closedTime > d.startTime,
+    ).length
+    return number < 107
+      ? 'F'
+      : number >= 107 && number < 133
+      ? 'E'
+      : number >= 133 && number < 164
+      ? 'D'
+      : number >= 164 && number < 208
+      ? 'C'
+      : number >= 208 && number < 273
+      ? 'B'
+      : number >= 273 && number < 385
+      ? 'A'
+      : 'A+'
+  }
+
   public returnResult(
     firstData: Bar,
     lastData: Bar,
@@ -3304,6 +3324,7 @@ export abstract class Strategy implements StrategyInterface {
         avgRealUsage: avgUsable,
       },
       numerical: {
+        confidenceGrade: this.getConfidenceGrade(),
         all: Strategy.deals.length,
         profit: profitDeals.length,
         loss: lossDeals.length,

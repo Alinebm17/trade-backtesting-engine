@@ -825,6 +825,7 @@ export type DCABacktestingResult = {
     coveredPriceDeviation: number
     actualPriceDeviation: number
     liquidationEvents?: number
+    confidenceGrade?: string
   }
   ratios: {
     profitFactor: number
