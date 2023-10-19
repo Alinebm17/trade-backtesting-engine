@@ -667,7 +667,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         }
 
         i.statuses.push(status)
-        if (toMultiplier > 0) {
+        if (toMultiplier > 0 && action) {
           ;[...Array(toMultiplier)].forEach((_v, ind) => {
             i.statuses.push({
               status: action,
