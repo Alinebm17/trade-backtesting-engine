@@ -66,7 +66,10 @@ class DCABacktesting extends Backtesting {
     }
   }
 
-  public async test(bars?: { bar: Bar[]; interval: ExchangeIntervals }[]) {
+  public async test(
+    bars?: { bar: Bar[]; interval: ExchangeIntervals }[],
+    updateProgress?: (value: number, text: string) => void,
+  ) {
     if (!this.strategy) {
       return
     }
@@ -123,7 +126,7 @@ class DCABacktesting extends Backtesting {
       testData,
       bars ? testData[0]?.bar?.[0]?.time : this.period.from * 1000,
     )
-    this.strategy.test()
+    this.strategy.test(updateProgress)
     const processingTime = (new Date().getTime() - start) / 1000
     const [lowest] = testData.filter((d) => d.interval === lowestInterval)
     const result = this.strategy.returnResult(

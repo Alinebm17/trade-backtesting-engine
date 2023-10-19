@@ -61,7 +61,7 @@ export type DataType = {
 export interface StrategyInterface {
   getOtherIntervals(): { interval: ExchangeIntervals; countBack: number }[]
   loadData(data: DataType[], start?: number): void
-  test(): void
+  test(updateProgress?: (value: number, text: string) => void): void
   startWorkingShift(start: number): void
   processBar(bar: Bar, nextBar?: Bar): void
   processTrade(
