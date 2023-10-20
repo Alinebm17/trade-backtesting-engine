@@ -66,6 +66,13 @@ class DCABacktesting extends Backtesting {
     }
   }
 
+  override set stop(value: boolean) {
+    this._stop = value
+    if (this.strategy) {
+      this.strategy.stop = value
+    }
+  }
+
   public async test(
     bars?: { bar: Bar[]; interval: ExchangeIntervals }[],
     updateProgress?: (value: number, text: string) => void,
@@ -126,20 +133,26 @@ class DCABacktesting extends Backtesting {
       testData,
       bars ? testData[0]?.bar?.[0]?.time : this.period.from * 1000,
     )
-    this.strategy.test(updateProgress)
-    const processingTime = (new Date().getTime() - start) / 1000
-    const [lowest] = testData.filter((d) => d.interval === lowestInterval)
-    const result = this.strategy.returnResult(
-      lowest.bar[0],
-      lowest.bar[lowest.bar.length - 1],
-      loadingTime,
-      processingTime,
-    )
-    if (result.noData) {
-      result.duration.firstDataTime = this.period.from * 1000
-      result.duration.lastDataTime = this.period.to * 1000
-    }
-    return result
+    return this.strategy.test(updateProgress).then(() => {
+      if (this._stop) {
+        return
+      }
+      const processingTime = (new Date().getTime() - start) / 1000
+      const [lowest] = testData.filter((d) => d.interval === lowestInterval)
+      if (this.strategy) {
+        const result = this.strategy.returnResult(
+          lowest.bar[0],
+          lowest.bar[lowest.bar.length - 1],
+          loadingTime,
+          processingTime,
+        )
+        if (result.noData) {
+          result.duration.firstDataTime = this.period.from * 1000
+          result.duration.lastDataTime = this.period.to * 1000
+        }
+        return result
+      }
+    })
   }
 
   public returnResult(firstData: Bar, lastData: Bar) {

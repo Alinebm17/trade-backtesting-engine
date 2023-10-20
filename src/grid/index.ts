@@ -38,7 +38,17 @@ class DCABacktesting extends Backtesting {
     })
   }
 
-  public async test(_data?: Bar[]) {
+  override set stop(value: boolean) {
+    this._stop = value
+    if (this.strategy) {
+      this.strategy.stop = value
+    }
+  }
+
+  public async test(
+    _data?: Bar[],
+    updateProgress?: (value: number, text: string) => void,
+  ) {
     if (!this.strategy) {
       return
     }
@@ -51,19 +61,26 @@ class DCABacktesting extends Backtesting {
     }
     const start = new Date().getTime()
     this.strategy.loadData(data)
-    this.strategy.test()
-    const processingTime = (new Date().getTime() - start) / 1000
-    const result = this.strategy.returnResult(
-      data[0],
-      data[data.length - 1],
-      loadingTime,
-      processingTime,
-    )
-    if (result.noDate) {
-      result.duration.firstDataTime = this.period.from * 1000
-      result.duration.lastDataTime = this.period.to * 1000
+    if (this._stop) {
+      return
     }
-    return result
+    return this.strategy.test(updateProgress).then(() => {
+      if (this._stop) {
+        return
+      }
+      const processingTime = (new Date().getTime() - start) / 1000
+      const result = this.strategy.returnResult(
+        data[0],
+        data[data.length - 1],
+        loadingTime,
+        processingTime,
+      )
+      if (result.noDate) {
+        result.duration.firstDataTime = this.period.from * 1000
+        result.duration.lastDataTime = this.period.to * 1000
+      }
+      return result
+    })
   }
 
   public passTradeCandleData(

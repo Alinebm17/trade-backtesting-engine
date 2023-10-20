@@ -34,6 +34,8 @@ class Backtesting {
 
   public trades?: boolean
 
+  public _stop = false
+
   constructor({
     exchange,
     symbol,
@@ -49,6 +51,10 @@ class Backtesting {
     this.to = to
     this.period = this.calculatePeriod(this.interval)
     this.trades = trades
+  }
+
+  public set stop(value: boolean) {
+    this._stop = value
   }
 
   public calculatePeriod(

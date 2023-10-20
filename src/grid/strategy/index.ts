@@ -39,9 +39,9 @@ export type GRIDStrategyInput = {
 
 export interface StrategyInterface {
   loadData(data: BarTV[]): void
-  test(): void
+  test(updateProgress?: (value: number, text: string) => void): Promise<void>
   startWorkingShift(start: number): void
-  processBar(bar: Bar): void
+  processBar(bar: Bar): Promise<void>
   passTradeCandleData?: (
     trade: TradeResponse,
     candles: { candle: Bar | null; interval: ExchangeIntervals }[],
@@ -53,6 +53,7 @@ export interface StrategyInterface {
     loadingTime: number,
     processingTime: number,
   ): GridBacktestingResult
+  stop: boolean
 }
 
 /**
@@ -173,6 +174,8 @@ export class Strategy implements StrategyInterface {
 
   private firstBarPrice = 0
 
+  public _stop = false
+
   constructor(input: GRIDStrategyInput) {
     const { settings, userFee, symbol, prices, interval, trades } = input
     this.settings = settings
@@ -202,6 +205,10 @@ export class Strategy implements StrategyInterface {
     this.prices = prices
   }
 
+  public set stop(value: boolean) {
+    this._stop = value
+  }
+
   public loadData(data: BarTV[]): void {
     this.data = data
     /* this.botFunctions.initPrice = this.data[0]?.close ?? 0 */
@@ -219,14 +226,47 @@ export class Strategy implements StrategyInterface {
     return []
   }
 
-  public test() {
+  public async test(updateProgress?: (value: number, text: string) => void) {
+    const size = this.data?.length ?? 0
+    let step = 0
+    let total = 0
+    let i = 0
+    if (updateProgress) {
+      if (step === 0 && total === 0) {
+        updateProgress(
+          0,
+          `Processing candle on ${new Date(this.data?.[0].time).toUTCString()}`,
+        )
+      }
+      if (size !== 0) {
+        if (step === 0) {
+          step = Math.floor(size * 0.03)
+        }
+        if (total === 0) {
+          total = size
+        }
+      }
+    }
     for (const d of this.data) {
+      if (this._stop) {
+        break
+      }
+      i++
+      if (size !== 0 && updateProgress) {
+        if (this.math.remainder(i, step) === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 0.0000000001))
+          updateProgress(
+            i / total,
+            `Processing candle on ${new Date(d.time).toUTCString()}`,
+          )
+        }
+      }
       this.openPosition(d)
       this.checkPosition(d)
       if (this.botClosed) {
         break
       }
-      this.processBar(d)
+      await this.processBar(d)
     }
   }
 
@@ -769,7 +809,7 @@ export class Strategy implements StrategyInterface {
     })
   }
 
-  public processBar(bar: Bar) {
+  public async processBar(bar: Bar) {
     if (!this.firstBarPrice) {
       this.firstBarPrice = bar.close
     }

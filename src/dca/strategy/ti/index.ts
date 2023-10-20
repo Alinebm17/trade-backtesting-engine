@@ -211,14 +211,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
     })
   }
 
-  public test(): void {
+  public async test(): Promise<void> {
     const data = [...Strategy.data].sort(
       (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
     )
     const [lowest] = data
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
-    lowest.bar.forEach((b) => this.processBar(b))
+    for (const b of lowest.bar) {
+      await this.processBar(b)
+    }
   }
 
   private checkStatuses(time: number) {
@@ -281,7 +283,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     })
   }
 
-  public processBar(bar: Bar): void {
+  public async processBar(bar: Bar): Promise<void> {
     if (Strategy.workingShift.length === 0) {
       this.startWorkingShift(bar.time)
     }
@@ -337,7 +339,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     })
 
     this.checkIndicators(bar)
-    this.checkDeals(bar)
+    await this.checkDeals(bar)
   }
 
   private updateIndicatorData(i: Indicator) {

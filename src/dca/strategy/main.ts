@@ -61,9 +61,9 @@ export type DataType = {
 export interface StrategyInterface {
   getOtherIntervals(): { interval: ExchangeIntervals; countBack: number }[]
   loadData(data: DataType[], start?: number): void
-  test(updateProgress?: (value: number, text: string) => void): void
+  test(updateProgress?: (value: number, text: string) => void): Promise<void>
   startWorkingShift(start: number): void
-  processBar(bar: Bar, nextBar?: Bar): void
+  processBar(bar: Bar, nextBar?: Bar): Promise<void>
   processTrade(
     trade: TradeResponse,
     candles: { candle: Bar | null; interval: ExchangeIntervals }[],
@@ -83,6 +83,7 @@ export interface StrategyInterface {
   ): DCABacktestingResult
   long: boolean
   profitBase: boolean
+  stop: boolean
 }
 
 enum CandleTypeEnum {
@@ -247,6 +248,8 @@ export abstract class Strategy implements StrategyInterface {
 
   static trades?: boolean
 
+  public _stop = false
+
   constructor(input: StrategyInput) {
     const {
       settings,
@@ -298,6 +301,10 @@ export abstract class Strategy implements StrategyInterface {
     this.slippage = slippage
   }
 
+  public set stop(value: boolean) {
+    this._stop = value
+  }
+
   public loadData(data: DataType[], start?: number): void {
     Strategy.start = start ?? 0
     Strategy.data = data
@@ -310,13 +317,13 @@ export abstract class Strategy implements StrategyInterface {
     return []
   }
 
-  public abstract test(): void
+  public abstract test(): Promise<void>
 
   public startWorkingShift(start: number): void {
     Strategy.workingShift.push({ start })
   }
 
-  public abstract processBar(bar: Bar, nextBar?: Bar): void
+  public abstract processBar(bar: Bar, nextBar?: Bar): Promise<void>
 
   public abstract processTrade(
     trade: TradeResponse,
@@ -2247,145 +2254,146 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  public checkDeals(b: Bar, cbClose?: (price: number) => void) {
+  public async checkDeals(b: Bar, cbClose?: (price: number) => void) {
+    if (this._stop) {
+      return
+    }
     this.checkPosition(b)
-    Strategy.deals
-      .filter((d) => d.status === 'open')
-      .forEach((d) => {
-        let tpOrder: FullGrid | undefined
-        const bOpenHigh = { ...b, low: b.open }
-        const bLowClose = { ...b, high: b.close }
-        const bHighClose = { ...b, low: b.close }
-        const bOpenLow = { ...b, high: b.open }
-        const candleType = this.getCandleType(b)
-        if (this.long) {
-          if (candleType === CandleTypeEnum.bull) {
-            // open -> low. Check DCA and SL
-            d = this.processGridOrders(d, b)
-            if (d.status === 'closed') {
-              return
+    for (let d of Strategy.deals.filter((d) => d.status === 'open')) {
+      let tpOrder: FullGrid | undefined
+      const bOpenHigh = { ...b, low: b.open }
+      const bLowClose = { ...b, high: b.close }
+      const bHighClose = { ...b, low: b.close }
+      const bOpenLow = { ...b, high: b.open }
+      const candleType = this.getCandleType(b)
+      if (this.long) {
+        if (candleType === CandleTypeEnum.bull) {
+          // open -> low. Check DCA and SL
+          d = this.processGridOrders(d, b)
+          if (d.status === 'closed') {
+            return
+          }
+          d = this.processDCAOrders(d, b)
+          const slReturn = this.getSLOrder(d, b)
+          d = slReturn.deal
+          if (slReturn.order) {
+            tpOrder = slReturn.order
+          }
+          // low -> high. Check TP and move SL and check trailing
+          if (!tpOrder) {
+            const tpReturn = this.filterTP(d, bOpenHigh)
+            d = tpReturn.deal
+            tpOrder = tpReturn.order
+            d = this.checkValue(b, d)
+            d = this.checkTrailing(d, b.high, b.time)
+          }
+          // high -> close. Check SL if it was moved
+          if (!tpOrder) {
+            const slNext = this.getSLOrder(d, bHighClose)
+            d = slNext.deal
+            if (slNext.order) {
+              tpOrder = slNext.order
             }
-            d = this.processDCAOrders(d, b)
+          }
+        }
+        if (candleType === CandleTypeEnum.bear) {
+          // open -> high movement. Check TP and move SL and check trailing
+          const tpReturn = this.filterTP(d, bOpenHigh)
+          d = tpReturn.deal
+          tpOrder = tpReturn.order
+          d = this.checkValue(bOpenHigh, d)
+          d = this.checkTrailing(d, b.high, b.time)
+          // high -> low movement. Check SL if it was moved. If SL not filled check DCA
+          if (!tpOrder) {
             const slReturn = this.getSLOrder(d, b)
             d = slReturn.deal
             if (slReturn.order) {
               tpOrder = slReturn.order
             }
-            // low -> high. Check TP and move SL and check trailing
             if (!tpOrder) {
-              const tpReturn = this.filterTP(d, bOpenHigh)
-              d = tpReturn.deal
-              tpOrder = tpReturn.order
-              d = this.checkValue(b, d)
-              d = this.checkTrailing(d, b.high, b.time)
-            }
-            // high -> close. Check SL if it was moved
-            if (!tpOrder) {
-              const slNext = this.getSLOrder(d, bHighClose)
-              d = slNext.deal
-              if (slNext.order) {
-                tpOrder = slNext.order
+              d = this.processGridOrders(d, b)
+              if (d.status === 'closed') {
+                return
               }
+              d = this.processDCAOrders(d, b)
             }
           }
-          if (candleType === CandleTypeEnum.bear) {
-            // open -> high movement. Check TP and move SL and check trailing
-            const tpReturn = this.filterTP(d, bOpenHigh)
-            d = tpReturn.deal
-            tpOrder = tpReturn.order
-            d = this.checkValue(bOpenHigh, d)
-            d = this.checkTrailing(d, b.high, b.time)
-            // high -> low movement. Check SL if it was moved. If SL not filled check DCA
-            if (!tpOrder) {
-              const slReturn = this.getSLOrder(d, b)
-              d = slReturn.deal
-              if (slReturn.order) {
-                tpOrder = slReturn.order
-              }
-              if (!tpOrder) {
-                d = this.processGridOrders(d, b)
-                if (d.status === 'closed') {
-                  return
-                }
-                d = this.processDCAOrders(d, b)
-              }
-            }
-            // low -> close movement. Check TP
-            if (!tpOrder) {
-              const tpReturnNext = this.filterTP(d, bLowClose)
-              d = tpReturnNext.deal
-              tpOrder = tpReturnNext.order
-            }
+          // low -> close movement. Check TP
+          if (!tpOrder) {
+            const tpReturnNext = this.filterTP(d, bLowClose)
+            d = tpReturnNext.deal
+            tpOrder = tpReturnNext.order
           }
-          if (tpOrder) {
-            d = this.closeDeal(d, b, tpOrder, cbClose)
-          }
-        } else {
-          if (candleType === CandleTypeEnum.bull) {
-            // open -> low movement. Check TP and move SL and check trailing
-            const tpReturn = this.filterTP(d, bOpenLow)
-            d = tpReturn.deal
-            tpOrder = tpReturn.order
-            d = this.checkValue(bOpenLow, d)
-            d = this.checkTrailing(d, b.low, b.time)
-            // low -> high movement. Check moved SL, If SL not filled, check DCA
-            if (!tpOrder) {
-              const slReturn = this.getSLOrder(d, b)
-              d = slReturn.deal
-              if (slReturn.order) {
-                tpOrder = slReturn.order
-              }
-              if (!tpOrder) {
-                d = this.processGridOrders(d, b)
-                if (d.status === 'closed') {
-                  return
-                }
-                d = this.processDCAOrders(d, b)
-              }
-            }
-            // high -> close. Check TP
-            if (!tpOrder) {
-              const tpReturnNext = this.filterTP(d, bHighClose)
-              d = tpReturnNext.deal
-              tpOrder = tpReturnNext.order
-            }
-          }
-          if (candleType === CandleTypeEnum.bear) {
-            // open -> high movement. Check for filled DCA and SL
-            d = this.processGridOrders(d, bOpenHigh)
-            if (d.status === 'closed') {
-              return
-            }
-            d = this.processDCAOrders(d, bOpenHigh)
-            const slReturn = this.getSLOrder(d, bOpenHigh)
+        }
+        if (tpOrder) {
+          d = this.closeDeal(d, b, tpOrder, cbClose)
+        }
+      } else {
+        if (candleType === CandleTypeEnum.bull) {
+          // open -> low movement. Check TP and move SL and check trailing
+          const tpReturn = this.filterTP(d, bOpenLow)
+          d = tpReturn.deal
+          tpOrder = tpReturn.order
+          d = this.checkValue(bOpenLow, d)
+          d = this.checkTrailing(d, b.low, b.time)
+          // low -> high movement. Check moved SL, If SL not filled, check DCA
+          if (!tpOrder) {
+            const slReturn = this.getSLOrder(d, b)
             d = slReturn.deal
             if (slReturn.order) {
               tpOrder = slReturn.order
             }
-
-            // high -> low movement. Check for filled TP and move SL and check trailing
             if (!tpOrder) {
-              const tpReturn = this.filterTP(d, b)
-              d = tpReturn.deal
-              tpOrder = tpReturn.order
-              d = this.checkValue(b, d)
-              d = this.checkTrailing(d, b.low, b.time)
-            }
-            // low -> close. Check SL if it was moved
-            if (!tpOrder) {
-              const slReturnNext = this.getSLOrder(d, bLowClose)
-              d = slReturnNext.deal
-              if (slReturnNext.order) {
-                tpOrder = slReturnNext.order
+              d = this.processGridOrders(d, b)
+              if (d.status === 'closed') {
+                return
               }
+              d = this.processDCAOrders(d, b)
             }
           }
-          if (tpOrder) {
-            d = this.closeDeal(d, b, tpOrder, cbClose)
+          // high -> close. Check TP
+          if (!tpOrder) {
+            const tpReturnNext = this.filterTP(d, bHighClose)
+            d = tpReturnNext.deal
+            tpOrder = tpReturnNext.order
           }
         }
-        Strategy.deals = [...Strategy.deals.filter((dd) => dd.id !== d.id), d]
-      })
+        if (candleType === CandleTypeEnum.bear) {
+          // open -> high movement. Check for filled DCA and SL
+          d = this.processGridOrders(d, bOpenHigh)
+          if (d.status === 'closed') {
+            return
+          }
+          d = this.processDCAOrders(d, bOpenHigh)
+          const slReturn = this.getSLOrder(d, bOpenHigh)
+          d = slReturn.deal
+          if (slReturn.order) {
+            tpOrder = slReturn.order
+          }
+
+          // high -> low movement. Check for filled TP and move SL and check trailing
+          if (!tpOrder) {
+            const tpReturn = this.filterTP(d, b)
+            d = tpReturn.deal
+            tpOrder = tpReturn.order
+            d = this.checkValue(b, d)
+            d = this.checkTrailing(d, b.low, b.time)
+          }
+          // low -> close. Check SL if it was moved
+          if (!tpOrder) {
+            const slReturnNext = this.getSLOrder(d, bLowClose)
+            d = slReturnNext.deal
+            if (slReturnNext.order) {
+              tpOrder = slReturnNext.order
+            }
+          }
+        }
+        if (tpOrder) {
+          d = this.closeDeal(d, b, tpOrder, cbClose)
+        }
+      }
+      Strategy.deals = [...Strategy.deals.filter((dd) => dd.id !== d.id), d]
+    }
 
     if ((this.long || this.futures) && !this.coinm) {
       const all = Strategy.deals

@@ -24,24 +24,33 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     this.strategies = strategies.map((s) => s(input))
   }
 
-  public test(updateProgress?: (value: number, text: string) => void): void {
+  public async test(
+    updateProgress?: (value: number, text: string) => void,
+  ): Promise<void> {
     const data = [...Strategy.data].sort(
       (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
     )
     const [lowest] = data
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
-    lowest.bar.forEach((b, i) =>
-      this.processBar(b, lowest.bar[i + 1], updateProgress, lowest.bar.length),
-    )
+    let i = 0
+    for (const b of lowest.bar) {
+      await this.processBar(
+        b,
+        lowest.bar[i + 1],
+        updateProgress,
+        lowest.bar.length,
+      )
+      i++
+    }
   }
 
-  public processBar(
+  public async processBar(
     b: Bar,
     nextBar: Bar,
     updateProgress?: (value: number, text: string) => void,
     _size?: number,
-  ): void {
+  ): Promise<void> {
     const size = _size || Strategy?.data?.[0]?.bar?.length || 0
     if (this.step === 0 && this.total === 0 && updateProgress) {
       updateProgress(
@@ -51,13 +60,14 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     }
     if (size !== 0 && updateProgress) {
       if (this.step === 0) {
-        this.step = Math.floor(size * 0.01)
+        this.step = Math.floor(size * 0.03)
       }
       if (this.total === 0) {
         this.total = size
       }
 
       if (this.math.remainder(this.i, this.step) === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0.0000000001))
         updateProgress(
           this.i / this.total,
           `Processing candle on ${new Date(b.time).toUTCString()}`,
@@ -66,7 +76,10 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
       this.i++
     }
     for (const s of this.strategies) {
-      s.processBar(b, nextBar)
+      if (this._stop) {
+        return
+      }
+      await s.processBar(b, nextBar)
     }
   }
 
@@ -82,6 +95,9 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     candles: { candle: Bar | null; interval: ExchangeIntervals }[],
   ): void {
     for (const s of this.strategies) {
+      if (this._stop) {
+        return
+      }
       s.processTrade(trade, candles)
     }
   }
