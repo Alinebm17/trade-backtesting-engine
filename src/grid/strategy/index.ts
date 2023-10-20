@@ -840,10 +840,10 @@ export class Strategy implements StrategyInterface {
     const filledBuy = this.grids
       .filter((g) => g.side === BotOrderSideEnum.buy && g.price >= bar.low)
       .sort((a, b) => a.price - b.price)
-    filledBuy.forEach((o) => {
+    for (const o of filledBuy) {
       this.createTransaction({ ...o, filledTime: bar.time })
       this.updatePositionWithOrder(o)
-    })
+    }
     const [lastFilledBuy] = filledBuy
     if (lastFilledBuy) {
       const lastPrice = lastFilledBuy.price
@@ -853,10 +853,10 @@ export class Strategy implements StrategyInterface {
     const filledSell = this.grids
       .filter((g) => g.side === BotOrderSideEnum.sell && g.price <= bar.high)
       .sort((a, b) => b.price - a.price)
-    filledSell.forEach((o) => {
+    for (const o of filledSell) {
       this.createTransaction({ ...o, filledTime: bar.time })
       this.updatePositionWithOrder(o)
-    })
+    }
     const [lastFilledSell] = filledSell
     if (lastFilledSell) {
       const lastPrice = lastFilledSell.price

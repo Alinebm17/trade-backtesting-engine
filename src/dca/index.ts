@@ -109,7 +109,7 @@ class DCABacktesting extends Backtesting {
         testData = [{ bar: data, interval: this.interval }]
       } else {
         const queries: Promise<void>[] = []
-        otherIntervals.forEach((oi) =>
+        for (const oi of otherIntervals) {
           queries.push(
             this._loadData(oi.interval, undefined, {
               from:
@@ -122,8 +122,8 @@ class DCABacktesting extends Backtesting {
             }).then((res) => {
               testData.push({ bar: res, interval: oi.interval })
             }),
-          ),
-        )
+          )
+        }
         await Promise.all(queries)
       }
     }

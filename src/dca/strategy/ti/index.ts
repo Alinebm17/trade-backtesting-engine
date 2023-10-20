@@ -45,7 +45,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     super(input)
     this.processBar = this.processBar.bind(this)
     const { indicators } = input.settings
-    indicators.forEach((i) => {
+    for (const i of indicators) {
       const {
         type,
         indicatorLength,
@@ -180,7 +180,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ignore: true,
         })
       }
-    })
+    }
     this.updateIndicatorData = this.updateIndicatorData.bind(this)
     this.checkIndicators = this.checkIndicators.bind(this)
     Strategy.lowestInterval = Strategy.interval
@@ -251,7 +251,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     this.checkStatuses(trade.timestamp)
     this.checkInRange(+trade.price, trade.timestamp)
     if (candles.length) {
-      candles.forEach((c) => {
+      for (const c of candles) {
         if (!c.candle) {
           return
         }
@@ -272,7 +272,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           )
         }
         this.checkIndicators(c.candle)
-      })
+      }
     }
     this.checkDeals({
       open: +trade.price,
@@ -295,7 +295,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     const restIndicators = Strategy.indicators.filter(
       (i) => i.interval !== Strategy.lowestInterval,
     )
-    lowestIndicators.forEach((i) => {
+    for (const i of lowestIndicators) {
       i.instance.updateValue(
         {
           o: bar.open,
@@ -307,7 +307,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         bar.time,
         this.updateIndicatorData(i),
       )
-    })
+    }
     const range = [
       bar.time + 1,
       bar.time + timeIntervalMap[Strategy.lowestInterval ?? Strategy.interval],
@@ -315,13 +315,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
     /*  if (restIndicators.length === 0) {
       this.checkDeals(bar)
     } */
-    restIndicators.forEach((i) => {
+    for (const i of restIndicators) {
       const [data] = Strategy.data.filter((d) => d.interval === i.interval)
       if (data) {
         const bars = data.bar.filter(
           (b) => b.time >= range[0] && b.time <= range[1],
         )
-        bars.forEach((b) => {
+        for (const b of bars) {
           i.instance.updateValue(
             {
               o: b.open,
@@ -334,9 +334,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
             this.updateIndicatorData(i),
           )
           //this.checkDeals(b)
-        })
+        }
       }
-    })
+    }
 
     this.checkIndicators(bar)
     await this.checkDeals(bar)
@@ -372,7 +372,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         (i) => i.id !== i.settings.maUUID && i.data.length > 0,
       )
       //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
-      currentState.forEach((i) => {
+      for (const i of currentState) {
         let action = false
         const {
           settings: {
@@ -670,20 +670,22 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
         i.statuses.push(status)
         if (toMultiplier > 0 && action) {
-          ;[...Array(toMultiplier)].forEach((_v, ind) => {
+          let ind = 0
+          for (const _v of [...Array(toMultiplier)]) {
             i.statuses.push({
               status: action,
               statusSince: last.time + step * (ind + 2),
               statusTo: last.time + step * (ind + 3) - 1,
             })
-          })
+            ind++
+          }
         }
 
         Strategy.indicators = [
           ...Strategy.indicators.filter((si) => si.id !== i.id),
           { ...i, data: [] },
         ]
-      })
+      }
     }
     if (nextBar) {
       const isProcess = nextBar.time >= Strategy.start

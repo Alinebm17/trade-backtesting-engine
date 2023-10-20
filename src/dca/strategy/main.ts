@@ -137,6 +137,7 @@ export abstract class Strategy implements StrategyInterface {
     value: 0,
     min: 0,
     max: 0,
+    perc: 0,
   }
 
   static seriesLoss = {
@@ -144,6 +145,7 @@ export abstract class Strategy implements StrategyInterface {
     value: 0,
     min: 0,
     max: 0,
+    perc: 0,
   }
 
   static previousDeal?: Deal
@@ -215,12 +217,14 @@ export abstract class Strategy implements StrategyInterface {
       value: 0,
       min: 0,
       max: 0,
+      perc: 0,
     }
     Strategy.seriesLoss = {
       count: 0,
       value: 0,
       min: 0,
       max: 0,
+      perc: 0,
     }
     Strategy.previousDeal = undefined
     Strategy.maxConsecutiveWins = 0
@@ -249,6 +253,10 @@ export abstract class Strategy implements StrategyInterface {
   static trades?: boolean
 
   public _stop = false
+
+  private balance = 0
+
+  private initialBalance = 0
 
   constructor(input: StrategyInput) {
     const {
@@ -699,6 +707,36 @@ export abstract class Strategy implements StrategyInterface {
     return []
   }
 
+  private getBalances(price: number): Asset[] | null | undefined {
+    if (this.balance === 0) {
+      return this.balances
+    }
+
+    const asset = this.futures
+      ? this.coinm
+        ? this.symbol.baseAsset.name
+        : this.symbol.quoteAsset.name
+      : this.long
+      ? this.symbol.quoteAsset.name
+      : this.symbol.baseAsset.name
+    const balanceAsset = (this.balances ?? []).find((b) => b.asset === asset)
+    const balanceItem = +(balanceAsset?.free ?? '0')
+    const fullBalance = balanceItem + Strategy.totalProfit
+    const free = this.futures
+      ? fullBalance
+      : this.long
+      ? balanceItem + Strategy.totalProfit * (this.profitBase ? price : 1)
+      : balanceItem + Strategy.totalProfit * (this.profitBase ? 1 : 1 / price)
+    const balance = {
+      asset,
+      free: `${free}`,
+      locked: balanceAsset?.locked ?? '0',
+    }
+    return this.balances
+      ? this.balances.filter((b) => b.asset !== asset).concat(balance)
+      : [balance]
+  }
+
   public openDeal(price: number, startTime: number, high: number, low: number) {
     if (!this.checkCooldownStart(startTime)) {
       return
@@ -721,7 +759,13 @@ export abstract class Strategy implements StrategyInterface {
       this.symbol.priceAssetPrecision,
     )
     let initialOrders = this.botFunctions
-      .createOrders(orderPrice, true, undefined, undefined, this.balances)
+      .createOrders(
+        orderPrice,
+        true,
+        undefined,
+        undefined,
+        this.getBalances(orderPrice),
+      )
       .filter(
         (o) =>
           o.type !== DCAOrderTypeEnum.sl && o.type !== DCAOrderTypeEnum.grid,
@@ -821,13 +865,15 @@ export abstract class Strategy implements StrategyInterface {
     if (this.combo) {
       const minigrid = this.createMinigrid(deal, baseOrder, false)
       deal.mingrids.push(minigrid)
-      minigrid.activeOrders.forEach((o) =>
-        activeOrders.push({ ...o, startTime }),
-      )
+      for (const o of minigrid.activeOrders) {
+        activeOrders.push({ ...o, startTime })
+      }
       for (const h of hiddenDCA) {
         const m = this.createMinigrid(deal, h, true, baseOrder.price)
         deal.mingrids.push(m)
-        m.activeOrders.forEach((o) => activeOrders.push({ ...o, startTime }))
+        for (const o of m.activeOrders) {
+          activeOrders.push({ ...o, startTime })
+        }
         deal.hiddenOrders.push({
           ...h,
           startTime,
@@ -934,9 +980,9 @@ export abstract class Strategy implements StrategyInterface {
       deal = this.checkTrailing(deal, price, startTime)
     } else {
       if (!this.combo) {
-        this.getSlHistoryLine(deal).forEach((slLine) =>
-          deal.ordersHistory.push(slLine),
-        )
+        for (const slLine of this.getSlHistoryLine(deal)) {
+          deal.ordersHistory.push(slLine)
+        }
       }
     }
     if (this.profitBase && deal.usage.current.base > Strategy.maxUsage.deal) {
@@ -946,6 +992,17 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.maxUsage.deal = deal.usage.current.quote
     }
     Strategy.deals.push(deal)
+
+    if (this.balance === 0) {
+      this.balance = this.futures
+        ? this.coinm
+          ? deal.usage.max.base
+          : deal.usage.max.quote
+        : this.long
+        ? deal.usage.max.quote * (this.profitBase ? 1 / deal.startPrice : 1)
+        : deal.usage.max.base * (this.profitBase ? 1 : deal.startPrice)
+      this.initialBalance = this.balance
+    }
   }
 
   private filterTP(d: Deal, b: Bar): { deal: Deal; order?: FullGrid } {
@@ -1001,11 +1058,11 @@ export abstract class Strategy implements StrategyInterface {
           if (oh.filledTime) {
             return oh
           }
-          filledTp.forEach((ftp) => {
+          for (const ftp of filledTp) {
             if (ftp.price === oh.price && ftp.type === oh.type) {
               oh.filledTime = b.time
             }
-          })
+          }
           return oh
         }),
       ]
@@ -1489,7 +1546,7 @@ export abstract class Strategy implements StrategyInterface {
       const filledBuy = grids
         .filter((g) => g.side === BotOrderSideEnum.buy && g.price >= b.low)
         .sort((a, B) => B.price - a.price)
-      filledBuy.forEach((o) => {
+      for (const o of filledBuy) {
         o.filledTime = b.time
         m.filledOrders.push(o)
         d.filledOrders.push({ ...o, dealId: d.id })
@@ -1499,7 +1556,7 @@ export abstract class Strategy implements StrategyInterface {
         total += this.profitBase ? profit.profitBase : profit.profitQuote
         totalUsd += profit.profitUsdt
         Strategy.profits.push({ total, totalUsd, time: b.time })
-      })
+      }
       const lastFilledBuy = filledBuy[filledBuy.length - 1]
       if (lastFilledBuy) {
         const lastPrice = lastFilledBuy.price
@@ -1510,7 +1567,7 @@ export abstract class Strategy implements StrategyInterface {
       const filledSell = grids
         .filter((g) => g.side === BotOrderSideEnum.sell && g.price <= b.high)
         .sort((a, B) => a.price - B.price)
-      filledSell.forEach((o) => {
+      for (const o of filledSell) {
         o.filledTime = b.time
         m.filledOrders.push(o)
         d.filledOrders.push({ ...o, dealId: d.id })
@@ -1520,8 +1577,7 @@ export abstract class Strategy implements StrategyInterface {
         total += this.profitBase ? profit.profitBase : profit.profitQuote
         totalUsd += profit.profitUsdt
         Strategy.profits.push({ total, totalUsd, time: b.time })
-      })
-
+      }
       const lastFilledSell = filledSell[filledSell.length - 1]
       if (lastFilledSell) {
         const lastPrice = lastFilledSell.price
@@ -1654,43 +1710,43 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   addDCAOrder(index: number, price: number, time: number) {
-    Strategy.deals
-      .filter((d) => d.status === 'open' && d.lastFilled + 1 === index + 1)
-      .forEach((d) => {
-        if (this.settings.dcaCondition === DCAConditionEnum.indicators) {
-          const ind = this.settings.indicators.filter(
-            (i) => i.indicatorAction === IndicatorAction.startDca,
-          )[index]
-          if (ind) {
-            const { minPercFromLast } = ind
-            if (minPercFromLast && !isNaN(+minPercFromLast)) {
-              const diff = this.long ? d.lastPrice - price : price - d.lastPrice
-              const absDiff = diff / d.lastPrice
+    for (const d of Strategy.deals.filter(
+      (d) => d.status === 'open' && d.lastFilled + 1 === index + 1,
+    )) {
+      if (this.settings.dcaCondition === DCAConditionEnum.indicators) {
+        const ind = this.settings.indicators.filter(
+          (i) => i.indicatorAction === IndicatorAction.startDca,
+        )[index]
+        if (ind) {
+          const { minPercFromLast } = ind
+          if (minPercFromLast && !isNaN(+minPercFromLast)) {
+            const diff = this.long ? d.lastPrice - price : price - d.lastPrice
+            const absDiff = diff / d.lastPrice
 
-              if (absDiff >= +minPercFromLast / 100) {
-                const orders = this.botFunctions.createOrders(
-                  d.startPrice,
-                  true,
-                  undefined,
-                  [],
-                  this.balances,
-                )
-                const dcaOrder = orders.find((o) => o.levelNumber === index + 1)
-                if (dcaOrder) {
-                  d.activeOrders.push({ ...dcaOrder, startTime: time, price })
-                  this.processDCAOrders(d, {
-                    open: price,
-                    close: price,
-                    high: price,
-                    low: price,
-                    time,
-                  })
-                }
+            if (absDiff >= +minPercFromLast / 100) {
+              const orders = this.botFunctions.createOrders(
+                d.startPrice,
+                true,
+                undefined,
+                [],
+                this.getBalances(d.startPrice),
+              )
+              const dcaOrder = orders.find((o) => o.levelNumber === index + 1)
+              if (dcaOrder) {
+                d.activeOrders.push({ ...dcaOrder, startTime: time, price })
+                this.processDCAOrders(d, {
+                  open: price,
+                  close: price,
+                  high: price,
+                  low: price,
+                  time,
+                })
               }
             }
           }
         }
-      })
+      }
+    }
   }
 
   private processDCAOrders(d: Deal, b: Bar) {
@@ -1709,9 +1765,9 @@ export abstract class Strategy implements StrategyInterface {
         if (this.combo) {
           const m = this.createMinigrid(d, o, false)
           d.mingrids.push(m)
-          m.activeOrders.forEach((ao) =>
-            d.activeOrders.push({ ...ao, startTime: b.time }),
-          )
+          for (const ao of m.activeOrders) {
+            d.activeOrders.push({ ...ao, startTime: b.time })
+          }
         }
         this.updatePositionWithOrder(o)
         d.lastPrice = o.price
@@ -2095,6 +2151,7 @@ export abstract class Strategy implements StrategyInterface {
     }
 
     if (profit) {
+      this.balance += profit.total
       if (profit.total > 0 && profit.total > Strategy.maxProfit) {
         Strategy.maxProfit = profit.total
       }
@@ -2103,15 +2160,17 @@ export abstract class Strategy implements StrategyInterface {
       }
       if (!Strategy.previousDeal && profit.total > 0) {
         Strategy.maxConsecutiveWins = 1
-        Strategy.seriesWin.value = profit.total
-        Strategy.seriesWin.min = 0
-        Strategy.seriesWin.max = profit.total
+        Strategy.seriesWin.value = this.balance - this.initialBalance
+        Strategy.seriesWin.min = this.initialBalance
+        Strategy.seriesWin.max = this.balance
+        Strategy.seriesWin.perc = profit.total / this.balance
       }
       if (!Strategy.previousDeal && profit.total < 0) {
         Strategy.maxConsecutiveLosses = 1
-        Strategy.seriesLoss.value = profit.total
-        Strategy.seriesLoss.min = profit.total
-        Strategy.seriesLoss.max = 0
+        Strategy.seriesLoss.value = this.initialBalance - this.balance
+        Strategy.seriesLoss.min = this.balance
+        Strategy.seriesLoss.max = this.initialBalance
+        Strategy.seriesLoss.perc = profit.total / this.balance
       }
       if (profit.total > 0) {
         if (Strategy.previousDeal && Strategy.previousDeal.profit.total < 0) {
@@ -2129,27 +2188,41 @@ export abstract class Strategy implements StrategyInterface {
       }
       Strategy.totalProfit += profit.total
     }
-    if (Strategy.totalProfit > Strategy.seriesWin.max) {
-      Strategy.seriesWin.max = Strategy.totalProfit
+    if (this.balance > Strategy.seriesWin.max) {
+      Strategy.seriesWin.max = this.balance
+      if (Strategy.seriesWin.min === 0) {
+        Strategy.seriesWin.min = Math.min(
+          Strategy.seriesLoss.min,
+          this.initialBalance,
+        )
+      }
       const tempValue = Strategy.seriesWin.max - Strategy.seriesWin.min
       if (tempValue > Strategy.seriesWin.value) {
+        Strategy.seriesWin.perc = tempValue / Strategy.seriesWin.max
         Strategy.seriesWin.value = tempValue
       }
     }
-    if (Strategy.totalProfit < Strategy.seriesWin.min) {
-      Strategy.seriesWin.min = Strategy.totalProfit
-      Strategy.seriesWin.max = Strategy.totalProfit
+    if (this.balance < Strategy.seriesWin.min) {
+      Strategy.seriesWin.min = this.balance
+      Strategy.seriesWin.max = this.balance
     }
-    if (Strategy.totalProfit < Strategy.seriesLoss.min) {
-      Strategy.seriesLoss.min = Strategy.totalProfit
+    if (this.balance < Strategy.seriesLoss.min) {
+      Strategy.seriesLoss.min = this.balance
+      if (Strategy.seriesLoss.max === 0) {
+        Strategy.seriesLoss.max = Math.max(
+          Strategy.seriesWin.max,
+          this.initialBalance,
+        )
+      }
       const tempValue = Strategy.seriesLoss.max - Strategy.seriesLoss.min
       if (tempValue > Strategy.seriesLoss.value) {
+        Strategy.seriesLoss.perc = tempValue / Strategy.seriesLoss.max
         Strategy.seriesLoss.value = tempValue
       }
     }
-    if (Strategy.totalProfit > Strategy.seriesLoss.max) {
-      Strategy.seriesLoss.min = Strategy.totalProfit
-      Strategy.seriesLoss.max = Strategy.totalProfit
+    if (this.balance > Strategy.seriesLoss.max) {
+      Strategy.seriesLoss.max = this.balance
+      Strategy.seriesLoss.min = this.balance
     }
     if (Strategy.seriesWin.count > Strategy.maxConsecutiveWins) {
       Strategy.maxConsecutiveWins = Strategy.seriesWin.count
@@ -3001,7 +3074,7 @@ export abstract class Strategy implements StrategyInterface {
     let unrealizedUsage = 0
 
     if (openedDeals.length > 0) {
-      openedDeals.forEach((od) => {
+      for (const od of openedDeals) {
         const price = this.prices.find((p) => p.symbol === this.symbol.pair)
         if (price) {
           const tp = this.getTP(
@@ -3069,7 +3142,7 @@ export abstract class Strategy implements StrategyInterface {
               : od.usage.current.base * (this.profitBase ? 1 : tpPrice)) /
             this.leverage
         }
-      })
+      }
     }
     const levels = Strategy.deals.map((d) => d.levels.max)
     const maxDealUsage = this.math.round(
@@ -3285,19 +3358,13 @@ export abstract class Strategy implements StrategyInterface {
           Strategy.seriesLoss.value * this.usdRate,
           2,
         ),
-        maxDrawDownPerc: this.math.round(
-          (Strategy.seriesLoss.value / maxTheoreticalUsageWithRate) * 100,
-          2,
-        ),
+        maxDrawDownPerc: this.math.round(Strategy.seriesLoss.perc * 100, 2),
         maxRunUp: this.math.round(Strategy.seriesWin.value, this.precision),
         maxRunUpUsd: this.math.round(
           Strategy.seriesWin.value * this.usdRate,
           2,
         ),
-        maxRunUpPerc: this.math.round(
-          (Strategy.seriesWin.value / maxTheoreticalUsageWithRate) * 100,
-          2,
-        ),
+        maxRunUpPerc: this.math.round(Strategy.seriesWin.perc * 100, 2),
       },
       noData: !firstData && !lastData,
       duration: {

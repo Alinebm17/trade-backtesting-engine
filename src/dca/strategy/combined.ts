@@ -67,7 +67,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
       }
 
       if (this.math.remainder(this.i, this.step) === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 0.0000000001))
+        await new Promise((resolve) => setTimeout(resolve, 15))
         updateProgress(
           this.i / this.total,
           `Processing candle on ${new Date(b.time).toUTCString()}`,
@@ -108,9 +108,9 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
   }[] {
     const map: Map<ExchangeIntervals, number> = new Map()
     for (const s of this.strategies) {
-      s.getOtherIntervals().forEach((i) =>
-        map.set(i.interval, Math.max(map.get(i.interval) ?? 0, i.countBack)),
-      )
+      for (const i of s.getOtherIntervals()) {
+        map.set(i.interval, Math.max(map.get(i.interval) ?? 0, i.countBack))
+      }
     }
     return Array.from(map).map(([k, v]) => ({ interval: k, countBack: v }))
   }
