@@ -707,7 +707,7 @@ export abstract class Strategy implements StrategyInterface {
     return []
   }
 
-  private getBalances(price: number): Asset[] | null | undefined {
+  private getBalances(): Asset[] | null | undefined {
     if (this.balance === 0) {
       return this.balances
     }
@@ -725,8 +725,8 @@ export abstract class Strategy implements StrategyInterface {
     const free = this.futures
       ? fullBalance
       : this.long
-      ? balanceItem + Strategy.totalProfit * (this.profitBase ? price : 1)
-      : balanceItem + Strategy.totalProfit * (this.profitBase ? 1 : 1 / price)
+      ? balanceItem + Strategy.totalProfit * (this.profitBase ? 0 : 1)
+      : balanceItem + Strategy.totalProfit * (this.profitBase ? 1 : 0)
     const balance = {
       asset,
       free: `${free}`,
@@ -759,13 +759,7 @@ export abstract class Strategy implements StrategyInterface {
       this.symbol.priceAssetPrecision,
     )
     let initialOrders = this.botFunctions
-      .createOrders(
-        orderPrice,
-        true,
-        undefined,
-        undefined,
-        this.getBalances(orderPrice),
-      )
+      .createOrders(orderPrice, true, undefined, undefined, this.getBalances())
       .filter(
         (o) =>
           o.type !== DCAOrderTypeEnum.sl && o.type !== DCAOrderTypeEnum.grid,
@@ -1729,7 +1723,7 @@ export abstract class Strategy implements StrategyInterface {
                 true,
                 undefined,
                 [],
-                this.getBalances(d.startPrice),
+                this.getBalances(),
               )
               const dcaOrder = orders.find((o) => o.levelNumber === index + 1)
               if (dcaOrder) {
@@ -2840,8 +2834,8 @@ export abstract class Strategy implements StrategyInterface {
     const price = quoteTp / qty
     const pureProfit =
       (this.profitBase
-        ? base - qty + (quoteTp - quote) / price
-        : quoteTp - quote + (qty - base) * price) *
+        ? base - qty + ((quoteTp - quote) / price) * (this.long ? 1 : -1)
+        : quoteTp - quote + (qty - base) * price * (this.long ? 1 : -1)) *
         (this.long ? 1 : -1) -
       (d.liquidationPrice ? 0 : commission)
     if (pureProfit !== 0 && this.combo) {
@@ -2871,6 +2865,7 @@ export abstract class Strategy implements StrategyInterface {
       false,
       true,
     )
+
     /* console.log(
       'profit',
       total,
@@ -2881,14 +2876,22 @@ export abstract class Strategy implements StrategyInterface {
       'price',
       d.profit.total,
       'deal',
-      base,
+      qty,
       'qty',
+      base,
+      'base',
       quoteTp,
       'qtp',
       quote,
       'q',
       tpOrder,
+      'tp',
+      commission,
+      'fee',
+      { ...d },
+      'deal',
     ) */
+
     return {
       total: this.math.round(total, this.precision, false, true),
       totalUsd: this.math.round(totalUsd, 2),
@@ -2946,24 +2949,28 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  private getConfidenceGrade() {
+  private getConfidenceGrade(): { level: string; number: number } {
     const number = Strategy.deals.filter(
       (d) =>
         d.status === 'closed' && d.closedTime && d.closedTime > d.startTime,
     ).length
-    return number < 107
-      ? 'F'
-      : number >= 107 && number < 133
-      ? 'E'
-      : number >= 133 && number < 164
-      ? 'D'
-      : number >= 164 && number < 208
-      ? 'C'
-      : number >= 208 && number < 273
-      ? 'B'
-      : number >= 273 && number < 385
-      ? 'A'
-      : 'A+'
+    return {
+      level:
+        number < 107
+          ? 'F'
+          : number >= 107 && number < 133
+          ? 'E'
+          : number >= 133 && number < 164
+          ? 'D'
+          : number >= 164 && number < 208
+          ? 'C'
+          : number >= 208 && number < 273
+          ? 'B'
+          : number >= 273 && number < 385
+          ? 'A'
+          : 'A+',
+      number,
+    }
   }
 
   public returnResult(
@@ -3116,10 +3123,14 @@ export abstract class Strategy implements StrategyInterface {
           const unPnl =
             od.profit.total +
             (this.profitBase
-              ? base - qty + (qty * tpPrice - quote) / tpPrice
+              ? base -
+                qty +
+                ((qty * tpPrice - quote) / tpPrice) * (this.long ? 1 : -1)
               : this.combo
               ? qty * tpPrice - quote
-              : qty * tpPrice - quote + (qty - base) * tpPrice) *
+              : qty * tpPrice -
+                quote +
+                (qty - base) * tpPrice * (this.long ? 1 : -1)) *
               (this.long ? 1 : -1) -
             commission
           unrealizedPnL += unPnl
@@ -3241,6 +3252,7 @@ export abstract class Strategy implements StrategyInterface {
       }
       return d
     }) */
+    const confidenceGrade = this.getConfidenceGrade()
     const result = {
       indicatorsEvents: [...Strategy.indicatorEvents],
       deals: [...Strategy.deals]
@@ -3399,7 +3411,8 @@ export abstract class Strategy implements StrategyInterface {
         avgRealUsage: avgUsable,
       },
       numerical: {
-        confidenceGrade: this.getConfidenceGrade(),
+        confidenceGrade: confidenceGrade.level,
+        dealsForConfidenceGrade: confidenceGrade.number,
         all: Strategy.deals.length,
         profit: profitDeals.length,
         loss: lossDeals.length,
