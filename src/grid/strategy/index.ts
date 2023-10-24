@@ -457,9 +457,9 @@ export class Strategy implements StrategyInterface {
       if (!needMatch && !match) {
         this.usedOrderId.add(id)
         matchedId = 'initial price'
-        matchQty = this.profitBase
-          ? (price * qty) / (initialPriceStart ?? price)
-          : qty
+        matchQty = !this.isShort
+          ? qty
+          : (qty * price) / (initialPriceStart ?? price)
         matchedPrice = initialPriceStart ?? price
         let selfFind = prices.findIndex((p) =>
           this.isShort ? p.buy === price : p.sell === price,
@@ -484,6 +484,15 @@ export class Strategy implements StrategyInterface {
         if (correspondingOrder) {
           matchedFreeQty = correspondingOrder.qty
           matchedFreePrice = correspondingOrder.price
+          if (
+            (this.profitBase && !this.isShort) ||
+            (!this.profitBase && this.isShort)
+          ) {
+            matchQty = correspondingOrder.qty
+            matchedPrice = correspondingOrder.price
+            matchedFreeQty = 0
+            matchedFreePrice = 0
+          }
         }
       } else if (match) {
         matchedId = match.id
@@ -669,10 +678,12 @@ export class Strategy implements StrategyInterface {
       (this.profitBase ? profitBase : profitQuote) -
       (this.profitBase ? comBase : comQuote)
     const freeProfit =
-      (this.profitBase
-        ? profitFreeBase || profitBase
-        : profitFreeQuote || profitQuote) -
-      (this.profitBase ? comBase : comQuote)
+      (this.profitBase && !this.isShort) || (!this.profitBase && this.isShort)
+        ? profit
+        : (this.profitBase
+            ? profitFreeBase || profitBase
+            : profitFreeQuote || profitQuote) -
+          (this.profitBase ? comBase : comQuote)
     profitUsd = profit * this.usdRate
     freeProfitUsd = (freeProfit || profit) * this.usdRate
     this.cummulativeProfit = {
