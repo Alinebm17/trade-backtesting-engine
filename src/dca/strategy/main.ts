@@ -2104,7 +2104,7 @@ export abstract class Strategy implements StrategyInterface {
     let closePrice = b.close
     let profit: ReturnType<typeof this.getProfit> | undefined
     d.status = 'closed'
-    d.closedTime = b.time
+    d.closedTime = tpOrder?.filledTime ?? b.time
     d.ordersHistory = d.ordersHistory.map((o) =>
       o.filledTime ? { ...o } : { ...o, filledTime: b.time },
     )
@@ -2338,7 +2338,7 @@ export abstract class Strategy implements StrategyInterface {
             ? 60 * 60 * 1000
             : 24 * 60 * 60 * 1000)
       if (closeTime <= b.time) {
-        return this.getTP(d, b.open, true, false)[0]
+        return this.getTP(d, b.open, true, false, closeTime)[0]
       }
     }
   }
@@ -2564,7 +2564,13 @@ export abstract class Strategy implements StrategyInterface {
     return d
   }
 
-  private getTP(deal: Deal, _price?: number, aggregate = false, sl = false) {
+  private getTP(
+    deal: Deal,
+    _price?: number,
+    aggregate = false,
+    sl = false,
+    time?: number,
+  ) {
     const {
       settings: { tpPerc, useMultiTp, multiTp, useMultiSl, multiSl },
       symbol,
@@ -2607,12 +2613,13 @@ export abstract class Strategy implements StrategyInterface {
         symbol.priceAssetPrecision,
       )
     }
-    const tpOrder: DCAGrid = {
+    const tpOrder: FullGrid = {
       qty,
       price: tpPrice,
       type: DCAOrderTypeEnum.tp,
       side: this.long ? BotOrderSideEnum.sell : BotOrderSideEnum.buy,
       id: this.botFunctions.utils.id(20),
+      filledTime: time,
     }
     if (tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount) {
       tpOrder.qty = this.math.round(
