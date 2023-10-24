@@ -1,4 +1,4 @@
-import { BotMarginTypeEnum, StrategyEnum } from '../types'
+import { BotMarginTypeEnum, StrategyEnum, BotOrderSideEnum } from '../types'
 import BotUtils from './botUtils'
 
 import type { Settings, Symbols, Grid, OrderData } from '../types'
@@ -283,6 +283,13 @@ class BotFunctions {
             : 1
       }
     } else {
+      const useMaxGrids =
+        (this.settings.strategy === StrategyEnum.long &&
+          this.settings.profitCurrency === 'base' &&
+          grids.filter((g) => g.side === BotOrderSideEnum.sell).length) ||
+        (this.settings.strategy === StrategyEnum.short &&
+          this.settings.profitCurrency === 'quote' &&
+          grids.filter((g) => g.side === BotOrderSideEnum.buy).length)
       res = grids.reduce(
         (acc, grid) => {
           if (grid.side && grid.side === 'SELL' && grid.qty) {
@@ -310,6 +317,58 @@ class BotFunctions {
           buy: { qty: number; qtyBase: number }
         },
       ) || { sell: { qty: 0, qtyQuote: 0 }, buy: { qty: 0, qtyBase: 0 } }
+
+      if (useMaxGrids) {
+        const tempPrice = this.latestPrice
+        this.lastPrice =
+          this.settings.strategy !== StrategyEnum.short
+            ? +this.settings.topPrice * 1.1
+            : +this.settings.lowPrice * 0.9
+        const maxGrids = this.createOrders(true, false)
+        this.lastPrice = tempPrice
+        if (this.settings.strategy !== StrategyEnum.short) {
+          const quote = this.math.round(
+            res.buy.qty,
+            this.symbol.priceAssetPrecision,
+            false,
+            true,
+          )
+          const base = this.math.round(
+            maxGrids
+              .sort((a, b) => b.price - a.price)
+              .slice(
+                0,
+                grids.filter((g) => g.side === BotOrderSideEnum.sell).length,
+              )
+              .reduce((acc, v) => acc + v.qty, 0),
+            this.utils.getBaseAssetPrecision(this.symbol),
+            false,
+            true,
+          )
+          return { base, quote }
+        }
+        if (this.settings.strategy === StrategyEnum.short) {
+          const base = this.math.round(
+            res.sell.qty,
+            this.utils.getBaseAssetPrecision(this.symbol),
+            false,
+            true,
+          )
+          const quote = this.math.round(
+            maxGrids
+              .sort((a, b) => a.price - b.price)
+              .slice(
+                0,
+                grids.filter((g) => g.side === BotOrderSideEnum.buy).length,
+              )
+              .reduce((acc, v) => acc + v.qty * v.price, 0),
+            this.symbol.priceAssetPrecision,
+            false,
+            true,
+          )
+          return { base, quote }
+        }
+      }
     }
     const base = this.math.round(
       res.sell.qty,
