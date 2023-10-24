@@ -58,6 +58,8 @@ export default class InternalIndicator {
 
   private readonly indicatorName: string
 
+  public length = 0
+
   constructor(indicatorConfig: IndicatorConfigBackTesting) {
     this.indicatorName =
       indicatorConfig.type === IndicatorEnum.ma
@@ -69,21 +71,26 @@ export default class InternalIndicator {
         indicatorConfig.inc,
         indicatorConfig.max,
       )
+      this.length = 100
     }
     if (indicatorConfig.type === IndicatorEnum.rsi) {
       this.indicator = new FasterRSI(indicatorConfig.interval)
+      this.length = indicatorConfig.interval
     }
     if (indicatorConfig.type === IndicatorEnum.vo) {
       this.indicator = new FasterVO(
         indicatorConfig.voShort,
         indicatorConfig.voLong,
       )
+      this.length = indicatorConfig.voLong
     }
     if (indicatorConfig.type === IndicatorEnum.mfi) {
       this.indicator = new FasterMFI(indicatorConfig.interval)
+      this.length = indicatorConfig.interval
     }
     if (indicatorConfig.type === IndicatorEnum.adx) {
       this.indicator = new FasterADX(indicatorConfig.interval)
+      this.length = indicatorConfig.interval
     }
     if (indicatorConfig.type === IndicatorEnum.bbw) {
       const bb = new FasterBollingerBands(
@@ -91,9 +98,11 @@ export default class InternalIndicator {
         indicatorConfig.deviationMultiplier,
       )
       this.indicator = new FasterBollingerBandsWidth(bb)
+      this.length = indicatorConfig.interval
     }
     if (indicatorConfig.type === IndicatorEnum.bb) {
       this.indicator = new FasterBollingerBands(indicatorConfig.interval, 2)
+      this.length = indicatorConfig.interval
     }
     if (indicatorConfig.type === IndicatorEnum.macd) {
       this.indicator = new FasterMACD(
@@ -101,31 +110,42 @@ export default class InternalIndicator {
         new FasterEMA(indicatorConfig.longInterval),
         new FasterEMA(indicatorConfig.signalInterval),
       )
+      this.length =
+        Math.max(indicatorConfig.longInterval + indicatorConfig.shortInterval) +
+        indicatorConfig.signalInterval
     }
     if (indicatorConfig.type === IndicatorEnum.ma) {
       if (indicatorConfig.maType === MAEnum.ema) {
         this.indicator = new FasterEMA(indicatorConfig.interval)
+        this.length = indicatorConfig.interval
       }
       if (indicatorConfig.maType === MAEnum.sma) {
         this.indicator = new FasterSMA(indicatorConfig.interval)
+        this.length = indicatorConfig.interval
       }
       if (indicatorConfig.maType === MAEnum.wma) {
         this.indicator = new FasterWMATV(indicatorConfig.interval)
+        this.length = indicatorConfig.interval
       }
       if (indicatorConfig.maType === MAEnum.hma) {
         this.indicator = new FasterHMA(indicatorConfig.interval)
+        this.length = indicatorConfig.interval
       }
       if (indicatorConfig.maType === MAEnum.vwma) {
         this.indicator = new FasterVWMA(indicatorConfig.interval)
+        this.length = indicatorConfig.interval
       }
       if (indicatorConfig.maType === MAEnum.dema) {
         this.indicator = new FasterDEMA(indicatorConfig.interval)
+        this.length = 2 * indicatorConfig.interval
       }
       if (indicatorConfig.maType === MAEnum.tema) {
         this.indicator = new FasterTEMA(indicatorConfig.interval)
+        this.length = 3 * indicatorConfig.interval
       }
       if (indicatorConfig.maType === MAEnum.rma) {
         this.indicator = new FasterRMA(indicatorConfig.interval)
+        this.length = indicatorConfig.interval + 1
       }
     }
     if (indicatorConfig.type === IndicatorEnum.tv) {
@@ -133,6 +153,7 @@ export default class InternalIndicator {
         indicatorConfig.checkLevel,
         indicatorConfig.useAsEntryExitPoints,
       )
+      this.length = 200
     }
     if (indicatorConfig.type === IndicatorEnum.stoch) {
       this.indicator = new FasterStochasticOscillator(
@@ -140,6 +161,10 @@ export default class InternalIndicator {
         indicatorConfig.smoothK,
         indicatorConfig.smoothD,
       )
+      this.length =
+        indicatorConfig.length +
+        indicatorConfig.smoothK +
+        indicatorConfig.smoothD
     }
     if (indicatorConfig.type === IndicatorEnum.stochRSI) {
       this.indicator = new FasterStochasticRSITV(
@@ -148,6 +173,11 @@ export default class InternalIndicator {
         indicatorConfig.smoothK,
         indicatorConfig.smoothD,
       )
+      this.length =
+        indicatorConfig.rsiLength +
+        indicatorConfig.length +
+        indicatorConfig.smoothK +
+        indicatorConfig.smoothD
     }
     if (indicatorConfig.type === IndicatorEnum.qfl) {
       this.indicator = new QFL(
@@ -156,14 +186,17 @@ export default class InternalIndicator {
         indicatorConfig.pump,
         indicatorConfig.baseCrack,
       )
+      this.length = indicatorConfig.basePeriods + indicatorConfig.pumpPeriods
     }
     if (indicatorConfig.type === IndicatorEnum.sr) {
       this.indicator = new SupportResistance(
         indicatorConfig.leftBars,
         indicatorConfig.rightBars,
       )
+      this.length = indicatorConfig.leftBars + indicatorConfig.rightBars
     }
     this.type = indicatorConfig.type
+    this.length = Math.max(Math.ceil(this.length * 3), 1000)
   }
 
   public updateValue(

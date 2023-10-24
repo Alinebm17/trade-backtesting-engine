@@ -13,6 +13,10 @@ export class MathHelper {
     if (`${_num}`.indexOf('e') !== -1) {
       num = this.convertFromExponential(_num, precision + 2)
     }
+    const intPart = num.split('.')[0]
+    if ((intPart?.length ?? 0) + precision > 20) {
+      precision = 20 - intPart.length
+    }
     if (down) {
       const res = Number(
         `${Math.floor(Number(`${num}e${precision}`))}e-${precision}`,

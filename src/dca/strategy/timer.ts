@@ -10,7 +10,7 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     this.processBar = this.processBar.bind(this)
   }
 
-  public test(): void {
+  public async test(): Promise<void> {
     const firstTime = Strategy.data[0].bar[0].time
     Strategy.next = new Date(
       `${new Date(firstTime).toDateString()} ${this.settings.hodlAt}`,
@@ -20,7 +20,9 @@ class TimerStrategy extends Strategy implements StrategyInterface {
       tempDate.setDate(tempDate.getDate() + 1)
       Strategy.next = tempDate.getTime()
     }
-    Strategy.data[0].bar.forEach((b) => this.processBar(b))
+    for (const b of Strategy.data[0].bar) {
+      await this.processBar(b)
+    }
   }
 
   public processTrade(trade: TradeResponse): void {
@@ -51,7 +53,7 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     })
   }
 
-  public processBar(bar: Bar): void {
+  public async processBar(bar: Bar): Promise<void> {
     if (Strategy.workingShift.length === 0) {
       this.startWorkingShift(bar.time)
       const firstTime = Strategy.data[0].bar[0].time
@@ -74,7 +76,7 @@ class TimerStrategy extends Strategy implements StrategyInterface {
       }
       Strategy.next = date.getTime()
     }
-    this.checkDeals(bar)
+    await this.checkDeals(bar)
   }
 }
 

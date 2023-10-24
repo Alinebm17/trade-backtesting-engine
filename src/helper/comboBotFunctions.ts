@@ -9,6 +9,7 @@ import {
   BotOrderSideEnum,
   DCAOrderTypeEnum,
   FuturesStrategyEnum,
+  BotMarginTypeEnum,
 } from '../types'
 import DcaBotFunctions from './dcaBotFunctions'
 
@@ -101,6 +102,12 @@ class ComboBotFunctions extends DcaBotFunctions {
           ? +findBalance.free
           : +findBalance.locked + +findBalance.free
         : 0
+      if (settings.futures) {
+        qtyToUse *=
+          settings.marginType !== BotMarginTypeEnum.inherit
+            ? settings.leverage ?? 1
+            : 1
+      }
       baseQty = this.math.round(
         Math.max(
           symbol.quoteAsset.minAmount

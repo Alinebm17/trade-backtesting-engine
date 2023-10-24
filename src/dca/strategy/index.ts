@@ -22,10 +22,13 @@ const getStrategyBySettings = (settings: DCABotSettings) => {
   }
   if (
     (settings.dealCloseCondition === CloseConditionEnum.techInd &&
+      settings.useTp &&
       settings.startCondition !== StartConditionEnum.ti) ||
     (settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
+      settings.useSl &&
       settings.startCondition !== StartConditionEnum.ti) ||
     (settings.dcaCondition === DCAConditionEnum.indicators &&
+      settings.useDca &&
       settings.startCondition !== StartConditionEnum.ti)
   ) {
     result.push(createStrategyFactory(TIStrategy))

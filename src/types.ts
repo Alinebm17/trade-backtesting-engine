@@ -828,6 +828,8 @@ export type DCABacktestingResult = {
     coveredPriceDeviation: number
     actualPriceDeviation: number
     liquidationEvents?: number
+    confidenceGrade?: string
+    dealsForConfidenceGrade?: number
   }
   ratios: {
     profitFactor: number
@@ -903,10 +905,16 @@ export type BacktestingTransaction = {
   amountQuoteBuy: string
   amountBaseSell: string
   amountQuoteSell: string
+  amountFreeBaseBuy: number
+  amountFreeQuoteBuy: number
+  amountFreeBaseSell: number
+  amountFreeQuoteSell: number
   priceBuy: string
   priceSell: string
   profit: string
   profitUsd: number
+  freeProfit: number
+  freeProfitUsd: number
   baseAsset: string
   quoteAsset: string
   profitAsset: string
@@ -942,6 +950,8 @@ export type GridBacktestingResult = {
   })[]
   noDate?: boolean
   financial: {
+    freeProfitTotal: number
+    freeProfitTotalUsd: number
     profitTotal: string
     profitTotalUsd: number
     profitTotalPerc: number

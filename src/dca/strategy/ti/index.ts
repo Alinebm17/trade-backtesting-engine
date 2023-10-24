@@ -45,7 +45,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     super(input)
     this.processBar = this.processBar.bind(this)
     const { indicators } = input.settings
-    indicators.forEach((i) => {
+    for (const i of indicators) {
       const {
         type,
         indicatorLength,
@@ -180,36 +180,47 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ignore: true,
         })
       }
-    })
+    }
     this.updateIndicatorData = this.updateIndicatorData.bind(this)
     this.checkIndicators = this.checkIndicators.bind(this)
     Strategy.lowestInterval = Strategy.interval
   }
 
-  public override getOtherIntervals(): ExchangeIntervals[] {
-    return Strategy.indicators
-      .flatMap((i) => {
-        const int = [i.settings.indicatorInterval]
-        if (
-          i.settings.type === IndicatorEnum.ma &&
-          i.settings.maCrossingValue !== MAEnum.price &&
-          i.settings.maCrossingInterval
-        ) {
-          int.push(i.settings.maCrossingInterval)
-        }
-        return int
-      })
-      .filter((i) => i !== Strategy.interval)
+  public override getOtherIntervals(): {
+    interval: ExchangeIntervals
+    countBack: number
+  }[] {
+    return Strategy.indicators.flatMap((i) => {
+      const int = [
+        {
+          interval: i.settings.indicatorInterval,
+          countBack: i.instance.length,
+        },
+      ]
+      if (
+        i.settings.type === IndicatorEnum.ma &&
+        i.settings.maCrossingValue !== MAEnum.price &&
+        i.settings.maCrossingInterval
+      ) {
+        int.push({
+          interval: i.settings.maCrossingInterval,
+          countBack: i.instance.length,
+        })
+      }
+      return int
+    })
   }
 
-  public test(): void {
+  public async test(): Promise<void> {
     const data = [...Strategy.data].sort(
       (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
     )
     const [lowest] = data
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
-    lowest.bar.forEach((b) => this.processBar(b))
+    for (const b of lowest.bar) {
+      await this.processBar(b)
+    }
   }
 
   private checkStatuses(time: number) {
@@ -240,7 +251,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     this.checkStatuses(trade.timestamp)
     this.checkInRange(+trade.price, trade.timestamp)
     if (candles.length) {
-      candles.forEach((c) => {
+      for (const c of candles) {
         if (!c.candle) {
           return
         }
@@ -261,7 +272,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           )
         }
         this.checkIndicators(c.candle)
-      })
+      }
     }
     this.checkDeals({
       open: +trade.price,
@@ -272,7 +283,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     })
   }
 
-  public processBar(bar: Bar): void {
+  public async processBar(bar: Bar): Promise<void> {
     if (Strategy.workingShift.length === 0) {
       this.startWorkingShift(bar.time)
     }
@@ -284,7 +295,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     const restIndicators = Strategy.indicators.filter(
       (i) => i.interval !== Strategy.lowestInterval,
     )
-    lowestIndicators.forEach((i) => {
+    for (const i of lowestIndicators) {
       i.instance.updateValue(
         {
           o: bar.open,
@@ -296,7 +307,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         bar.time,
         this.updateIndicatorData(i),
       )
-    })
+    }
     const range = [
       bar.time + 1,
       bar.time + timeIntervalMap[Strategy.lowestInterval ?? Strategy.interval],
@@ -304,13 +315,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
     /*  if (restIndicators.length === 0) {
       this.checkDeals(bar)
     } */
-    restIndicators.forEach((i) => {
+    for (const i of restIndicators) {
       const [data] = Strategy.data.filter((d) => d.interval === i.interval)
       if (data) {
         const bars = data.bar.filter(
           (b) => b.time >= range[0] && b.time <= range[1],
         )
-        bars.forEach((b) => {
+        for (const b of bars) {
           i.instance.updateValue(
             {
               o: b.open,
@@ -323,12 +334,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
             this.updateIndicatorData(i),
           )
           //this.checkDeals(b)
-        })
+        }
       }
-    })
+    }
 
     this.checkIndicators(bar)
-    this.checkDeals(bar)
+    await this.checkDeals(bar)
   }
 
   private updateIndicatorData(i: Indicator) {
@@ -361,7 +372,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         (i) => i.id !== i.settings.maUUID && i.data.length > 0,
       )
       //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
-      currentState.forEach((i) => {
+      for (const i of currentState) {
         let action = false
         const {
           settings: {
@@ -658,23 +669,26 @@ class TIStrategy extends Strategy implements StrategyInterface {
         }
 
         i.statuses.push(status)
-        if (toMultiplier > 0) {
-          ;[...Array(toMultiplier)].forEach((_v, ind) => {
+        if (toMultiplier > 0 && action) {
+          let ind = 0
+          for (const _v of [...Array(toMultiplier)]) {
             i.statuses.push({
               status: action,
               statusSince: last.time + step * (ind + 2),
               statusTo: last.time + step * (ind + 3) - 1,
             })
-          })
+            ind++
+          }
         }
 
         Strategy.indicators = [
           ...Strategy.indicators.filter((si) => si.id !== i.id),
           { ...i, data: [] },
         ]
-      })
+      }
     }
     if (nextBar) {
+      const isProcess = nextBar.time >= Strategy.start
       const data = [...Strategy.data].sort(
         (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
       )
@@ -708,87 +722,93 @@ class TIStrategy extends Strategy implements StrategyInterface {
         closeDealSl.length === closeDealSlStatus.length &&
         closeDealSl.length
       ) {
-        Strategy.indicatorEvents.push({
-          type: IndicatorAction.closeDeal,
-          side:
-            this.settings.strategy === StrategyEnum.long
-              ? BotOrderSideEnum.sell
-              : BotOrderSideEnum.buy,
-          time: nextBar.time,
-          price:
-            this.settings.strategy === StrategyEnum.long
-              ? lowestBar?.high ?? nextBar.high
-              : lowestBar?.low ?? nextBar.low,
-        })
+        if (isProcess) {
+          Strategy.indicatorEvents.push({
+            type: IndicatorAction.closeDeal,
+            side:
+              this.settings.strategy === StrategyEnum.long
+                ? BotOrderSideEnum.sell
+                : BotOrderSideEnum.buy,
+            time: nextBar.time,
+            price:
+              this.settings.strategy === StrategyEnum.long
+                ? lowestBar?.high ?? nextBar.high
+                : lowestBar?.low ?? nextBar.low,
+          })
+          this.closeAllDeals({
+            open: lowestBar?.open ?? nextBar.open,
+            time: nextBar.time,
+            high: lowestBar?.open ?? nextBar.high,
+            low: lowestBar?.low ?? nextBar.low,
+            close: lowestBar?.close ?? nextBar.close,
+          })
+        }
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealSlStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
           }
           return i
         })
-        this.closeAllDeals({
-          open: lowestBar?.open ?? nextBar.open,
-          time: nextBar.time,
-          high: lowestBar?.open ?? nextBar.high,
-          low: lowestBar?.low ?? nextBar.low,
-          close: lowestBar?.close ?? nextBar.close,
-        })
       }
       if (
         closeDealTp.length === closeDealTpStatus.length &&
         closeDealTp.length
       ) {
-        Strategy.indicatorEvents.push({
-          type: IndicatorAction.closeDeal,
-          side:
-            this.settings.strategy === StrategyEnum.long
-              ? BotOrderSideEnum.sell
-              : BotOrderSideEnum.buy,
-          time: nextBar.time,
-          price:
-            this.settings.strategy === StrategyEnum.long
-              ? lowestBar?.high ?? nextBar.high
-              : lowestBar?.low ?? nextBar.low,
-        })
+        if (isProcess) {
+          Strategy.indicatorEvents.push({
+            type: IndicatorAction.closeDeal,
+            side:
+              this.settings.strategy === StrategyEnum.long
+                ? BotOrderSideEnum.sell
+                : BotOrderSideEnum.buy,
+            time: nextBar.time,
+            price:
+              this.settings.strategy === StrategyEnum.long
+                ? lowestBar?.high ?? nextBar.high
+                : lowestBar?.low ?? nextBar.low,
+          })
+          this.closeAllDeals({
+            open: lowestBar?.open ?? nextBar.open,
+            time: nextBar.time,
+            high: lowestBar?.open ?? nextBar.high,
+            low: lowestBar?.low ?? nextBar.low,
+            close: lowestBar?.close ?? nextBar.close,
+          })
+        }
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealTpStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
           }
           return i
         })
-        this.closeAllDeals({
-          open: lowestBar?.open ?? nextBar.open,
-          time: nextBar.time,
-          high: lowestBar?.open ?? nextBar.high,
-          low: lowestBar?.low ?? nextBar.low,
-          close: lowestBar?.close ?? nextBar.close,
-        })
       }
       if (startDeal.length === startDealStatus.length && startDeal.length) {
-        Strategy.indicatorEvents.push({
-          type: IndicatorAction.startDeal,
-          side:
-            this.settings.strategy === StrategyEnum.long
-              ? BotOrderSideEnum.buy
-              : BotOrderSideEnum.sell,
-          time: nextBar.time,
-          price:
-            this.settings.strategy === StrategyEnum.long
-              ? lowestBar?.low ?? nextBar.low
-              : lowestBar?.high ?? nextBar.high,
-        })
+        if (isProcess) {
+          Strategy.indicatorEvents.push({
+            type: IndicatorAction.startDeal,
+            side:
+              this.settings.strategy === StrategyEnum.long
+                ? BotOrderSideEnum.buy
+                : BotOrderSideEnum.sell,
+            time: nextBar.time,
+            price:
+              this.settings.strategy === StrategyEnum.long
+                ? lowestBar?.low ?? nextBar.low
+                : lowestBar?.high ?? nextBar.high,
+          })
+          this.openDeal(
+            lowestBar?.open ?? nextBar.open,
+            nextBar.time,
+            lowestBar?.high ?? nextBar.high,
+            lowestBar?.low ?? nextBar.low,
+          )
+        }
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
           }
           return i
         })
-        this.openDeal(
-          lowestBar?.open ?? nextBar.open,
-          nextBar.time,
-          lowestBar?.high ?? nextBar.high,
-          lowestBar?.low ?? nextBar.low,
-        )
       }
       if (
         startDcaStatus.length &&
