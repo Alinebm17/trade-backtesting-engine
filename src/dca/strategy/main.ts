@@ -2229,11 +2229,6 @@ export abstract class Strategy implements StrategyInterface {
     if (cbClose) {
       cbClose(closePrice)
     }
-    console.log(
-      { ...Strategy.seriesLoss },
-      { ...Strategy.seriesWin },
-      new Date(b.time).toUTCString(),
-    )
     return d
   }
 
