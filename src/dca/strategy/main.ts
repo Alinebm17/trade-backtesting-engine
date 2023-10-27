@@ -2185,14 +2185,14 @@ export abstract class Strategy implements StrategyInterface {
     if (this.balance > Strategy.seriesWin.max) {
       Strategy.seriesWin.max = this.balance
       if (Strategy.seriesWin.min === 0) {
-        Strategy.seriesWin.min = Math.min(
-          Strategy.seriesLoss.min,
-          this.initialBalance,
-        )
+        Strategy.seriesWin.min =
+          Strategy.seriesLoss.min === 0
+            ? this.initialBalance
+            : Math.min(Strategy.seriesLoss.min, this.initialBalance)
       }
       const tempValue = Strategy.seriesWin.max - Strategy.seriesWin.min
       if (tempValue > Strategy.seriesWin.value) {
-        Strategy.seriesWin.perc = tempValue / Strategy.seriesWin.max
+        Strategy.seriesWin.perc = Math.abs(tempValue / Strategy.seriesWin.max)
         Strategy.seriesWin.value = tempValue
       }
     }
@@ -2203,14 +2203,14 @@ export abstract class Strategy implements StrategyInterface {
     if (this.balance < Strategy.seriesLoss.min) {
       Strategy.seriesLoss.min = this.balance
       if (Strategy.seriesLoss.max === 0) {
-        Strategy.seriesLoss.max = Math.max(
-          Strategy.seriesWin.max,
-          this.initialBalance,
-        )
+        Strategy.seriesLoss.max =
+          Strategy.seriesWin.max === 0
+            ? this.initialBalance
+            : Math.max(Strategy.seriesWin.max, this.initialBalance)
       }
       const tempValue = Strategy.seriesLoss.max - Strategy.seriesLoss.min
       if (tempValue > Strategy.seriesLoss.value) {
-        Strategy.seriesLoss.perc = tempValue / Strategy.seriesLoss.max
+        Strategy.seriesLoss.perc = Math.abs(tempValue / Strategy.seriesLoss.max)
         Strategy.seriesLoss.value = tempValue
       }
     }
@@ -2229,6 +2229,11 @@ export abstract class Strategy implements StrategyInterface {
     if (cbClose) {
       cbClose(closePrice)
     }
+    console.log(
+      { ...Strategy.seriesLoss },
+      { ...Strategy.seriesWin },
+      new Date(b.time).toUTCString(),
+    )
     return d
   }
 
