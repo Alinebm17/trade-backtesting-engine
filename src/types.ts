@@ -437,6 +437,9 @@ export interface DCABotSettings extends BaseSettings {
   baseGridLevels?: string
   useActiveMinigrids?: boolean
   comboActiveMinigrids?: string
+  closeByTimer?: boolean
+  closeByTimerValue?: number
+  closeByTimerUnits?: CooldownUnits
 }
 
 export enum BotStartTypeEnum {

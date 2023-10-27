@@ -1705,7 +1705,7 @@ export abstract class Strategy implements StrategyInterface {
 
   addDCAOrder(index: number, price: number, time: number) {
     for (const d of Strategy.deals.filter(
-      (d) => d.status === 'open' && d.lastFilled + 1 === index + 1,
+      (dd) => dd.status === 'open' && dd.lastFilled + 1 === index + 1,
     )) {
       if (this.settings.dcaCondition === DCAConditionEnum.indicators) {
         const ind = this.settings.indicators.filter(
@@ -2104,7 +2104,7 @@ export abstract class Strategy implements StrategyInterface {
     let closePrice = b.close
     let profit: ReturnType<typeof this.getProfit> | undefined
     d.status = 'closed'
-    d.closedTime = b.time
+    d.closedTime = tpOrder?.filledTime ?? b.time
     d.ordersHistory = d.ordersHistory.map((o) =>
       o.filledTime ? { ...o } : { ...o, filledTime: b.time },
     )
@@ -2321,19 +2321,42 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
+  private checkCloseTimer(d: Deal, b: Bar) {
+    if (
+      this.settings.closeByTimer &&
+      this.settings.closeByTimerValue &&
+      this.settings.closeByTimerUnits
+    ) {
+      const closeTime =
+        d.startTime +
+        this.settings.closeByTimerValue *
+          (this.settings.closeByTimerUnits === CooldownUnits.seconds
+            ? 1000
+            : this.settings.closeByTimerUnits === CooldownUnits.minutes
+            ? 60 * 1000
+            : this.settings.closeByTimerUnits === CooldownUnits.hours
+            ? 60 * 60 * 1000
+            : 24 * 60 * 60 * 1000)
+      if (closeTime <= b.time) {
+        return this.getTP(d, b.open, true, false, closeTime)[0]
+      }
+    }
+  }
+
   public async checkDeals(b: Bar, cbClose?: (price: number) => void) {
     if (this._stop) {
       return
     }
     this.checkPosition(b)
-    for (let d of Strategy.deals.filter((d) => d.status === 'open')) {
+    for (let d of Strategy.deals.filter((dd) => dd.status === 'open')) {
       let tpOrder: FullGrid | undefined
+      tpOrder = this.checkCloseTimer(d, b)
       const bOpenHigh = { ...b, low: b.open }
       const bLowClose = { ...b, high: b.close }
       const bHighClose = { ...b, low: b.close }
       const bOpenLow = { ...b, high: b.open }
       const candleType = this.getCandleType(b)
-      if (this.long) {
+      if (this.long && !tpOrder) {
         if (candleType === CandleTypeEnum.bull) {
           // open -> low. Check DCA and SL
           d = this.processGridOrders(d, b)
@@ -2392,10 +2415,7 @@ export abstract class Strategy implements StrategyInterface {
             tpOrder = tpReturnNext.order
           }
         }
-        if (tpOrder) {
-          d = this.closeDeal(d, b, tpOrder, cbClose)
-        }
-      } else {
+      } else if (!tpOrder) {
         if (candleType === CandleTypeEnum.bull) {
           // open -> low movement. Check TP and move SL and check trailing
           const tpReturn = this.filterTP(d, bOpenLow)
@@ -2455,9 +2475,9 @@ export abstract class Strategy implements StrategyInterface {
             }
           }
         }
-        if (tpOrder) {
-          d = this.closeDeal(d, b, tpOrder, cbClose)
-        }
+      }
+      if (tpOrder) {
+        d = this.closeDeal(d, b, tpOrder, cbClose)
       }
       Strategy.deals = [...Strategy.deals.filter((dd) => dd.id !== d.id), d]
     }
@@ -2544,7 +2564,13 @@ export abstract class Strategy implements StrategyInterface {
     return d
   }
 
-  private getTP(deal: Deal, _price?: number, aggregate = false, sl = false) {
+  private getTP(
+    deal: Deal,
+    _price?: number,
+    aggregate = false,
+    sl = false,
+    time?: number,
+  ) {
     const {
       settings: { tpPerc, useMultiTp, multiTp, useMultiSl, multiSl },
       symbol,
@@ -2587,12 +2613,13 @@ export abstract class Strategy implements StrategyInterface {
         symbol.priceAssetPrecision,
       )
     }
-    const tpOrder: DCAGrid = {
+    const tpOrder: FullGrid = {
       qty,
       price: tpPrice,
       type: DCAOrderTypeEnum.tp,
       side: this.long ? BotOrderSideEnum.sell : BotOrderSideEnum.buy,
       id: this.botFunctions.utils.id(20),
+      filledTime: time,
     }
     if (tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount) {
       tpOrder.qty = this.math.round(
