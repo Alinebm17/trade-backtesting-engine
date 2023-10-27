@@ -117,35 +117,35 @@ export default class InternalIndicator {
     if (indicatorConfig.type === IndicatorEnum.ma) {
       if (indicatorConfig.maType === MAEnum.ema) {
         this.indicator = new FasterEMA(indicatorConfig.interval)
-        this.length = indicatorConfig.interval
+        this.length = indicatorConfig.interval + 300
       }
       if (indicatorConfig.maType === MAEnum.sma) {
         this.indicator = new FasterSMA(indicatorConfig.interval)
-        this.length = indicatorConfig.interval
+        this.length = indicatorConfig.interval + 300
       }
       if (indicatorConfig.maType === MAEnum.wma) {
         this.indicator = new FasterWMATV(indicatorConfig.interval)
-        this.length = indicatorConfig.interval
+        this.length = indicatorConfig.interval + 300
       }
       if (indicatorConfig.maType === MAEnum.hma) {
         this.indicator = new FasterHMA(indicatorConfig.interval)
-        this.length = indicatorConfig.interval
+        this.length = indicatorConfig.interval + 300
       }
       if (indicatorConfig.maType === MAEnum.vwma) {
         this.indicator = new FasterVWMA(indicatorConfig.interval)
-        this.length = indicatorConfig.interval
+        this.length = indicatorConfig.interval + 300
       }
       if (indicatorConfig.maType === MAEnum.dema) {
         this.indicator = new FasterDEMA(indicatorConfig.interval)
-        this.length = 2 * indicatorConfig.interval
+        this.length = 2 * indicatorConfig.interval + 300
       }
       if (indicatorConfig.maType === MAEnum.tema) {
         this.indicator = new FasterTEMA(indicatorConfig.interval)
-        this.length = 3 * indicatorConfig.interval
+        this.length = 3 * indicatorConfig.interval + 300
       }
       if (indicatorConfig.maType === MAEnum.rma) {
         this.indicator = new FasterRMA(indicatorConfig.interval)
-        this.length = indicatorConfig.interval + 1
+        this.length = indicatorConfig.interval + 300
       }
     }
     if (indicatorConfig.type === IndicatorEnum.tv) {
@@ -153,7 +153,7 @@ export default class InternalIndicator {
         indicatorConfig.checkLevel,
         indicatorConfig.useAsEntryExitPoints,
       )
-      this.length = 200
+      this.length = 3000
     }
     if (indicatorConfig.type === IndicatorEnum.stoch) {
       this.indicator = new FasterStochasticOscillator(
