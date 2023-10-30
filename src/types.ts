@@ -797,6 +797,7 @@ export type DCABacktestingResult = {
     maxDrawDown: number
     maxDrawDownUsd: number
     maxDrawDownPerc: number
+    initialBalanceUsd: number
   }
   duration: {
     avgDealDuration: number

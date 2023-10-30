@@ -242,6 +242,8 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.maxPrice = 0
     Strategy.trades = false
     Strategy.indicatorEvents = []
+    Strategy.balance = 0
+    Strategy.initialBalance = 0
   }
 
   static position = Strategy.emptyPositon
@@ -254,9 +256,9 @@ export abstract class Strategy implements StrategyInterface {
 
   public _stop = false
 
-  private balance = 0
+  static balance = 0
 
-  private initialBalance = 0
+  static initialBalance = 0
 
   constructor(input: StrategyInput) {
     const {
@@ -708,7 +710,7 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private getBalances(): Asset[] | null | undefined {
-    if (this.balance === 0) {
+    if (Strategy.balance === 0) {
       return this.balances
     }
 
@@ -987,15 +989,15 @@ export abstract class Strategy implements StrategyInterface {
     }
     Strategy.deals.push(deal)
 
-    if (this.balance === 0) {
-      this.balance = this.futures
+    if (Strategy.balance === 0) {
+      Strategy.balance = this.futures
         ? this.coinm
           ? deal.usage.max.base
           : deal.usage.max.quote
         : this.long
         ? deal.usage.max.quote * (this.profitBase ? 1 / deal.startPrice : 1)
         : deal.usage.max.base * (this.profitBase ? 1 : deal.startPrice)
-      this.initialBalance = this.balance
+      Strategy.initialBalance = Strategy.balance
     }
   }
 
@@ -2145,7 +2147,7 @@ export abstract class Strategy implements StrategyInterface {
     }
 
     if (profit) {
-      this.balance += profit.total
+      Strategy.balance += profit.total
       if (profit.total > 0 && profit.total > Strategy.maxProfit) {
         Strategy.maxProfit = profit.total
       }
@@ -2154,17 +2156,17 @@ export abstract class Strategy implements StrategyInterface {
       }
       if (!Strategy.previousDeal && profit.total > 0) {
         Strategy.maxConsecutiveWins = 1
-        Strategy.seriesWin.value = this.balance - this.initialBalance
-        Strategy.seriesWin.min = this.initialBalance
-        Strategy.seriesWin.max = this.balance
-        Strategy.seriesWin.perc = profit.total / this.balance
+        Strategy.seriesWin.value = Strategy.balance - Strategy.initialBalance
+        Strategy.seriesWin.min = Strategy.initialBalance
+        Strategy.seriesWin.max = Strategy.balance
+        Strategy.seriesWin.perc = profit.total / Strategy.balance
       }
       if (!Strategy.previousDeal && profit.total < 0) {
         Strategy.maxConsecutiveLosses = 1
-        Strategy.seriesLoss.value = this.initialBalance - this.balance
-        Strategy.seriesLoss.min = this.balance
-        Strategy.seriesLoss.max = this.initialBalance
-        Strategy.seriesLoss.perc = profit.total / this.balance
+        Strategy.seriesLoss.value = Strategy.initialBalance - Strategy.balance
+        Strategy.seriesLoss.min = Strategy.balance
+        Strategy.seriesLoss.max = Strategy.initialBalance
+        Strategy.seriesLoss.perc = profit.total / Strategy.balance
       }
       if (profit.total > 0) {
         if (Strategy.previousDeal && Strategy.previousDeal.profit.total < 0) {
@@ -2182,13 +2184,13 @@ export abstract class Strategy implements StrategyInterface {
       }
       Strategy.totalProfit += profit.total
     }
-    if (this.balance > Strategy.seriesWin.max) {
-      Strategy.seriesWin.max = this.balance
+    if (Strategy.balance > Strategy.seriesWin.max) {
+      Strategy.seriesWin.max = Strategy.balance
       if (Strategy.seriesWin.min === 0) {
         Strategy.seriesWin.min =
           Strategy.seriesLoss.min === 0
-            ? this.initialBalance
-            : Math.min(Strategy.seriesLoss.min, this.initialBalance)
+            ? Strategy.initialBalance
+            : Math.min(Strategy.seriesLoss.min, Strategy.initialBalance)
       }
       const tempValue = Strategy.seriesWin.max - Strategy.seriesWin.min
       if (tempValue > Strategy.seriesWin.value) {
@@ -2196,17 +2198,17 @@ export abstract class Strategy implements StrategyInterface {
         Strategy.seriesWin.value = tempValue
       }
     }
-    if (this.balance < Strategy.seriesWin.min) {
-      Strategy.seriesWin.min = this.balance
-      Strategy.seriesWin.max = this.balance
+    if (Strategy.balance < Strategy.seriesWin.min) {
+      Strategy.seriesWin.min = Strategy.balance
+      Strategy.seriesWin.max = Strategy.balance
     }
-    if (this.balance < Strategy.seriesLoss.min) {
-      Strategy.seriesLoss.min = this.balance
+    if (Strategy.balance < Strategy.seriesLoss.min) {
+      Strategy.seriesLoss.min = Strategy.balance
       if (Strategy.seriesLoss.max === 0) {
         Strategy.seriesLoss.max =
           Strategy.seriesWin.max === 0
-            ? this.initialBalance
-            : Math.max(Strategy.seriesWin.max, this.initialBalance)
+            ? Strategy.initialBalance
+            : Math.max(Strategy.seriesWin.max, Strategy.initialBalance)
       }
       const tempValue = Strategy.seriesLoss.max - Strategy.seriesLoss.min
       if (tempValue > Strategy.seriesLoss.value) {
@@ -2214,9 +2216,9 @@ export abstract class Strategy implements StrategyInterface {
         Strategy.seriesLoss.value = tempValue
       }
     }
-    if (this.balance > Strategy.seriesLoss.max) {
-      Strategy.seriesLoss.max = this.balance
-      Strategy.seriesLoss.min = this.balance
+    if (Strategy.balance > Strategy.seriesLoss.max) {
+      Strategy.seriesLoss.max = Strategy.balance
+      Strategy.seriesLoss.min = Strategy.balance
     }
     if (Strategy.seriesWin.count > Strategy.maxConsecutiveWins) {
       Strategy.maxConsecutiveWins = Strategy.seriesWin.count
@@ -3404,6 +3406,10 @@ export abstract class Strategy implements StrategyInterface {
           2,
         ),
         maxRunUpPerc: this.math.round(Strategy.seriesWin.perc * 100, 2),
+        initialBalanceUsd: this.math.round(
+          Strategy.initialBalance * this.usdRate,
+          4,
+        ),
       },
       noData: !firstData && !lastData,
       duration: {
