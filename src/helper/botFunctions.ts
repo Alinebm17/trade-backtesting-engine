@@ -177,7 +177,7 @@ class BotFunctions {
     return prices
   }
 
-  createOrders(all = false, nosplice = false): Grid[] {
+  createOrders(all = false, nosplice = false, side: BotOrderSideEnum): Grid[] {
     const { settings, symbol, forceLocal, latestPrice, userFee, initialPrice } =
       this
     const {
@@ -209,7 +209,7 @@ class BotFunctions {
         updatedBudget,
         forceLocal,
         symbol,
-        _latestPrice: latestPrice,
+        _lastPrice: latestPrice,
         userFee,
         sellDisplacement,
         gridType,
@@ -221,6 +221,7 @@ class BotFunctions {
         futuresStrategy,
         _ordersInAdvance: ordersInAdvance,
         useOrderInAdvance,
+        _side: side,
       },
       all,
       nosplice,
@@ -324,7 +325,7 @@ class BotFunctions {
           this.settings.strategy !== StrategyEnum.short
             ? +this.settings.topPrice * 1.1
             : +this.settings.lowPrice * 0.9
-        const maxGrids = this.createOrders(true, false)
+        const maxGrids = this.createOrders(true, false, BotOrderSideEnum.buy)
         this.lastPrice = tempPrice
         if (this.settings.strategy !== StrategyEnum.short) {
           const quote = this.math.round(
@@ -418,7 +419,7 @@ class BotFunctions {
     }[] = []
 
     if (this.settings.profitCurrency === 'quote') {
-      const grids = this.createOrders(true, true)
+      const grids = this.createOrders(true, true, BotOrderSideEnum.buy)
       tempOrders.map((o) => {
         const qty = parseFloat(o.origQty)
         const price = parseFloat(o.price)
@@ -544,9 +545,9 @@ class BotFunctions {
               qty: parseFloat(o.origQty),
               price: parseFloat(o.price),
             }))
-          : this.createOrders(true, false)
+          : this.createOrders(true, false, BotOrderSideEnum.buy)
       if (inputOrders && inputOrders.length > 0) {
-        const allGrids = this.createOrders(true, false)
+        const allGrids = this.createOrders(true, false, BotOrderSideEnum.buy)
         orders = orders.sort((a, b) => a.price - b.price)
         orders = [
           ...orders,

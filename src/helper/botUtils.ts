@@ -264,7 +264,7 @@ class BotUtils {
       updatedBudget,
       forceLocal,
       symbol,
-      _latestPrice,
+      _lastPrice,
       userFee,
       sellDisplacement,
       gridType,
@@ -277,6 +277,7 @@ class BotUtils {
       _ordersInAdvance,
       useOrderInAdvance,
       combo,
+      _side,
     }: {
       lowPrice: string | number
       topPrice: string | number
@@ -287,7 +288,7 @@ class BotUtils {
       updatedBudget?: boolean
       forceLocal: boolean
       symbol: Symbols
-      _latestPrice: number
+      _lastPrice: number
       userFee: number
       sellDisplacement: string | number
       gridType: GridType
@@ -300,6 +301,7 @@ class BotUtils {
       _ordersInAdvance?: string | number
       useOrderInAdvance: boolean
       combo?: boolean
+      _side: BotOrderSideEnum
     },
     all = false,
     nosplice = false,
@@ -311,7 +313,7 @@ class BotUtils {
       startPrice &&
       startPrice !== '' &&
       startPrice !== '0'
-    const latestPrice = useStart ? +startPrice : _latestPrice
+    const latestPrice = useStart ? +startPrice : _lastPrice
     const low = parseFloat(`${lowPrice}`)
     const top = parseFloat(`${topPrice}`)
     const B = updatedBudget
@@ -325,6 +327,7 @@ class BotUtils {
     let sellQty = 0
     let quoteAmount = 0
     let baseAmount = 0
+    let lastPrice = _lastPrice
     const prices = this.getPrices({
       lowPrice,
       topPrice,
@@ -414,9 +417,17 @@ class BotUtils {
     if (coinm) {
       baseAmount = B / +levels
     }
+    const basicInitialGrid = _side
+      ? prices.find((p) =>
+          _side === BotOrderSideEnum.buy
+            ? lastPrice === p.buy
+            : lastPrice === p.sell,
+        )
+      : undefined
+    lastPrice = basicInitialGrid?.buy ?? _lastPrice
     prices.map((pr, i) => {
       const side =
-        pr.buy > latestPrice ? BotOrderSideEnum.sell : BotOrderSideEnum.buy
+        pr.buy > lastPrice ? BotOrderSideEnum.sell : BotOrderSideEnum.buy
       const p = side === BotOrderSideEnum.buy ? pr.buy : pr.sell
       const same =
         profitCurrency === orderFixedIn ||
@@ -586,8 +597,8 @@ class BotUtils {
       let diff = Infinity
       let gridIndex = -1
       grids.map((grid, index) => {
-        if (Math.abs(grid.price - latestPrice) < diff) {
-          diff = Math.abs(grid.price - latestPrice)
+        if (Math.abs(grid.price - lastPrice) < diff) {
+          diff = Math.abs(grid.price - lastPrice)
           gridIndex = index
         }
       })

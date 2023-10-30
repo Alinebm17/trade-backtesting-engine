@@ -299,7 +299,13 @@ export class Strategy implements StrategyInterface {
     }
     this.initialOpen = true
     this.botFunctions.lastPrice = d.close
-    const grids = this.botFunctions.createOrders(true, false)
+    const grids = this.botFunctions.createOrders(
+      true,
+      false,
+      this.futuresStrategy === FuturesStrategyEnum.long
+        ? BotOrderSideEnum.sell
+        : BotOrderSideEnum.buy,
+    )
     const amount = grids
       .filter(
         (g) =>
@@ -325,13 +331,13 @@ export class Strategy implements StrategyInterface {
     this.workingShift.push({ start })
   }
 
-  private createGrids(price: number) {
+  private createGrids(price: number, side: BotOrderSideEnum) {
     this.botFunctions.lastPrice = price
-    const grids = [...this.botFunctions.createOrders(true, false)]
+    const grids = [...this.botFunctions.createOrders(true, false, side)]
     this.grids = grids
     this.smartGrids = grids
     if (this.settings.useOrderInAdvance) {
-      this.smartGrids = this.botFunctions.createOrders(false, false)
+      this.smartGrids = this.botFunctions.createOrders(false, false, side)
     }
     if (this.initialGrids.length === 0) {
       this.initialGrids = this.botFunctions.getPrices()
@@ -394,7 +400,7 @@ export class Strategy implements StrategyInterface {
     this.botFunctions.lastPrice = this.isShort
       ? +this.settings.lowPrice / 2
       : +this.settings.topPrice * 2
-    const grids = [...this.botFunctions.createOrders(true, true)]
+    const grids = [...this.botFunctions.createOrders(true, true, order.side)]
     this.botFunctions.lastPrice = botFunctionsPrice
     const { qty, price, side, id, filledTime } = order
     let comBase = side === BotOrderSideEnum.buy ? qty * (this.userFee ?? 0) : 0
@@ -846,7 +852,7 @@ export class Strategy implements StrategyInterface {
     this.checkInRange(bar.close, bar.time)
     if (this.workingShift.length === 0) {
       this.startWorkingShift(bar.time)
-      this.createGrids(bar.close)
+      this.createGrids(bar.close, BotOrderSideEnum.buy)
     }
     const filledBuy = this.grids
       .filter((g) => g.side === BotOrderSideEnum.buy && g.price >= bar.low)
@@ -858,7 +864,7 @@ export class Strategy implements StrategyInterface {
     const [lastFilledBuy] = filledBuy
     if (lastFilledBuy) {
       const lastPrice = lastFilledBuy.price
-      this.createGrids(lastPrice)
+      this.createGrids(lastPrice, lastFilledBuy.side)
       this.addAvgHistoryLine(bar.time)
     }
     const filledSell = this.grids
@@ -871,7 +877,7 @@ export class Strategy implements StrategyInterface {
     const [lastFilledSell] = filledSell
     if (lastFilledSell) {
       const lastPrice = lastFilledSell.price
-      this.createGrids(lastPrice)
+      this.createGrids(lastPrice, lastFilledSell.side)
       this.addAvgHistoryLine(bar.time)
     }
 
@@ -999,7 +1005,9 @@ export class Strategy implements StrategyInterface {
     const firstPrice = this.firstBarPrice
     const botFunctionsPrice = this.botFunctions.lastPrice
     this.botFunctions.lastPrice = firstPrice
-    const currentGrids = [...this.botFunctions.createOrders(true, false)]
+    const currentGrids = [
+      ...this.botFunctions.createOrders(true, false, BotOrderSideEnum.buy),
+    ]
     this.botFunctions.lastPrice = botFunctionsPrice
     let currentBase = this.initialBalancesByAsset.base
     let currentQuote = this.initialBalancesByAsset.quote
@@ -1027,7 +1035,7 @@ export class Strategy implements StrategyInterface {
       this.botFunctions.lastPrice = g.price
 
       const currentGridsOnPrice = [
-        ...this.botFunctions.createOrders(true, false),
+        ...this.botFunctions.createOrders(true, false, g.side),
       ]
       this.botFunctions.lastPrice = bPrice
       const newBase =

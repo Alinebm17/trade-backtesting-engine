@@ -496,7 +496,11 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  private generateGridsOnPrice(minigrid: Minigrid, price: number) {
+  private generateGridsOnPrice(
+    minigrid: Minigrid,
+    price: number,
+    side: BotOrderSideEnum,
+  ) {
     const { long, settings, symbol } = this
     const {
       settings: {
@@ -519,7 +523,7 @@ export abstract class Strategy implements StrategyInterface {
       updatedBudget: true,
       forceLocal: false,
       symbol,
-      _latestPrice: price,
+      _lastPrice: price,
       userFee: this.userFee,
       sellDisplacement: `${sellDisplacement}`,
       gridType: 'arithmetic' as const,
@@ -533,6 +537,7 @@ export abstract class Strategy implements StrategyInterface {
         : FuturesStrategyEnum.short,
       useOrderInAdvance: false,
       combo: true,
+      _side: side,
     }
     const grids: DCAGrid[] = this.botFunctions.utils
       .createGridOrders(gridSettings, true, false, !long)
@@ -624,6 +629,7 @@ export abstract class Strategy implements StrategyInterface {
     const allOrders = this.generateGridsOnPrice(
       minigrid,
       _initialPrice ?? (long ? lowPrice : topPrice),
+      BotOrderSideEnum.buy,
     )
     const buys = allOrders.filter((g) => g.side === BotOrderSideEnum.buy)
     const sells = allOrders.filter((g) => g.side === BotOrderSideEnum.sell)
@@ -869,6 +875,8 @@ export abstract class Strategy implements StrategyInterface {
         deal.mingrids.push(m)
         for (const o of m.activeOrders) {
           activeOrders.push({ ...o, startTime })
+          initialOrders.push(o)
+          allInitialOrder.push(o)
         }
         deal.hiddenOrders.push({
           ...h,
@@ -878,23 +886,14 @@ export abstract class Strategy implements StrategyInterface {
         })
       }
     }
-
     const initialBase = this.long
       ? 0
       : allInitialOrder
-          .filter(
-            (o) =>
-              o.type &&
-              [DCAOrderTypeEnum.bo, DCAOrderTypeEnum.dca].includes(o.type),
-          )
+          .filter((o) => o.type !== DCAOrderTypeEnum.tp)
           .reduce((acc, o) => acc + o.qty, 0)
     const initialQuote = this.long
       ? allInitialOrder
-          .filter(
-            (o) =>
-              o.type &&
-              [DCAOrderTypeEnum.bo, DCAOrderTypeEnum.dca].includes(o.type),
-          )
+          .filter((o) => o.type !== DCAOrderTypeEnum.tp)
           .reduce((acc, o) => acc + o.qty * o.price, 0)
       : 0
     const currentBase = filledOrders.reduce((acc, o) => acc + o.qty, 0)
@@ -1236,7 +1235,9 @@ export abstract class Strategy implements StrategyInterface {
       topPrice,
       symbol.priceAssetPrecision,
     )
-    const grids = this.generateGridsOnPrice(minigrid, topPrice * 2) ?? []
+    const grids =
+      this.generateGridsOnPrice(minigrid, topPrice * 2, BotOrderSideEnum.buy) ??
+      []
     const _profitBase = profitCurrency === 'base'
     const { qty, price, side, filledTime, id } = o
     let comBase = side === BotOrderSideEnum.buy ? qty * userFee : 0
@@ -1556,7 +1557,7 @@ export abstract class Strategy implements StrategyInterface {
       const lastFilledBuy = filledBuy[filledBuy.length - 1]
       if (lastFilledBuy) {
         const lastPrice = lastFilledBuy.price
-        grids = this.generateGridsOnPrice(m, lastPrice)
+        grids = this.generateGridsOnPrice(m, lastPrice, BotOrderSideEnum.buy)
         m.lastPrice = lastFilledBuy.price
         m.lastSide = lastFilledBuy.side
       }
@@ -1577,7 +1578,7 @@ export abstract class Strategy implements StrategyInterface {
       const lastFilledSell = filledSell[filledSell.length - 1]
       if (lastFilledSell) {
         const lastPrice = lastFilledSell.price
-        grids = this.generateGridsOnPrice(m, lastPrice)
+        grids = this.generateGridsOnPrice(m, lastPrice, BotOrderSideEnum.sell)
         m.lastPrice = lastFilledSell.price
         m.lastSide = lastFilledSell.side
       }
