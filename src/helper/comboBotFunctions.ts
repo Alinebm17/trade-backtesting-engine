@@ -199,7 +199,7 @@ class ComboBotFunctions extends DcaBotFunctions {
       updatedBudget: true,
       forceLocal: false,
       symbol,
-      _latestPrice: baseOrder.price,
+      _lastPrice: baseOrder.price,
       userFee: this.userFee,
       sellDisplacement: `${this.userFee * 2 * 100}`,
       gridType: 'arithmetic' as const,
@@ -214,6 +214,7 @@ class ComboBotFunctions extends DcaBotFunctions {
         : FuturesStrategyEnum.short,
       useOrderInAdvance: false,
       combo: true,
+      _side: BotOrderSideEnum.buy,
     }
     /* console.log('-----------------------')
     console.log(
@@ -478,7 +479,7 @@ class ComboBotFunctions extends DcaBotFunctions {
               ...gridSettings,
               lowPrice: long ? `${price}` : `${price - gridStep * stepVal}`,
               topPrice: long ? `${price + gridStep * stepVal}` : `${price}`,
-              _latestPrice: isActiveMinigrid ? baseOrder.price : price,
+              _lastPrice: isActiveMinigrid ? baseOrder.price : price,
               initialPrice: isActiveMinigrid ? baseOrder.price : price,
               budget: `${minigridBudget}`,
             },
@@ -556,9 +557,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                         topPrice: long
                           ? `${price + gridStep * stepVal}`
                           : `${price}`,
-                        _latestPrice: isActiveMinigrid
-                          ? baseOrder.price
-                          : price,
+                        _lastPrice: isActiveMinigrid ? baseOrder.price : price,
                         initialPrice: isActiveMinigrid
                           ? baseOrder.price
                           : price,
