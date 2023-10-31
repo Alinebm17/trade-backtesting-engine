@@ -2020,7 +2020,7 @@ export abstract class Strategy implements StrategyInterface {
             (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
-        /* if (close) {
+        /*  if (close) {
           console.log(
             'sl',
             total,
@@ -2578,7 +2578,7 @@ export abstract class Strategy implements StrategyInterface {
       settings: { tpPerc, useMultiTp, multiTp, useMultiSl, multiSl },
       symbol,
     } = this
-    const { filledOrders, tpSlTargetFilled, avgPrice } = deal
+    const { filledOrders, tpSlTargetFilled, avgPrice, slPerc } = deal
     const precision = this.botFunctions.utils.getBaseAssetPrecision(symbol)
     const filledRegular = filledOrders.filter(
       (o) =>
@@ -2594,6 +2594,7 @@ export abstract class Strategy implements StrategyInterface {
         : deal.initialBalance.base - deal.currentBalance.base
       : filledRegular.reduce((acc, g) => acc + g.qty, 0) -
         filledTP.reduce((acc, g) => acc + g.qty, 0)
+    const origQty = qty
     const quote = this.combo
       ? deal.currentBalance.quote
       : filledRegular.reduce((acc, g) => acc + g.qty * g.price, 0) -
@@ -2604,7 +2605,9 @@ export abstract class Strategy implements StrategyInterface {
       : 1 - sellDisplacement
     const price = (quote / qty) * priceDisplacement
     let tpPrice = this.math.round(
-      _price ?? price * (1 + (this.long ? 1 : -1) * (+tpPerc / 100)),
+      _price ??
+        price *
+          (1 + (this.long ? 1 : -1) * (sl ? +(slPerc || '0') : +tpPerc / 100)),
       symbol.priceAssetPrecision,
     )
     if (tpPrice === deal.avgPrice) {
@@ -2624,6 +2627,19 @@ export abstract class Strategy implements StrategyInterface {
       id: this.botFunctions.utils.id(20),
       filledTime: time,
     }
+
+    if (this.profitBase) {
+      const newQty = this.math.round(
+        (origQty * deal.avgPrice) / tpOrder.price,
+        precision,
+        true,
+      )
+      tpOrder.qty = this.long
+        ? Math.min(tpOrder.qty, newQty)
+        : sl
+        ? Math.min(tpOrder.qty, newQty)
+        : Math.max(tpOrder.qty, newQty)
+    }
     if (tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount) {
       tpOrder.qty = this.math.round(
         symbol.quoteAsset.minAmount / tpOrder.price,
@@ -2631,12 +2647,6 @@ export abstract class Strategy implements StrategyInterface {
         false,
         true,
       )
-    }
-    if (this.profitBase) {
-      const newQty = this.math.round((qty * price) / tpOrder.price, precision)
-      tpOrder.qty = this.long
-        ? Math.min(tpOrder.qty, newQty)
-        : Math.max(tpOrder.qty, newQty)
     }
     let tpOrders = [tpOrder]
     if (aggregate) {
@@ -2864,8 +2874,8 @@ export abstract class Strategy implements StrategyInterface {
     const price = quoteTp / qty
     const pureProfit =
       (this.profitBase
-        ? base - qty + ((quoteTp - quote) / price) * (this.long ? 1 : -1)
-        : quoteTp - quote + (qty - base) * price * (this.long ? 1 : -1)) *
+        ? base - qty + (quoteTp - quote) / price
+        : quoteTp - quote + (qty - base) * price) *
         (this.long ? 1 : -1) -
       (d.liquidationPrice ? 0 : commission)
     if (pureProfit !== 0 && this.combo) {
@@ -3287,7 +3297,15 @@ export abstract class Strategy implements StrategyInterface {
       indicatorsEvents: [...Strategy.indicatorEvents],
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
-        .map((d, ind) => ({ ...d, number: ind + 1 })),
+        .map((d, ind) => ({
+          ...d,
+          number: ind + 1,
+          mingrids: d.mingrids.map((m) => ({
+            ...m,
+            activeOrders: [],
+            filledOrders: [],
+          })),
+        })),
       maxLeverage: Strategy.deals.filter((d) => !!d.liquidationPrice).length
         ? this.getMaxLeverage()
         : 0,
