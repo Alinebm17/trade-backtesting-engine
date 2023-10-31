@@ -3420,13 +3420,23 @@ export abstract class Strategy implements StrategyInterface {
           Strategy.seriesLoss.value * this.usdRate,
           2,
         ),
-        maxDrawDownPerc: this.math.round(Strategy.seriesLoss.perc * 100, 2),
+        maxDrawDownPerc: this.math.round(
+          Strategy.seriesLoss.perc * 100,
+          2,
+          false,
+          true,
+        ),
         maxRunUp: this.math.round(Strategy.seriesWin.value, this.precision),
         maxRunUpUsd: this.math.round(
           Strategy.seriesWin.value * this.usdRate,
           2,
         ),
-        maxRunUpPerc: this.math.round(Strategy.seriesWin.perc * 100, 2),
+        maxRunUpPerc: this.math.round(
+          Strategy.seriesWin.perc * 100,
+          2,
+          false,
+          true,
+        ),
         initialBalanceUsd: this.math.round(
           Strategy.initialBalance * this.usdRate,
           4,
