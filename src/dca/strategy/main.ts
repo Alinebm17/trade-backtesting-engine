@@ -2634,7 +2634,9 @@ export abstract class Strategy implements StrategyInterface {
         precision,
         true,
       )
-      tpOrder.qty = this.long
+      tpOrder.qty = this.coinm
+        ? newQty
+        : this.long
         ? Math.min(tpOrder.qty, newQty)
         : sl
         ? Math.min(tpOrder.qty, newQty)
