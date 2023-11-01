@@ -17,6 +17,7 @@ import {
   BacktestingTransaction,
   DCAConditionEnum,
   IndicatorAction,
+  timeIntervalMap,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -37,6 +38,7 @@ import type {
   TradeResponse,
   Profit,
   IndicatorsEvents,
+  BuyAndHoldEquity,
 } from '../../types'
 
 export type Bar = BarTV
@@ -244,6 +246,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.indicatorEvents = []
     Strategy.balance = 0
     Strategy.initialBalance = 0
+    Strategy.position = Strategy.emptyPositon
   }
 
   static position = Strategy.emptyPositon
@@ -1552,7 +1555,6 @@ export abstract class Strategy implements StrategyInterface {
         const profit = this.createTransaction(o, m)
         total += this.profitBase ? profit.profitBase : profit.profitQuote
         totalUsd += profit.profitUsdt
-        Strategy.profits.push({ total, totalUsd, time: b.time })
       }
       const lastFilledBuy = filledBuy[filledBuy.length - 1]
       if (lastFilledBuy) {
@@ -1573,6 +1575,8 @@ export abstract class Strategy implements StrategyInterface {
         const profit = this.createTransaction(o, m)
         total += this.profitBase ? profit.profitBase : profit.profitQuote
         totalUsd += profit.profitUsdt
+      }
+      if (total !== 0) {
         Strategy.profits.push({ total, totalUsd, time: b.time })
       }
       const lastFilledSell = filledSell[filledSell.length - 1]
@@ -1962,9 +1966,11 @@ export abstract class Strategy implements StrategyInterface {
           this.settings.useSl &&
           this.settings.dealCloseConditionSL === CloseConditionEnum.tp
         const price = b.close
-        const qty = this.long
-          ? d.currentBalance.base
-          : d.initialBalance.base - d.currentBalance.base
+        const qty =
+          (this.long
+            ? d.currentBalance.base
+            : d.initialBalance.base - d.currentBalance.base) +
+          (this.coinm ? d.profit.total * (this.long ? 1 : -1) : 0)
         const quote =
           (this.long
             ? d.initialBalance.quote - d.currentBalance.quote
@@ -1982,7 +1988,7 @@ export abstract class Strategy implements StrategyInterface {
         const total = d.profit.total + unpnl - commission
         const denominator = this.futures
           ? this.coinm
-            ? d.usage.max.base
+            ? d.usage.max.base * d.startPrice
             : d.usage.max.quote
           : this.long
           ? d.usage.max.quote
@@ -2020,7 +2026,7 @@ export abstract class Strategy implements StrategyInterface {
             (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
-        /*  if (close) {
+        /* if (close) {
           console.log(
             'sl',
             total,
@@ -2890,7 +2896,6 @@ export abstract class Strategy implements StrategyInterface {
     const total = d.profit.total + pureProfit
 
     const totalUsd = total * usdRate
-    console.log(usdRate)
     const denominator = this.combo
       ? this.futures
         ? this.coinm
@@ -2909,7 +2914,7 @@ export abstract class Strategy implements StrategyInterface {
       true,
     )
 
-    /* console.log(
+    /*  console.log(
       'profit',
       total,
       'total',
@@ -3014,6 +3019,82 @@ export abstract class Strategy implements StrategyInterface {
           ? 'A'
           : 'A+',
       number,
+    }
+  }
+
+  private getBuyAndHold(firstData: Bar, lastData: Bar) {
+    const firstPrice = firstData?.close
+    const lastPrice = lastData?.close
+    const buyAndHoldUsage =
+      Strategy.initialBalance * (this.profitBase ? lastPrice : 1)
+    const buyAndHold =
+      firstPrice && lastPrice
+        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
+        : 0
+    /* const buyAndHoldLastEquity =
+      (firstPrice && lastPrice
+        ? (buyAndHoldUsage / firstPrice) * lastPrice
+        : 0) * this.leverage */
+    const lowestData = [...Strategy.data].sort(
+      (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
+    )[0]
+    const buyAndHoldEquity: BuyAndHoldEquity[] = []
+    /*     buyAndHoldEquity.push({ value: buyAndHoldUsage, time: firstData.time })
+    buyAndHoldEquity.push({ value: buyAndHoldLastEquity, time: lastData.time }) */
+    if (Strategy.deals.length > 2 && !this.combo) {
+      const data: Bar[] = []
+      for (const i of Strategy.deals) {
+        const d = lowestData.bar.find(
+          (b) => b.time === (i.closedTime ?? i.startTime),
+        )
+        if (
+          d &&
+          buyAndHoldEquity.filter((bh) => bh.time === d.time).length === 0
+        ) {
+          data.push(d)
+        }
+      }
+      buyAndHoldEquity.push({
+        value: this.math.round(buyAndHoldUsage, 4),
+        time: firstData.time,
+      })
+      for (const d of data) {
+        const lp = d.close
+        const bh = this.math.round(
+          firstPrice && lp ? (buyAndHoldUsage / firstPrice) * lp : 0,
+          3,
+        )
+        buyAndHoldEquity.push({ value: bh, time: d.time })
+      }
+    }
+    if (Strategy.profits.length > 2 && this.combo) {
+      const data: Bar[] = []
+      for (const i of Strategy.profits) {
+        const d = lowestData.bar.find((b) => b.time === i.time)
+        if (
+          d &&
+          buyAndHoldEquity.filter((bh) => bh.time === d.time).length === 0
+        ) {
+          data.push(d)
+        }
+      }
+      buyAndHoldEquity.push({
+        value: this.math.round(buyAndHoldUsage, 4),
+        time: firstData.time,
+      })
+      for (const d of data) {
+        const lp = d.close
+        const bh = this.math.round(
+          firstPrice && lp ? (buyAndHoldUsage / firstPrice) * lp : 0,
+          3,
+        )
+        buyAndHoldEquity.push({ value: bh, time: d.time })
+      }
+    }
+    return {
+      buyAndHold,
+      buyAndHoldUsage,
+      buyAndHoldEquity: buyAndHoldEquity.sort((a, b) => a.time - b.time),
     }
   }
 
@@ -3272,7 +3353,6 @@ export abstract class Strategy implements StrategyInterface {
         prev = i
       }
     }
-    const firstPrice = firstData?.close
     const lastPrice = lastData?.close
 
     const maxTheoreticalUsageValue = this.math.round(
@@ -3281,12 +3361,7 @@ export abstract class Strategy implements StrategyInterface {
     )
     const maxTheoreticalUsageWithRate =
       maxTheoreticalUsageValue * this.getRate(lastPrice)
-    const buyAndHoldUsage =
-      maxTheoreticalUsageWithRate * (this.profitBase ? lastPrice : 1)
-    const buyAndHold =
-      (firstPrice && lastPrice
-        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
-        : 0) * this.leverage
+
     /* Strategy.deals = Strategy.deals.map((d) => {
       if (!this.combo) {
         d.ordersHistory = d.ordersHistory.filter(
@@ -3297,7 +3372,9 @@ export abstract class Strategy implements StrategyInterface {
       return d
     }) */
     const confidenceGrade = this.getConfidenceGrade()
-    const result = {
+    const buyAndHold = this.getBuyAndHold(firstData, lastData)
+    const result: DCABacktestingResult = {
+      buyAndHoldEquity: buyAndHold.buyAndHoldEquity,
       indicatorsEvents: [...Strategy.indicatorEvents],
       deals: [...Strategy.deals]
         .sort((a, b) => b.startTime - a.startTime)
@@ -3513,9 +3590,15 @@ export abstract class Strategy implements StrategyInterface {
             : Infinity,
         profitByPeriod,
         buyAndHold: {
-          value: this.math.round(buyAndHold, this.precisionQuote),
-          valueUsd: this.math.round(buyAndHold * this.usdRateQuote, 2),
-          perc: this.math.round((buyAndHold / buyAndHoldUsage) * 100, 2),
+          value: this.math.round(buyAndHold.buyAndHold, this.precisionQuote),
+          valueUsd: this.math.round(
+            buyAndHold.buyAndHold * this.usdRateQuote,
+            2,
+          ),
+          perc: this.math.round(
+            (buyAndHold.buyAndHold / buyAndHold.buyAndHoldUsage) * 100,
+            2,
+          ),
         },
         periodRatio,
       },

@@ -753,8 +753,14 @@ export type IndicatorsEvents = {
   price: number
 }
 
+export type BuyAndHoldEquity = {
+  value: number
+  time: number
+}
+
 export type DCABacktestingResult = {
   // pair: string
+  buyAndHoldEquity?: BuyAndHoldEquity[]
   indicatorsEvents?: IndicatorsEvents[]
   deals: Deal[]
   profits?: Profit[]
@@ -938,6 +944,7 @@ export type Grid = {
 export type FullGridWithTime = FullGrid & { filledTime: number }
 
 export type GridBacktestingResult = {
+  buyAndHoldEquity?: BuyAndHoldEquity[]
   values: ValueChangeHistory[]
   firstUsdRate: number
   lastUsdRate: number
@@ -949,7 +956,7 @@ export type GridBacktestingResult = {
     filledTime?: number
     avgLine?: boolean
   })[]
-  noDate?: boolean
+  noData?: boolean
   financial: {
     freeProfitTotal: number
     freeProfitTotalUsd: number

@@ -24,6 +24,7 @@ import type {
   FullGrid,
   FullGridWithTime,
   ValueChangeHistory,
+  BuyAndHoldEquity,
 } from '../../types'
 
 export type Bar = BarTV
@@ -1228,6 +1229,51 @@ export class Strategy implements StrategyInterface {
     this.currentBalancesUsd = this.currentBalances * this.usdRate
   }
 
+  private getBuyAndHold(firstData: Bar, lastData: Bar) {
+    const firstPrice = firstData?.close
+    const lastPrice = lastData?.close
+    const buyAndHoldUsage = +this.settings.budget
+    const buyAndHoldUsageEquity =
+      +this.settings.budget *
+      (this.profitBase && !this.coinm ? 1 / firstPrice : 1)
+    const buyAndHold =
+      firstPrice && lastPrice
+        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
+        : 0
+    const buyAndHoldEquity: BuyAndHoldEquity[] = []
+    /*     buyAndHoldEquity.push({ value: buyAndHoldUsage, time: firstData.time })
+    buyAndHoldEquity.push({ value: buyAndHoldLastEquity, time: lastData.time }) */
+    if (this.values.length > 2) {
+      const data: Bar[] = []
+      for (const i of this.values) {
+        const d = this.data.find((b) => b.time === i.time)
+        if (
+          d &&
+          buyAndHoldEquity.filter((bh) => bh.time === d.time).length === 0
+        ) {
+          data.push(d)
+        }
+      }
+      buyAndHoldEquity.push({
+        value: this.math.round(buyAndHoldUsageEquity, 4),
+        time: firstData.time,
+      })
+      for (const d of data) {
+        const lp = d.close
+        const bh = this.math.round(
+          firstPrice && lp ? (buyAndHoldUsageEquity / firstPrice) * lp : 0,
+          3,
+        )
+        buyAndHoldEquity.push({ value: bh, time: d.time })
+      }
+    }
+    return {
+      buyAndHold,
+      buyAndHoldUsage,
+      buyAndHoldEquity: buyAndHoldEquity.sort((a, b) => a.time - b.time),
+    }
+  }
+
   public returnResult(
     firstData: Bar,
     lastData: Bar,
@@ -1281,11 +1327,7 @@ export class Strategy implements StrategyInterface {
     }
     const firstPrice = firstData?.close
     const lastPrice = lastData?.close
-    const buyAndHoldUsage = +this.settings.budget
-    const buyAndHold =
-      firstPrice && lastPrice
-        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
-        : 0
+
     const positionPnL = {
       perc: 0,
       value: 0,
@@ -1310,7 +1352,9 @@ export class Strategy implements StrategyInterface {
         this.symbol.quoteAsset.name,
         this.updatePriceWithOldPrice(this.lastBarPrice),
       ) * (this.profitBase ? this.lastBarPrice : 1)
+    const buyAndHold = this.getBuyAndHold(firstData, lastData)
     return {
+      buyAndHoldEquity: buyAndHold.buyAndHoldEquity,
       values: this.values.sort((a, b) => a.time - b.time),
       firstUsdRate: this.firstUsdRate,
       lastUsdRate: this.lastUsdRate,
@@ -1502,10 +1546,13 @@ export class Strategy implements StrategyInterface {
       ratios: {
         profitByPeriod,
         buyAndHold: {
-          value: this.math.round(buyAndHold, this.precisionQuote),
-          valueUsd: this.math.round(buyAndHold * this.usdRateQuote, 2),
+          value: this.math.round(buyAndHold.buyAndHold, this.precisionQuote),
+          valueUsd: this.math.round(
+            buyAndHold.buyAndHold * this.usdRateQuote,
+            2,
+          ),
           perc: this.math.round(
-            (buyAndHold / buyAndHoldUsage) * 100 * this.leverage,
+            (buyAndHold.buyAndHold / buyAndHold.buyAndHoldUsage) * 100,
             1,
           ),
         },
