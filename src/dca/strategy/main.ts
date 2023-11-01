@@ -2890,6 +2890,7 @@ export abstract class Strategy implements StrategyInterface {
     const total = d.profit.total + pureProfit
 
     const totalUsd = total * usdRate
+    console.log(usdRate)
     const denominator = this.combo
       ? this.futures
         ? this.coinm
@@ -2947,7 +2948,8 @@ export abstract class Strategy implements StrategyInterface {
 
   get profitBase() {
     return (
-      (this.futures && this.coinm) || this.settings.profitCurrency === 'base'
+      (this.futures && this.coinm) ||
+      (!this.futures && this.settings.profitCurrency === 'base')
     )
   }
 
