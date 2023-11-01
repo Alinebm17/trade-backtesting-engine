@@ -75,7 +75,7 @@ class DCABacktesting extends Backtesting {
         loadingTime,
         processingTime,
       )
-      if (result.noDate) {
+      if (result.noData) {
         result.duration.firstDataTime = this.period.from * 1000
         result.duration.lastDataTime = this.period.to * 1000
       }
