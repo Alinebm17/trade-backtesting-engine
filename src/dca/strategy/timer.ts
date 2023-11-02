@@ -25,6 +25,10 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     }
   }
 
+  public async preTest(): Promise<void> {
+    void 0
+  }
+
   public processTrade(trade: TradeResponse): void {
     if (Strategy.workingShift.length === 0) {
       this.startWorkingShift(trade.timestamp)

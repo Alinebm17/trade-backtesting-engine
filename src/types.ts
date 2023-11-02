@@ -711,7 +711,14 @@ export interface Bar {
   volume?: number
 }
 
-export type DCABacktestingInput = BacktestingInput<DCABotSettings>
+export enum EdgeBacktestEnum {
+  random = 'random',
+}
+
+export type DCABacktestingInput = BacktestingInput<DCABotSettings> & {
+  edge?: EdgeBacktestEnum
+  previousData?: DCABacktestingResult
+}
 
 export type BacktestingInput<T> = {
   exchange: ExchangeEnum

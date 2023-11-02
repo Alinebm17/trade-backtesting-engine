@@ -16,6 +16,10 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
     }
   }
 
+  public async preTest(): Promise<void> {
+    void 0
+  }
+
   public processTrade(trade: TradeResponse): void {
     if (Strategy.deals.length === 0) {
       if (Strategy.workingShift.length === 0) {

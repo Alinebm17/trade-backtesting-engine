@@ -31,10 +31,17 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
       (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
     )
     const [lowest] = data
+    if (!lowest) {
+      return
+    }
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
+    await this.preTest()
     let i = 0
     for (const b of lowest.bar) {
+      if (this._stop) {
+        return
+      }
       await this.processBar(
         b,
         lowest.bar[i + 1],
@@ -42,6 +49,15 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
         lowest.bar.length,
       )
       i++
+    }
+  }
+
+  public async preTest(): Promise<void> {
+    for (const s of this.strategies) {
+      if (this._stop) {
+        return
+      }
+      await s.preTest()
     }
   }
 

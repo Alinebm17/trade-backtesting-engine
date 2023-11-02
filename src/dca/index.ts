@@ -13,9 +13,10 @@ import getStrategyBySettings, { StrategyInterface } from './strategy'
 
 import CombinedStrategy from './strategy/combined'
 
-import type {
+import {
   DCABacktestingInput,
   DCABotSettings,
+  EdgeBacktestEnum,
   TradeResponse,
 } from '../types'
 
@@ -23,6 +24,8 @@ class DCABacktesting extends Backtesting {
   private strategy?: StrategyInterface
 
   private settings: DCABotSettings
+
+  private edge?: EdgeBacktestEnum
 
   constructor({
     settings,
@@ -34,6 +37,8 @@ class DCABacktesting extends Backtesting {
     slippage,
     combo,
     trades,
+    edge,
+    previousData,
     ...rest
   }: DCABacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
@@ -46,8 +51,9 @@ class DCABacktesting extends Backtesting {
       settings,
       trades,
     })
+    this.edge = edge
     this.settings = settings
-    const strategy = getStrategyBySettings(settings)
+    const strategy = getStrategyBySettings(settings, edge)
     if (strategy) {
       this.strategy = new CombinedStrategy(
         {
@@ -60,6 +66,8 @@ class DCABacktesting extends Backtesting {
           slippage,
           combo,
           trades,
+          edge,
+          previousData,
         },
         ...strategy,
       )
@@ -97,13 +105,14 @@ class DCABacktesting extends Backtesting {
       testData = bars
     } else {
       const isIndicators =
-        this.settings.startCondition === StartConditionEnum.ti ||
-        (this.settings.dealCloseCondition === CloseConditionEnum.techInd &&
-          this.settings.useTp) ||
-        (this.settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
-          this.settings.useSl) ||
-        (this.settings.dcaCondition === DCAConditionEnum.indicators &&
-          this.settings.useDca)
+        (this.settings.startCondition === StartConditionEnum.ti ||
+          (this.settings.dealCloseCondition === CloseConditionEnum.techInd &&
+            this.settings.useTp) ||
+          (this.settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
+            this.settings.useSl) ||
+          (this.settings.dcaCondition === DCAConditionEnum.indicators &&
+            this.settings.useDca)) &&
+        this.edge !== EdgeBacktestEnum.random
       if (!isIndicators) {
         const data = await this._loadData()
         testData = [{ bar: data, interval: this.interval }]
@@ -139,7 +148,7 @@ class DCABacktesting extends Backtesting {
       }
       const processingTime = (new Date().getTime() - start) / 1000
       const [lowest] = testData.filter((d) => d.interval === lowestInterval)
-      if (this.strategy) {
+      if (this.strategy && lowest) {
         const startBar = lowest.bar.filter((b) => b.time >= startTime)[0]
         const result = this.strategy.returnResult(
           startBar,

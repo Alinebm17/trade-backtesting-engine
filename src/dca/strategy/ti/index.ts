@@ -223,6 +223,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
     }
   }
 
+  public async preTest(): Promise<void> {
+    void 0
+  }
+
   private checkStatuses(time: number) {
     Strategy.indicators = Strategy.indicators.map((i) => {
       const findStatus = i.statuses.find(

@@ -39,6 +39,7 @@ import type {
   Profit,
   IndicatorsEvents,
   BuyAndHoldEquity,
+  EdgeBacktestEnum,
 } from '../../types'
 
 export type Bar = BarTV
@@ -53,6 +54,8 @@ export type StrategyInput = {
   slippage?: number
   combo?: boolean
   trades?: boolean
+  edge?: EdgeBacktestEnum
+  previousData?: DCABacktestingResult
 }
 
 export type DataType = {
@@ -64,6 +67,7 @@ export interface StrategyInterface {
   getOtherIntervals(): { interval: ExchangeIntervals; countBack: number }[]
   loadData(data: DataType[], start?: number): void
   test(updateProgress?: (value: number, text: string) => void): Promise<void>
+  preTest(): Promise<void>
   startWorkingShift(start: number): void
   processBar(bar: Bar, nextBar?: Bar): Promise<void>
   processTrade(
@@ -103,7 +107,7 @@ export abstract class Strategy implements StrategyInterface {
     side: PositionSide.LONG,
   }
 
-  protected readonly settings: DCABotSettings
+  public settings: DCABotSettings
 
   private readonly botFunctions: DCABotFunctions
 
@@ -247,6 +251,8 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.balance = 0
     Strategy.initialBalance = 0
     Strategy.position = Strategy.emptyPositon
+    Strategy.edge = undefined
+    Strategy.previousResult = undefined
   }
 
   static position = Strategy.emptyPositon
@@ -263,6 +269,10 @@ export abstract class Strategy implements StrategyInterface {
 
   static initialBalance = 0
 
+  static edge?: EdgeBacktestEnum
+
+  static previousResult?: DCABacktestingResult
+
   constructor(input: StrategyInput) {
     const {
       settings,
@@ -274,7 +284,13 @@ export abstract class Strategy implements StrategyInterface {
       slippage,
       combo,
       trades,
+      edge,
+      previousData,
     } = input
+    if (!combo) {
+      Strategy.edge = edge
+      Strategy.previousResult = previousData
+    }
     Strategy.trades = trades
     this.combo = !!combo
     this.settings = settings
@@ -318,6 +334,10 @@ export abstract class Strategy implements StrategyInterface {
     this._stop = value
   }
 
+  public set settingsUpdate(settings: DCABotSettings) {
+    this.settings = settings
+  }
+
   public loadData(data: DataType[], start?: number): void {
     Strategy.start = start ?? 0
     Strategy.data = data
@@ -331,6 +351,8 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   public abstract test(): Promise<void>
+
+  public abstract preTest(): Promise<void>
 
   public startWorkingShift(start: number): void {
     Strategy.workingShift.push({ start })
@@ -748,7 +770,25 @@ export abstract class Strategy implements StrategyInterface {
       : [balance]
   }
 
+  private checkCloseAfterX() {
+    if (!Strategy.edge) {
+      return true
+    }
+    if (this.settings.useCloseAfterX && this.settings.closeAfterX) {
+      return (
+        Strategy.deals.filter((d) => d.status === 'closed').length <=
+        +this.settings.closeAfterX
+      )
+    }
+    if (this.settings.useCloseAfterXopen && this.settings.closeAfterXopen) {
+      return Strategy.deals.length <= +this.settings.closeAfterXopen
+    }
+  }
+
   public openDeal(price: number, startTime: number, high: number, low: number) {
+    if (!this.checkCloseAfterX()) {
+      return
+    }
     if (!this.checkCooldownStart(startTime)) {
       return
     }
@@ -2334,7 +2374,8 @@ export abstract class Strategy implements StrategyInterface {
     if (
       this.settings.closeByTimer &&
       this.settings.closeByTimerValue &&
-      this.settings.closeByTimerUnits
+      this.settings.closeByTimerUnits &&
+      this.settings.useTp
     ) {
       const closeTime =
         d.startTime +

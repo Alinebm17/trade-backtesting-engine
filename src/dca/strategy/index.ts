@@ -7,10 +7,17 @@ import createStrategyFactory from './factory'
 import ASAPStrategy from './asap'
 import TIStrategy from './ti'
 import TimerStrategy from './timer'
+import EdgeRandomStrategy from './edge/random'
 
-import type { DCABotSettings } from '../../types'
+import { DCABotSettings, EdgeBacktestEnum } from '../../types'
 
-const getStrategyBySettings = (settings: DCABotSettings) => {
+const getStrategyBySettings = (
+  settings: DCABotSettings,
+  edge?: EdgeBacktestEnum,
+) => {
+  if (edge === EdgeBacktestEnum.random) {
+    return [createStrategyFactory(EdgeRandomStrategy)]
+  }
   let result: ReturnType<typeof createStrategyFactory>[] = [
     createStrategyFactory(ASAPStrategy),
   ]
