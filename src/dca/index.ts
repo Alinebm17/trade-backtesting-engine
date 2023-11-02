@@ -129,10 +129,10 @@ class DCABacktesting extends Backtesting {
     }
     const loadingTime = (new Date().getTime() - startLoading) / 1000
     const start = new Date().getTime()
-    this.strategy.loadData(
-      testData,
-      bars ? testData[0]?.bar?.[0]?.time : this.period.from * 1000,
-    )
+    const startTime = bars
+      ? testData[0]?.bar?.[0]?.time
+      : this.period.from * 1000
+    this.strategy.loadData(testData, startTime)
     return this.strategy.test(updateProgress).then(() => {
       if (this._stop) {
         return
@@ -140,8 +140,9 @@ class DCABacktesting extends Backtesting {
       const processingTime = (new Date().getTime() - start) / 1000
       const [lowest] = testData.filter((d) => d.interval === lowestInterval)
       if (this.strategy) {
+        const startBar = lowest.bar.filter((b) => b.time >= startTime)[0]
         const result = this.strategy.returnResult(
-          lowest.bar[0],
+          startBar,
           lowest.bar[lowest.bar.length - 1],
           loadingTime,
           processingTime,

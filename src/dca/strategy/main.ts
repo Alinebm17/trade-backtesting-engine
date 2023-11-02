@@ -3041,12 +3041,14 @@ export abstract class Strategy implements StrategyInterface {
     const buyAndHoldEquity: BuyAndHoldEquity[] = []
     /*     buyAndHoldEquity.push({ value: buyAndHoldUsage, time: firstData.time })
     buyAndHoldEquity.push({ value: buyAndHoldLastEquity, time: lastData.time }) */
-    if (Strategy.deals.length > 2 && !this.combo) {
+    if (lowestData.bar.length > 2) {
+      lowestData.bar = lowestData.bar.filter((b) => b.time >= Strategy.start)
+      const steps = Math.min(lowestData.bar.length, 500)
+      const step = Math.floor(lowestData.bar.length / steps)
       const data: Bar[] = []
-      for (const i of Strategy.deals) {
-        const d = lowestData.bar.find(
-          (b) => b.time === (i.closedTime ?? i.startTime),
-        )
+      data.push(firstData)
+      for (const i of [...Array(steps).keys()]) {
+        const d = lowestData.bar[i * step]
         if (
           d &&
           buyAndHoldEquity.filter((bh) => bh.time === d.time).length === 0
@@ -3054,29 +3056,10 @@ export abstract class Strategy implements StrategyInterface {
           data.push(d)
         }
       }
-      buyAndHoldEquity.push({
-        value: this.math.round(buyAndHoldUsage, 4),
-        time: firstData.time,
-      })
-      for (const d of data) {
-        const lp = d.close
-        const bh = this.math.round(
-          firstPrice && lp ? (buyAndHoldUsage / firstPrice) * lp : 0,
-          3,
-        )
-        buyAndHoldEquity.push({ value: bh, time: d.time })
-      }
-    }
-    if (Strategy.profits.length > 2 && this.combo) {
-      const data: Bar[] = []
-      for (const i of Strategy.profits) {
-        const d = lowestData.bar.find((b) => b.time === i.time)
-        if (
-          d &&
-          buyAndHoldEquity.filter((bh) => bh.time === d.time).length === 0
-        ) {
-          data.push(d)
-        }
+      if (
+        buyAndHoldEquity.filter((bh) => bh.time === lastData.time).length === 0
+      ) {
+        data.push(lastData)
       }
       buyAndHoldEquity.push({
         value: this.math.round(buyAndHoldUsage, 4),
