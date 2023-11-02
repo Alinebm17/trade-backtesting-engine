@@ -250,6 +250,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.indicatorEvents = []
     Strategy.balance = 0
     Strategy.initialBalance = 0
+    Strategy.initialBalanceUsd = 0
     Strategy.position = Strategy.emptyPositon
     Strategy.edge = undefined
     Strategy.previousResult = undefined
@@ -268,6 +269,8 @@ export abstract class Strategy implements StrategyInterface {
   static balance = 0
 
   static initialBalance = 0
+
+  static initialBalanceUsd = 0
 
   static edge?: EdgeBacktestEnum
 
@@ -1040,6 +1043,10 @@ export abstract class Strategy implements StrategyInterface {
         ? deal.usage.max.quote * (this.profitBase ? 1 / deal.startPrice : 1)
         : deal.usage.max.base * (this.profitBase ? 1 : deal.startPrice)
       Strategy.initialBalance = Strategy.balance
+      Strategy.initialBalanceUsd =
+        Strategy.initialBalance *
+        (this.profitBase ? deal.startPrice : 1) *
+        (this.profitBase ? this.usdRateQuote : this.usdRate)
     }
   }
 
@@ -3067,7 +3074,7 @@ export abstract class Strategy implements StrategyInterface {
     const firstPrice = firstData?.close
     const lastPrice = lastData?.close
     const buyAndHoldUsage =
-      Strategy.initialBalance * (this.profitBase ? lastPrice : 1)
+      Strategy.initialBalance * (this.profitBase ? firstPrice : 1)
     const buyAndHold =
       firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
@@ -3103,13 +3110,21 @@ export abstract class Strategy implements StrategyInterface {
         data.push(lastData)
       }
       buyAndHoldEquity.push({
-        value: this.math.round(buyAndHoldUsage, 4),
+        value: this.math.round(
+          buyAndHoldUsage *
+            (this.profitBase ? this.usdRateQuote : this.usdRate),
+          4,
+        ),
         time: firstData.time,
       })
       for (const d of data) {
         const lp = d.close
         const bh = this.math.round(
-          firstPrice && lp ? (buyAndHoldUsage / firstPrice) * lp : 0,
+          firstPrice && lp
+            ? (buyAndHoldUsage / firstPrice) *
+                lp *
+                (this.profitBase ? this.usdRateQuote : this.usdRate)
+            : 0,
           3,
         )
         buyAndHoldEquity.push({ value: bh, time: d.time })
@@ -3540,10 +3555,7 @@ export abstract class Strategy implements StrategyInterface {
           false,
           true,
         ),
-        initialBalanceUsd: this.math.round(
-          Strategy.initialBalance * this.usdRate,
-          4,
-        ),
+        initialBalanceUsd: this.math.round(Strategy.initialBalanceUsd, 4),
       },
       noData: !firstData && !lastData,
       duration: {
