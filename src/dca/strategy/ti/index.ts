@@ -42,6 +42,9 @@ export type Indicator = {
 
 class TIStrategy extends Strategy implements StrategyInterface {
   constructor(input: StrategyInput) {
+    input.settings.indicators = input.settings.indicators.filter(
+      (i) => i.indicatorAction !== IndicatorAction.stopBot,
+    )
     super(input)
     this.processBar = this.processBar.bind(this)
     const { indicators } = input.settings

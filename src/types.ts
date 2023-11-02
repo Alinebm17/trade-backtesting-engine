@@ -130,6 +130,7 @@ export enum IndicatorAction {
   startDeal = 'startDeal',
   closeDeal = 'closeDeal',
   startDca = 'startDca',
+  stopBot = 'stopBot',
 }
 
 export type MAResult = {
@@ -297,6 +298,7 @@ export enum IndicatorSection {
   tp = 'tp',
   sl = 'sl',
   dca = 'dca',
+  controller = 'controller',
 }
 
 export enum CloseConditionEnum {
@@ -445,6 +447,7 @@ export interface DCABotSettings extends BaseSettings {
 export enum BotStartTypeEnum {
   manual = 'manual',
   webhook = 'webhook',
+  indicators = 'indicators',
 }
 
 export enum CloseDCATypeEnum {
