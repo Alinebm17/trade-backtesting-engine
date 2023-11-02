@@ -10,6 +10,8 @@ import {
 } from '../../../types'
 
 class EdgeRandomStrategy extends Strategy implements StrategyInterface {
+  private startTimes: number[] = []
+
   constructor(input: StrategyInput) {
     super(input)
     this.processBar = this.processBar.bind(this)
@@ -28,6 +30,13 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
       const timeToClose = Math.floor(
         (timeIntervalMap[Strategy.interval] * step) / 1000,
       )
+      do {
+        const index = Math.floor(Math.random() * data.bar.length)
+        const bar = data.bar[index]
+        if (!this.startTimes.includes(bar.time)) {
+          this.startTimes.push(bar.time)
+        }
+      } while (this.startTimes.length < Math.min(data.bar.length / 2, 300))
       this.settings = {
         ...this.settings,
         closeByTimer: true,
@@ -37,10 +46,8 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
         useSl: false,
         useTp: true,
         dealCloseCondition: CloseConditionEnum.webhook,
-        maxNumberOfOpenDeals: '4',
+        maxNumberOfOpenDeals: '0',
         baseOrderSize: `${Strategy.previousResult.usage.avgRealUsage}`,
-        closeAfterX: `${Math.max(Strategy.previousResult.deals.length, 300)}`,
-        useCloseAfterX: true,
       }
     }
   }
@@ -55,7 +62,7 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
         this.startWorkingShift(bar.time)
       }
     }
-    if (Math.random() > 0.3) {
+    if (this.startTimes.includes(bar.time)) {
       this.openDeal(bar.close, bar.time, bar.high, bar.low)
     }
     await this.checkDeals(bar)

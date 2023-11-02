@@ -786,6 +786,7 @@ export abstract class Strategy implements StrategyInterface {
     if (this.settings.useCloseAfterXopen && this.settings.closeAfterXopen) {
       return Strategy.deals.length <= +this.settings.closeAfterXopen
     }
+    return true
   }
 
   public openDeal(price: number, startTime: number, high: number, low: number) {
