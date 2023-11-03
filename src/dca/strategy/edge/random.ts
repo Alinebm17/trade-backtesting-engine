@@ -25,18 +25,24 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
 
   public async preTest(): Promise<void> {
     const data = Strategy.data.find((d) => d.interval === Strategy.interval)
+    const interval = 100
     if (data && Strategy.previousResult) {
-      const step = Math.min(Math.max(1, data.bar.length / 2), 100)
+      const step = Math.min(Math.max(1, data.bar.length / 2), interval)
       const timeToClose = Math.floor(
         (timeIntervalMap[Strategy.interval] * step) / 1000,
       )
       do {
-        const index = Math.floor(Math.random() * data.bar.length)
+        const index = Math.floor(
+          Math.random() * Math.max(1, data.bar.length - interval),
+        )
         const bar = data.bar[index]
         if (!this.startTimes.includes(bar.time)) {
           this.startTimes.push(bar.time)
         }
-      } while (this.startTimes.length < Math.min(data.bar.length / 2, 300))
+      } while (
+        this.startTimes.length <
+        Math.min(Math.max(1, (data.bar.length - interval) / 2), 300)
+      )
       this.settings = {
         ...this.settings,
         closeByTimer: true,

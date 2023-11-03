@@ -3417,7 +3417,13 @@ export abstract class Strategy implements StrategyInterface {
       buyAndHoldEquity: buyAndHold.buyAndHoldEquity,
       indicatorsEvents: [...Strategy.indicatorEvents],
       deals: [...Strategy.deals]
-        .sort((a, b) => b.startTime - a.startTime)
+        .sort((a, b) =>
+          Strategy.edge
+            ? Math.random() > 0.5
+              ? -1
+              : 1
+            : b.startTime - a.startTime,
+        )
         .map((d, ind) => ({
           ...d,
           number: ind + 1,
