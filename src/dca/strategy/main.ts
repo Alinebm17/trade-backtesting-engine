@@ -2700,7 +2700,10 @@ export abstract class Strategy implements StrategyInterface {
         ? Math.min(tpOrder.qty, newQty)
         : Math.max(tpOrder.qty, newQty)
     }
-    if (tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount) {
+    if (
+      tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount &&
+      !this.futures
+    ) {
       tpOrder.qty = this.math.round(
         symbol.quoteAsset.minAmount / tpOrder.price,
         precision,
