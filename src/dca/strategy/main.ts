@@ -403,13 +403,16 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private checkMaxDeals() {
-    const { maxNumberOfOpenDeals } = this.settings
+    const { maxNumberOfOpenDeals, maxDealsPerPair, useMulti } = this.settings
     let result = true
-    if (maxNumberOfOpenDeals) {
-      const max = +maxNumberOfOpenDeals
-      if (!isNaN(max) && max > 0) {
-        result = Strategy.deals.filter((d) => d.status === 'open').length < max
-      }
+    const max =
+      maxNumberOfOpenDeals && (!useMulti || (useMulti && !maxDealsPerPair))
+        ? +maxNumberOfOpenDeals
+        : maxDealsPerPair && useMulti
+        ? +maxDealsPerPair
+        : 0
+    if (!isNaN(max) && max > 0) {
+      result = Strategy.deals.filter((d) => d.status === 'open').length < max
     }
     return result
   }
