@@ -2139,15 +2139,19 @@ export abstract class Strategy implements StrategyInterface {
     return true
   }
 
-  closeAllDeals(b: Bar) {
+  closeAllDeals(b: Bar, sl = false) {
+    let closePosition = false
     Strategy.deals = Strategy.deals.map((d) => {
-      if (d.status === 'open' && this.checkMinTp(b.open, d)) {
+      if (d.status === 'open' && ((!sl && this.checkMinTp(b.open, d)) || sl)) {
+        closePosition = true
         const tp = this.getTP(d, b.open, true, false)[0]
         return this.closeDeal(d, b, tp)
       }
       return d
     })
-    Strategy.position = Strategy.emptyPositon
+    if (closePosition) {
+      Strategy.position = Strategy.emptyPositon
+    }
   }
 
   private closeMinigrid(minigrid: Minigrid): Minigrid {

@@ -742,13 +742,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 ? lowestBar?.high ?? nextBar.high
                 : lowestBar?.low ?? nextBar.low,
           })
-          this.closeAllDeals({
-            open: lowestBar?.open ?? nextBar.open,
-            time: nextBar.time,
-            high: lowestBar?.open ?? nextBar.high,
-            low: lowestBar?.low ?? nextBar.low,
-            close: lowestBar?.close ?? nextBar.close,
-          })
+          this.closeAllDeals(
+            {
+              open: lowestBar?.open ?? nextBar.open,
+              time: nextBar.time,
+              high: lowestBar?.open ?? nextBar.high,
+              low: lowestBar?.low ?? nextBar.low,
+              close: lowestBar?.close ?? nextBar.close,
+            },
+            true,
+          )
         }
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealSlStatus.map((ai) => ai.id).includes(i.id)) {
