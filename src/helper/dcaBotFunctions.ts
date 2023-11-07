@@ -263,7 +263,10 @@ class DCABotFunctions {
           : BotOrderSideEnum.buy,
       id: this.utils.id(20),
     }
-    if (tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount) {
+    if (
+      tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount &&
+      !settings.futures
+    ) {
       tpOrder.qty = this.math.round(
         symbol.quoteAsset.minAmount / tpOrder.price,
         precision,
@@ -308,7 +311,7 @@ class DCABotFunctions {
           if (qty < symbol.baseAsset.minAmount) {
             qty = this.math.round(symbol.baseAsset.minAmount, precision, true)
           }
-          if (price * qty < symbol.quoteAsset.minAmount) {
+          if (price * qty < symbol.quoteAsset.minAmount && !settings.futures) {
             qty = this.math.round(
               symbol.quoteAsset.minAmount / price,
               precision,
@@ -403,7 +406,7 @@ class DCABotFunctions {
           if (qty < symbol.baseAsset.minAmount) {
             qty = this.math.round(symbol.baseAsset.minAmount, precision, true)
           }
-          if (price * qty < symbol.quoteAsset.minAmount) {
+          if (price * qty < symbol.quoteAsset.minAmount && !settings.futures) {
             qty = this.math.round(
               symbol.quoteAsset.minAmount / price,
               precision,
