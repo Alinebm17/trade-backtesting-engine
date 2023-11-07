@@ -75,6 +75,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
         psarStart,
         voLong,
         voShort,
+        uoFast,
+        uoMiddle,
+        uoSlow,
+        momSource,
       } = i
       const ind = new InternalIndicator(
         type === IndicatorEnum.macd
@@ -111,6 +115,19 @@ class TIStrategy extends Strategy implements StrategyInterface {
               smoothD: stochSmoothD ?? 3,
               smoothK: stochSmoothK ?? 3,
               rsiLength: stochRSI ?? 14,
+            }
+          : type === IndicatorEnum.uo
+          ? {
+              type,
+              fast: uoFast ?? 7,
+              middle: uoMiddle ?? 14,
+              slow: uoSlow ?? 28,
+            }
+          : type === IndicatorEnum.mom
+          ? {
+              type,
+              interval: indicatorLength,
+              source: momSource ?? 'close',
             }
           : type === IndicatorEnum.sr
           ? {
@@ -465,11 +482,21 @@ class TIStrategy extends Strategy implements StrategyInterface {
           let checkValue = true
           if (
             (lastData.type === IndicatorEnum.rsi ||
+              lastData.type === IndicatorEnum.ao ||
+              lastData.type === IndicatorEnum.wr ||
+              lastData.type === IndicatorEnum.cci ||
+              lastData.type === IndicatorEnum.uo ||
+              lastData.type === IndicatorEnum.mom ||
               lastData.type === IndicatorEnum.mfi ||
               lastData.type === IndicatorEnum.adx ||
               lastData.type === IndicatorEnum.bbw ||
               lastData.type === IndicatorEnum.vo) &&
             (prevData.type === IndicatorEnum.rsi ||
+              prevData.type === IndicatorEnum.ao ||
+              prevData.type === IndicatorEnum.cci ||
+              prevData.type === IndicatorEnum.uo ||
+              prevData.type === IndicatorEnum.mom ||
+              prevData.type === IndicatorEnum.wr ||
               prevData.type === IndicatorEnum.mfi ||
               prevData.type === IndicatorEnum.adx ||
               prevData.type === IndicatorEnum.bbw ||

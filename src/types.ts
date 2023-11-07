@@ -26,6 +26,7 @@ export enum IndicatorEnum {
   mfi = 'MFI',
   psar = 'PSAR',
   vo = 'VO',
+  mom = 'MOM',
 }
 
 export enum TradingviewAnalysisConditionEnum {
@@ -146,7 +147,20 @@ export type IndicatorConfigBackTesting =
       useAsEntryExitPoints?: boolean
     }
   | {
-      type: IndicatorEnum.rsi | IndicatorEnum.adx | IndicatorEnum.mfi
+      type: IndicatorEnum.ao
+    }
+  | {
+      type: IndicatorEnum.mom
+      interval: number
+      source: string
+    }
+  | {
+      type:
+        | IndicatorEnum.rsi
+        | IndicatorEnum.adx
+        | IndicatorEnum.mfi
+        | IndicatorEnum.cci
+        | IndicatorEnum.wr
       interval: number
     }
   | {
@@ -205,15 +219,26 @@ export type IndicatorConfigBackTesting =
       voLong: number
       voShort: number
     }
+  | {
+      type: IndicatorEnum.uo
+      fast: number
+      middle: number
+      slow: number
+    }
 
 export type IndicatorHistory = { time: number } & (
   | {
       type:
         | IndicatorEnum.rsi
+        | IndicatorEnum.cci
+        | IndicatorEnum.ao
+        | IndicatorEnum.uo
+        | IndicatorEnum.wr
         | IndicatorEnum.adx
         | IndicatorEnum.bbw
         | IndicatorEnum.mfi
         | IndicatorEnum.vo
+        | IndicatorEnum.mom
       value: number
     }
   | {
@@ -285,6 +310,10 @@ export type SettingsIndicators = {
   keepConditionBars?: string
   voLong?: number
   voShort?: number
+  uoFast?: number
+  uoMiddle?: number
+  uoSlow?: number
+  momSource?: string
 }
 
 export enum StochRangeEnum {

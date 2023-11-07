@@ -20,6 +20,11 @@ import {
   QFL,
   FasterPSAR,
   FasterVO,
+  FasterCCI,
+  FasterAO,
+  FasterWilliamsR,
+  FasterUltimateOscillator,
+  FasterMOM,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -51,6 +56,11 @@ export default class InternalIndicator {
     | QFL
     | FasterPSAR
     | FasterVO
+    | FasterCCI
+    | FasterAO
+    | FasterWilliamsR
+    | FasterUltimateOscillator
+    | FasterMOM
 
   private data: IndicatorHistory[] = []
 
@@ -76,6 +86,38 @@ export default class InternalIndicator {
     if (indicatorConfig.type === IndicatorEnum.rsi) {
       this.indicator = new FasterRSI(indicatorConfig.interval)
       this.length = indicatorConfig.interval
+    }
+    if (indicatorConfig.type === IndicatorEnum.cci) {
+      this.indicator = new FasterCCI(indicatorConfig.interval, 'hlc3')
+      this.length = indicatorConfig.interval
+    }
+    if (indicatorConfig.type === IndicatorEnum.ao) {
+      this.indicator = new FasterAO(5, 34)
+      this.length = 34
+    }
+    if (indicatorConfig.type === IndicatorEnum.wr) {
+      this.indicator = new FasterWilliamsR(indicatorConfig.interval)
+      this.length = indicatorConfig.interval
+    }
+    if (indicatorConfig.type === IndicatorEnum.uo) {
+      this.indicator = new FasterUltimateOscillator(
+        indicatorConfig.fast,
+        indicatorConfig.middle,
+        indicatorConfig.slow,
+      )
+      this.length = Math.max(
+        indicatorConfig.fast,
+        indicatorConfig.middle,
+        indicatorConfig.slow,
+      )
+    }
+    if (indicatorConfig.type === IndicatorEnum.mom) {
+      this.length = 100
+      this.indicator = new FasterMOM(
+        indicatorConfig.interval,
+        //@ts-ignore
+        indicatorConfig.source,
+      )
     }
     if (indicatorConfig.type === IndicatorEnum.vo) {
       this.indicator = new FasterVO(
@@ -234,8 +276,11 @@ export default class InternalIndicator {
       (this.indicator instanceof FasterADX ||
         this.indicator instanceof FasterStochasticOscillator ||
         this.indicator instanceof FasterStochasticRSITV ||
+        this.indicator instanceof FasterWilliamsR ||
+        this.indicator instanceof FasterUltimateOscillator ||
         this.indicator instanceof SupportResistance ||
         this.indicator instanceof QFL ||
+        this.indicator instanceof FasterCCI ||
         this.indicator instanceof FasterPSAR)
     ) {
       this.indicator?.update({
@@ -256,6 +301,20 @@ export default class InternalIndicator {
         close: +value.c,
         open: +value.o,
         volume: +value.v,
+      })
+    }
+    if (this.indicator && this.indicator instanceof FasterMOM) {
+      this.indicator?.update({
+        high: +value.h,
+        low: +value.l,
+        close: +value.c,
+        open: +value.o,
+      })
+    }
+    if (this.indicator && this.indicator instanceof FasterAO) {
+      this.indicator?.update({
+        high: +value.h,
+        low: +value.l,
       })
     }
     try {
