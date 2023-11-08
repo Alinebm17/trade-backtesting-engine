@@ -639,6 +639,7 @@ export type SplitTime = {
 }
 
 export type Minigrid = {
+  symbol: Symbols
   initialOrders: FullGrid[]
   filledOrders: FullGrid[]
   activeOrders: FullGrid[]
@@ -679,6 +680,7 @@ export type Minigrid = {
 }
 
 export type Deal = {
+  symbol: Symbols
   transactions: BacktestingTransaction[]
   mingrids: Minigrid[]
   initialOrders: FullGrid[]
@@ -754,7 +756,7 @@ export type DCABacktestingInput = BacktestingInput<DCABotSettings> & {
 
 export type BacktestingInput<T> = {
   exchange: ExchangeEnum
-  symbol: Symbols
+  symbols: Symbols[]
   interval?: ExchangeIntervals
   balances?: Asset[] | null
   from?: number
@@ -765,10 +767,13 @@ export type BacktestingInput<T> = {
   settings: T
   combo?: boolean
   trades?: boolean
+  multi?: boolean
 }
 
 export type LoadDataFn = (
   pair: string,
+  baseAsset: string,
+  quteAsset: string,
   resolution: ResolutionString,
   periodToUse: PeriodParams,
   exchange: ExchangeEnum,
@@ -790,6 +795,7 @@ export type IndicatorsEvents = {
   time: number
   side: BotOrderSideEnum
   price: number
+  symbol: string
 }
 
 export type BuyAndHoldEquity = {
@@ -892,6 +898,8 @@ export type DCABacktestingResult = {
   precision?: number
   _id?: string
   shared?: boolean
+  multi?: boolean
+  multiPairs?: number
 }
 
 export enum FuturesStrategyEnum {
@@ -1139,3 +1147,5 @@ export declare type Nominal<T, Name extends string> = T & {
   [Symbol.species]: Name
 }
 export declare type ResolutionString = Nominal<string, 'ResolutionString'>
+
+export type FullBar = Bar & { symbol: string }

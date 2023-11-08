@@ -1,10 +1,10 @@
 import Backtesting from '..'
 
 import {
-  Bar,
   CloseConditionEnum,
   DCAConditionEnum,
   ExchangeIntervals,
+  FullBar,
   StartConditionEnum,
   timeIntervalMap,
 } from '../types'
@@ -30,7 +30,7 @@ class DCABacktesting extends Backtesting {
   constructor({
     settings,
     userFee,
-    symbol,
+    symbols,
     prices,
     interval,
     balances,
@@ -39,13 +39,14 @@ class DCABacktesting extends Backtesting {
     trades,
     edge,
     previousData,
+    multi,
     ...rest
   }: DCABacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
     super({
       ...rest,
       interval: candleInterval,
-      symbol,
+      symbols,
       userFee,
       prices,
       settings,
@@ -58,7 +59,7 @@ class DCABacktesting extends Backtesting {
       this.strategy = new CombinedStrategy(
         {
           settings,
-          symbol,
+          symbols,
           userFee,
           prices,
           interval: candleInterval,
@@ -68,6 +69,7 @@ class DCABacktesting extends Backtesting {
           trades,
           edge,
           previousData,
+          multi,
         },
         ...strategy,
       )
@@ -82,7 +84,7 @@ class DCABacktesting extends Backtesting {
   }
 
   public async test(
-    bars?: { bar: Bar[]; interval: ExchangeIntervals }[],
+    bars?: { bar: FullBar[]; interval: ExchangeIntervals }[],
     updateProgress?: (value: number, text: string) => void,
   ) {
     if (!this.strategy) {
@@ -100,7 +102,10 @@ class DCABacktesting extends Backtesting {
     if (this.trades) {
       return
     }
-    let testData: { bar: Bar[]; interval: ExchangeIntervals }[] = []
+    let testData: {
+      bar: FullBar[]
+      interval: ExchangeIntervals
+    }[] = []
     if (bars) {
       testData = bars
     } else {
@@ -139,7 +144,8 @@ class DCABacktesting extends Backtesting {
     const loadingTime = (new Date().getTime() - startLoading) / 1000
     const start = new Date().getTime()
     const startTime = bars
-      ? testData[0]?.bar?.[0]?.time
+      ? testData[0]?.bar?.values().next().value[0].time ??
+        this.period.from * 1000
       : this.period.from * 1000
     this.strategy.loadData(testData, startTime)
     return this.strategy.test(updateProgress).then(() => {
@@ -149,10 +155,18 @@ class DCABacktesting extends Backtesting {
       const processingTime = (new Date().getTime() - start) / 1000
       const [lowest] = testData.filter((d) => d.interval === lowestInterval)
       if (this.strategy && lowest) {
-        const startBar = lowest.bar.filter((b) => b.time >= startTime)[0]
+        const startBar: Map<string, FullBar> = new Map()
+        const lastBar: Map<string, FullBar> = new Map()
+        for (const s of this.symbols.keys()) {
+          const barsBySymbol = lowest.bar.filter(
+            (b) => b.time > startTime && b.symbol === s,
+          )
+          startBar.set(s, barsBySymbol[0])
+          lastBar.set(s, barsBySymbol[barsBySymbol.length - 1])
+        }
         const result = this.strategy.returnResult(
           startBar,
-          lowest.bar[lowest.bar.length - 1],
+          lastBar,
           loadingTime,
           processingTime,
         )
@@ -165,7 +179,10 @@ class DCABacktesting extends Backtesting {
     })
   }
 
-  public returnResult(firstData: Bar, lastData: Bar) {
+  public returnResult(
+    firstData: Map<string, FullBar>,
+    lastData: Map<string, FullBar>,
+  ) {
     if (this.strategy) {
       return this.strategy.returnResult(firstData, lastData, 0, 0)
     }
@@ -173,7 +190,7 @@ class DCABacktesting extends Backtesting {
 
   public passTradeCandleData(
     trade: TradeResponse,
-    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
   ) {
     if (this.strategy?.passTradeCandleData) {
       this.strategy.passTradeCandleData(trade, candles)

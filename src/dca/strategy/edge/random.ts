@@ -1,12 +1,13 @@
 import { Strategy, StrategyInterface } from '../main'
 
-import type { StrategyInput, Bar } from '../main'
+import type { StrategyInput } from '../main'
 
 import {
   CloseConditionEnum,
   CooldownUnits,
   TradeResponse,
   timeIntervalMap,
+  FullBar,
 } from '../../../types'
 
 class EdgeRandomStrategy extends Strategy implements StrategyInterface {
@@ -62,14 +63,14 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
     void 0
   }
 
-  public async processBar(bar: Bar): Promise<void> {
+  public async processBar(bar: FullBar): Promise<void> {
     if (Strategy.deals.length === 0) {
       if (Strategy.workingShift.length === 0) {
         this.startWorkingShift(bar.time)
       }
     }
     if (this.startTimes.includes(bar.time)) {
-      this.openDeal(bar.close, bar.time, bar.high, bar.low)
+      this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
     }
     await this.checkDeals(bar)
   }

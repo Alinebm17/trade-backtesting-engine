@@ -26,8 +26,9 @@ import type {
   MAResult,
   SettingsIndicators,
   TradeResponse,
+  FullBar,
 } from '../../../types'
-import type { StrategyInput, Bar } from '../main'
+import type { StrategyInput } from '../main'
 
 export type Indicator = {
   instance: InternalIndicator
@@ -38,6 +39,7 @@ export type Indicator = {
   statuses: { status: boolean; statusSince: number; statusTo: number }[]
   status: boolean
   ignore: boolean
+  symbol: string
 }
 
 class TIStrategy extends Strategy implements StrategyInterface {
@@ -48,157 +50,161 @@ class TIStrategy extends Strategy implements StrategyInterface {
     super(input)
     this.processBar = this.processBar.bind(this)
     const { indicators } = input.settings
-    for (const i of indicators) {
-      const {
-        type,
-        indicatorLength,
-        checkLevel,
-        condition,
-        maType,
-        maUUID,
-        uuid,
-        maCrossingValue,
-        maCrossingInterval,
-        maCrossingLength,
-        indicatorInterval,
-        stochRSI,
-        stochSmoothD,
-        stochSmoothK,
-        leftBars,
-        rightBars,
-        basePeriods,
-        pumpPeriods,
-        pump,
-        baseCrack,
-        psarInc,
-        psarMax,
-        psarStart,
-        voLong,
-        voShort,
-        uoFast,
-        uoMiddle,
-        uoSlow,
-        momSource,
-      } = i
-      const ind = new InternalIndicator(
-        type === IndicatorEnum.macd
-          ? {
-              type,
-              shortInterval: 12,
-              longInterval: 26,
-              signalInterval: indicatorLength,
-            }
-          : type === IndicatorEnum.tv
-          ? {
-              type,
-              checkLevel,
-              useAsEntryExitPoints:
-                condition === TradingviewAnalysisConditionEnum.entry,
-            }
-          : type === IndicatorEnum.ma
-          ? {
-              type,
-              interval: indicatorLength,
-              maType: maType || MAEnum.ema,
-            }
-          : type === IndicatorEnum.stoch
-          ? {
-              type,
-              length: indicatorLength,
-              smoothD: stochSmoothD ?? 1,
-              smoothK: stochSmoothK ?? 3,
-            }
-          : type === IndicatorEnum.stochRSI
-          ? {
-              type,
-              length: indicatorLength,
-              smoothD: stochSmoothD ?? 3,
-              smoothK: stochSmoothK ?? 3,
-              rsiLength: stochRSI ?? 14,
-            }
-          : type === IndicatorEnum.uo
-          ? {
-              type,
-              fast: uoFast ?? 7,
-              middle: uoMiddle ?? 14,
-              slow: uoSlow ?? 28,
-            }
-          : type === IndicatorEnum.mom
-          ? {
-              type,
-              interval: indicatorLength,
-              source: momSource ?? 'close',
-            }
-          : type === IndicatorEnum.sr
-          ? {
-              type,
-              leftBars: leftBars ?? 15,
-              rightBars: rightBars ?? 15,
-            }
-          : type === IndicatorEnum.mfi
-          ? {
-              type,
-              interval: indicatorLength ?? 14,
-            }
-          : type === IndicatorEnum.qfl
-          ? {
-              type,
-              basePeriods: basePeriods ?? 36,
-              pumpPeriods: pumpPeriods ?? 8,
-              pump: (pump ?? 3) / 100,
-              baseCrack: (baseCrack ?? 3) / 100,
-            }
-          : type === IndicatorEnum.psar
-          ? {
-              type,
-              max: psarMax ?? 0.2,
-              inc: psarInc ?? 0.02,
-              start: psarStart ?? 0.02,
-            }
-          : type === IndicatorEnum.vo
-          ? {
-              type,
-              voLong: voLong ?? 10,
-              voShort: voShort ?? 5,
-            }
-          : ({
-              type,
-              interval: indicatorLength,
-            } as IndicatorConfigBackTesting),
-      )
-      Strategy.indicators.push({
-        instance: ind,
-        data: [],
-        id: uuid,
-        settings: i,
-        interval: indicatorInterval,
-        statuses: [],
-        status: false,
-        ignore: false,
-      })
-      if (
-        type === IndicatorEnum.ma &&
-        maCrossingValue !== MAEnum.price &&
-        maCrossingInterval &&
-        maCrossingLength &&
-        maUUID &&
-        maCrossingValue
-      ) {
-        const indicatorChild = new InternalIndicator({
+    for (const s of input.symbols) {
+      for (const i of indicators) {
+        const {
           type,
-          maType: maCrossingValue,
-          interval: maCrossingLength,
-        })
+          indicatorLength,
+          checkLevel,
+          condition,
+          maType,
+          maUUID,
+          uuid,
+          maCrossingValue,
+          maCrossingInterval,
+          maCrossingLength,
+          indicatorInterval,
+          stochRSI,
+          stochSmoothD,
+          stochSmoothK,
+          leftBars,
+          rightBars,
+          basePeriods,
+          pumpPeriods,
+          pump,
+          baseCrack,
+          psarInc,
+          psarMax,
+          psarStart,
+          voLong,
+          voShort,
+          uoFast,
+          uoMiddle,
+          uoSlow,
+          momSource,
+        } = i
+        const ind = new InternalIndicator(
+          type === IndicatorEnum.macd
+            ? {
+                type,
+                shortInterval: 12,
+                longInterval: 26,
+                signalInterval: indicatorLength,
+              }
+            : type === IndicatorEnum.tv
+            ? {
+                type,
+                checkLevel,
+                useAsEntryExitPoints:
+                  condition === TradingviewAnalysisConditionEnum.entry,
+              }
+            : type === IndicatorEnum.ma
+            ? {
+                type,
+                interval: indicatorLength,
+                maType: maType || MAEnum.ema,
+              }
+            : type === IndicatorEnum.stoch
+            ? {
+                type,
+                length: indicatorLength,
+                smoothD: stochSmoothD ?? 1,
+                smoothK: stochSmoothK ?? 3,
+              }
+            : type === IndicatorEnum.stochRSI
+            ? {
+                type,
+                length: indicatorLength,
+                smoothD: stochSmoothD ?? 3,
+                smoothK: stochSmoothK ?? 3,
+                rsiLength: stochRSI ?? 14,
+              }
+            : type === IndicatorEnum.uo
+            ? {
+                type,
+                fast: uoFast ?? 7,
+                middle: uoMiddle ?? 14,
+                slow: uoSlow ?? 28,
+              }
+            : type === IndicatorEnum.mom
+            ? {
+                type,
+                interval: indicatorLength,
+                source: momSource ?? 'close',
+              }
+            : type === IndicatorEnum.sr
+            ? {
+                type,
+                leftBars: leftBars ?? 15,
+                rightBars: rightBars ?? 15,
+              }
+            : type === IndicatorEnum.mfi
+            ? {
+                type,
+                interval: indicatorLength ?? 14,
+              }
+            : type === IndicatorEnum.qfl
+            ? {
+                type,
+                basePeriods: basePeriods ?? 36,
+                pumpPeriods: pumpPeriods ?? 8,
+                pump: (pump ?? 3) / 100,
+                baseCrack: (baseCrack ?? 3) / 100,
+              }
+            : type === IndicatorEnum.psar
+            ? {
+                type,
+                max: psarMax ?? 0.2,
+                inc: psarInc ?? 0.02,
+                start: psarStart ?? 0.02,
+              }
+            : type === IndicatorEnum.vo
+            ? {
+                type,
+                voLong: voLong ?? 10,
+                voShort: voShort ?? 5,
+              }
+            : ({
+                type,
+                interval: indicatorLength,
+              } as IndicatorConfigBackTesting),
+        )
         Strategy.indicators.push({
-          instance: indicatorChild,
+          instance: ind,
           data: [],
-          id: maUUID,
+          id: `${uuid}@${s.pair}`,
           settings: i,
-          interval: maCrossingInterval,
+          interval: indicatorInterval,
           statuses: [],
           status: false,
-          ignore: true,
+          ignore: false,
+          symbol: s.pair,
         })
+        if (
+          type === IndicatorEnum.ma &&
+          maCrossingValue !== MAEnum.price &&
+          maCrossingInterval &&
+          maCrossingLength &&
+          maUUID &&
+          maCrossingValue
+        ) {
+          const indicatorChild = new InternalIndicator({
+            type,
+            maType: maCrossingValue,
+            interval: maCrossingLength,
+          })
+          Strategy.indicators.push({
+            instance: indicatorChild,
+            data: [],
+            id: `${maUUID}@${s.pair}`,
+            settings: i,
+            interval: maCrossingInterval,
+            statuses: [],
+            status: false,
+            ignore: true,
+            symbol: s.pair,
+          })
+        }
       }
     }
     this.updateIndicatorData = this.updateIndicatorData.bind(this)
@@ -267,7 +273,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
   public processTrade(
     trade: TradeResponse,
-    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
   ): void {
     if (Strategy.workingShift.length === 0) {
       this.startWorkingShift(trade.timestamp)
@@ -304,20 +310,21 @@ class TIStrategy extends Strategy implements StrategyInterface {
       low: +trade.price,
       close: +trade.price,
       time: trade.timestamp,
+      symbol: trade.symbol,
     })
   }
 
-  public async processBar(bar: Bar): Promise<void> {
+  public async processBar(bar: FullBar): Promise<void> {
     if (Strategy.workingShift.length === 0) {
       this.startWorkingShift(bar.time)
     }
     this.checkStatuses(bar.time)
     this.checkInRange(bar.close, bar.time)
     const lowestIndicators = Strategy.indicators.filter(
-      (i) => i.interval === Strategy.lowestInterval,
+      (i) => i.interval === Strategy.lowestInterval && i.symbol === bar.symbol,
     )
     const restIndicators = Strategy.indicators.filter(
-      (i) => i.interval !== Strategy.lowestInterval,
+      (i) => i.interval !== Strategy.lowestInterval && i.symbol === bar.symbol,
     )
     for (const i of lowestIndicators) {
       i.instance.updateValue(
@@ -343,7 +350,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const [data] = Strategy.data.filter((d) => d.interval === i.interval)
       if (data) {
         const bars = data.bar.filter(
-          (b) => b.time >= range[0] && b.time <= range[1],
+          (b) =>
+            b.time >= range[0] && b.time <= range[1] && b.symbol === bar.symbol,
         )
         for (const b of bars) {
           i.instance.updateValue(
@@ -376,7 +384,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     }
   }
 
-  private checkIndicators(nextBar: Bar) {
+  private checkIndicators(nextBar: FullBar) {
     const startIndicators = Strategy.indicators.filter(
       (si) => si.settings.indicatorAction === IndicatorAction.startDeal,
     )
@@ -393,7 +401,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
       nextBar
     ) {
       const currentState = [...Strategy.indicators].filter(
-        (i) => i.id !== i.settings.maUUID && i.data.length > 0,
+        (i) =>
+          i.id !== i.settings.maUUID &&
+          i.data.length > 0 &&
+          i.symbol === nextBar.symbol,
       )
       //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
       for (const i of currentState) {
@@ -727,26 +738,34 @@ class TIStrategy extends Strategy implements StrategyInterface {
         (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
       )
       const lowest = data[data.length - 1]
-      const lowestBar = lowest?.bar?.find((l) => l.time === nextBar.time)
+      const lowestBar = lowest?.bar?.find(
+        (l) => l.time === nextBar.time && l.symbol === nextBar.symbol,
+      )
       const closeDealSl = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.closeDeal &&
           i.settings.section === IndicatorSection.sl &&
-          !i.ignore,
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
       )
       const closeDealTp = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.closeDeal &&
           i.settings.section !== IndicatorSection.sl &&
-          !i.ignore,
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
       )
       const startDeal = [...Strategy.indicators].filter(
         (i) =>
-          i.settings.indicatorAction === IndicatorAction.startDeal && !i.ignore,
+          i.settings.indicatorAction === IndicatorAction.startDeal &&
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
       )
       const startDca = [...Strategy.indicators].filter(
         (i) =>
-          i.settings.indicatorAction === IndicatorAction.startDca && !i.ignore,
+          i.settings.indicatorAction === IndicatorAction.startDca &&
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
       )
       const closeDealSlStatus = closeDealSl.filter((i) => i.status)
       const closeDealTpStatus = closeDealTp.filter((i) => i.status)
@@ -768,6 +787,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               this.settings.strategy === StrategyEnum.long
                 ? lowestBar?.high ?? nextBar.high
                 : lowestBar?.low ?? nextBar.low,
+            symbol: nextBar.symbol,
           })
           this.closeAllDeals(
             {
@@ -776,6 +796,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               high: lowestBar?.open ?? nextBar.high,
               low: lowestBar?.low ?? nextBar.low,
               close: lowestBar?.close ?? nextBar.close,
+              symbol: nextBar.symbol,
             },
             true,
           )
@@ -803,6 +824,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               this.settings.strategy === StrategyEnum.long
                 ? lowestBar?.high ?? nextBar.high
                 : lowestBar?.low ?? nextBar.low,
+            symbol: nextBar.symbol,
           })
           this.closeAllDeals({
             open: lowestBar?.open ?? nextBar.open,
@@ -810,6 +832,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             high: lowestBar?.open ?? nextBar.high,
             low: lowestBar?.low ?? nextBar.low,
             close: lowestBar?.close ?? nextBar.close,
+            symbol: nextBar.symbol,
           })
         }
         Strategy.indicators = Strategy.indicators.map((i) => {
@@ -832,12 +855,14 @@ class TIStrategy extends Strategy implements StrategyInterface {
               this.settings.strategy === StrategyEnum.long
                 ? lowestBar?.low ?? nextBar.low
                 : lowestBar?.high ?? nextBar.high,
+            symbol: nextBar.symbol,
           })
           this.openDeal(
             lowestBar?.open ?? nextBar.open,
             nextBar.time,
             lowestBar?.high ?? nextBar.high,
             lowestBar?.low ?? nextBar.low,
+            nextBar.symbol,
           )
         }
         Strategy.indicators = Strategy.indicators.map((i) => {
@@ -863,6 +888,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             index,
             lowestBar?.close ?? nextBar.close,
             nextBar.time,
+            nextBar.symbol,
           )
         }
       }

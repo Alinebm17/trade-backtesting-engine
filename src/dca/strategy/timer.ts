@@ -1,8 +1,8 @@
 import { Strategy, StrategyInterface } from './main'
 
-import type { StrategyInput, Bar } from './main'
+import type { StrategyInput } from './main'
 
-import type { TradeResponse } from '../../types'
+import type { FullBar, TradeResponse } from '../../types'
 
 class TimerStrategy extends Strategy implements StrategyInterface {
   constructor(input: StrategyInput) {
@@ -43,7 +43,13 @@ class TimerStrategy extends Strategy implements StrategyInterface {
       }
     }
     if (trade.timestamp === Strategy.next) {
-      this.openDeal(+trade.price, trade.timestamp, +trade.price, +trade.price)
+      this.openDeal(
+        +trade.price,
+        trade.timestamp,
+        +trade.price,
+        +trade.price,
+        trade.symbol,
+      )
       const date = new Date(Strategy.next)
       date.setDate(date.getDate() + +this.settings.hodlDay)
       Strategy.next = date.getTime()
@@ -54,10 +60,11 @@ class TimerStrategy extends Strategy implements StrategyInterface {
       low: +trade.price,
       close: +trade.price,
       time: trade.timestamp,
+      symbol: trade.symbol,
     })
   }
 
-  public async processBar(bar: Bar): Promise<void> {
+  public async processBar(bar: FullBar): Promise<void> {
     if (Strategy.workingShift.length === 0) {
       this.startWorkingShift(bar.time)
       const firstTime = Strategy.data[0].bar[0].time
@@ -71,7 +78,7 @@ class TimerStrategy extends Strategy implements StrategyInterface {
       }
     }
     if (bar.time === Strategy.next) {
-      this.openDeal(bar.close, bar.time, bar.high, bar.low)
+      this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
       const date = new Date(Strategy.next)
       if (this.settings.hodlHourly) {
         date.setHours(date.getHours() + +this.settings.hodlDay)

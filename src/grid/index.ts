@@ -1,10 +1,10 @@
 import Backtesting from '..'
 
-import { Bar, ExchangeIntervals } from '../types'
+import { ExchangeIntervals } from '../types'
 
 import { Strategy, StrategyInterface } from './strategy'
 
-import type { GRIDBacktestingInput, TradeResponse } from '../types'
+import type { FullBar, GRIDBacktestingInput, TradeResponse } from '../types'
 
 class DCABacktesting extends Backtesting {
   private strategy: StrategyInterface
@@ -12,7 +12,7 @@ class DCABacktesting extends Backtesting {
   constructor({
     settings,
     userFee,
-    symbol,
+    symbols,
     prices,
     interval,
     trades,
@@ -22,7 +22,7 @@ class DCABacktesting extends Backtesting {
     super({
       ...rest,
       interval: candleInterval,
-      symbol,
+      symbols,
       userFee,
       prices,
       settings,
@@ -30,7 +30,7 @@ class DCABacktesting extends Backtesting {
     })
     this.strategy = new Strategy({
       settings,
-      symbol,
+      symbol: symbols[0],
       userFee,
       prices,
       interval,
@@ -46,7 +46,7 @@ class DCABacktesting extends Backtesting {
   }
 
   public async test(
-    _data?: Bar[],
+    _data?: FullBar[],
     updateProgress?: (value: number, text: string) => void,
   ) {
     if (!this.strategy) {
@@ -85,14 +85,14 @@ class DCABacktesting extends Backtesting {
 
   public passTradeCandleData(
     trade: TradeResponse,
-    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
   ) {
     if (this.strategy?.passTradeCandleData) {
       this.strategy.passTradeCandleData(trade, candles)
     }
   }
 
-  public returnResult(firstData: Bar, lastData: Bar) {
+  public returnResult(firstData: FullBar, lastData: FullBar) {
     if (this.strategy) {
       return this.strategy.returnResult(firstData, lastData, 0, 0)
     }

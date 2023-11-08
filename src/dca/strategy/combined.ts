@@ -1,8 +1,8 @@
 import { Strategy, StrategyInterface } from './main'
 
-import type { StrategyInput, Bar } from './main'
+import type { StrategyInput } from './main'
 
-import type { ExchangeIntervals, TradeResponse } from '../../types'
+import type { ExchangeIntervals, FullBar, TradeResponse } from '../../types'
 
 import { timeIntervalMap } from '../../types'
 
@@ -62,8 +62,8 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
   }
 
   public async processBar(
-    b: Bar,
-    nextBar: Bar,
+    b: FullBar,
+    nextBar: FullBar,
     updateProgress?: (value: number, text: string) => void,
     _size?: number,
   ): Promise<void> {
@@ -86,7 +86,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
         await new Promise((resolve) => setTimeout(resolve, 15))
         updateProgress(
           this.i / this.total,
-          `Processing candle on ${new Date(b.time).toUTCString()}`,
+          `Processing ${b.symbol} candle on ${new Date(b.time).toUTCString()}`,
         )
       }
       this.i++
@@ -101,14 +101,14 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
 
   public passTradeCandleData(
     trade: TradeResponse,
-    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
   ) {
     this.processTrade(trade, candles)
   }
 
   public processTrade(
     trade: TradeResponse,
-    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
   ): void {
     for (const s of this.strategies) {
       if (this._stop) {
