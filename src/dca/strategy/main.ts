@@ -146,19 +146,29 @@ export abstract class Strategy implements StrategyInterface {
 
   static maxLoss = 0
 
+  static maxProfitUsd = 0
+
+  static maxLossUsd = 0
+
   static seriesWin = {
     count: 0,
     value: 0,
+    valueUsd: 0,
     min: 0,
+    minUsd: 0,
     max: 0,
+    maxUsd: 0,
     perc: 0,
   }
 
   static seriesLoss = {
     count: 0,
     value: 0,
+    valueUsd: 0,
     min: 0,
+    minUsd: 0,
     max: 0,
+    maxUsd: 0,
     perc: 0,
   }
 
@@ -170,6 +180,8 @@ export abstract class Strategy implements StrategyInterface {
 
   static totalProfit = 0
 
+  static totalProfitUsd = 0
+
   protected math = new MathHelper()
 
   private readonly userFee: number
@@ -177,6 +189,8 @@ export abstract class Strategy implements StrategyInterface {
   private readonly usdRate: Map<string, number> = new Map()
 
   private readonly usdRateQuote: Map<string, number> = new Map()
+
+  private readonly usdRateBase: Map<string, number> = new Map()
 
   private readonly precision: Map<string, number> = new Map()
 
@@ -226,24 +240,33 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.profits = []
     Strategy.maxProfit = 0
     Strategy.maxLoss = 0
+    Strategy.maxProfitUsd = 0
+    Strategy.maxLossUsd = 0
     Strategy.seriesWin = {
       count: 0,
       value: 0,
+      valueUsd: 0,
       min: 0,
+      minUsd: 0,
       max: 0,
+      maxUsd: 0,
       perc: 0,
     }
     Strategy.seriesLoss = {
       count: 0,
       value: 0,
+      valueUsd: 0,
       min: 0,
+      minUsd: 0,
       max: 0,
+      maxUsd: 0,
       perc: 0,
     }
     Strategy.previousDeal = undefined
     Strategy.maxConsecutiveWins = 0
     Strategy.maxConsecutiveLosses = 0
     Strategy.totalProfit = 0
+    Strategy.totalProfitUsd = 0
     Strategy.lastOpenedDeal = 0
     Strategy.lastClosedDeal = 0
     Strategy.lowestInterval = undefined
@@ -257,12 +280,14 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.trades = false
     Strategy.indicatorEvents = []
     Strategy.balance = 0
+    Strategy.balanceUsd = 0
     Strategy.initialBalance = 0
     Strategy.initialBalanceUsd = 0
     Strategy.position = new Map()
     Strategy.edge = undefined
     Strategy.previousResult = undefined
     Strategy.multi = false
+    Strategy.initialBalanceSymbol = ''
   }
 
   static position: Map<string, typeof Strategy.emptyPositon> = new Map()
@@ -277,7 +302,11 @@ export abstract class Strategy implements StrategyInterface {
 
   static balance = 0
 
+  static balanceUsd = 0
+
   static initialBalance = 0
+
+  static initialBalanceSymbol = ''
 
   static initialBalanceUsd = 0
 
@@ -337,6 +366,7 @@ export abstract class Strategy implements StrategyInterface {
         ),
       )
       this.usdRateQuote.set(s.pair, findUSDRate(s.quoteAsset.name, prices))
+      this.usdRateBase.set(s.pair, findUSDRate(s.baseAsset.name, prices))
       this.precision.set(
         s.pair,
         bu.utils.getPrecision(s)[this.profitBase ? 'base' : 'quote'] + 3,
@@ -1145,11 +1175,13 @@ export abstract class Strategy implements StrategyInterface {
       ) {
         Strategy.balance *= +maxNumberOfOpenDeals
       }
-      Strategy.initialBalance = Strategy.balance
-      Strategy.initialBalanceUsd =
-        Strategy.initialBalance *
+      Strategy.balanceUsd =
+        Strategy.balance *
         (this.profitBase ? deal.startPrice : 1) *
         (this.profitBase ? usdRateQuote : usdRate)
+      Strategy.initialBalance = Strategy.balance
+      Strategy.initialBalanceUsd = Strategy.balanceUsd
+      Strategy.initialBalanceSymbol = s
     }
   }
 
@@ -2346,25 +2378,40 @@ export abstract class Strategy implements StrategyInterface {
 
     if (profit) {
       Strategy.balance += profit.total
+      Strategy.balanceUsd += profit.totalUsd
       if (profit.total > 0 && profit.total > Strategy.maxProfit) {
         Strategy.maxProfit = profit.total
       }
       if (profit.total < 0 && profit.total < Strategy.maxLoss) {
         Strategy.maxLoss = profit.total
       }
+      if (profit.totalUsd > 0 && profit.totalUsd > Strategy.maxProfitUsd) {
+        Strategy.maxProfitUsd = profit.totalUsd
+      }
+      if (profit.totalUsd < 0 && profit.totalUsd < Strategy.maxLossUsd) {
+        Strategy.maxLossUsd = profit.totalUsd
+      }
       if (!Strategy.previousDeal && profit.total > 0) {
         Strategy.maxConsecutiveWins = 1
         Strategy.seriesWin.value = Strategy.balance - Strategy.initialBalance
+        Strategy.seriesWin.valueUsd =
+          Strategy.balanceUsd - Strategy.initialBalanceUsd
         Strategy.seriesWin.min = Strategy.initialBalance
         Strategy.seriesWin.max = Strategy.balance
-        Strategy.seriesWin.perc = profit.total / Strategy.balance
+        Strategy.seriesWin.minUsd = Strategy.initialBalanceUsd
+        Strategy.seriesWin.maxUsd = Strategy.balanceUsd
+        Strategy.seriesWin.perc = profit.totalUsd / Strategy.balanceUsd
       }
       if (!Strategy.previousDeal && profit.total < 0) {
         Strategy.maxConsecutiveLosses = 1
         Strategy.seriesLoss.value = Strategy.initialBalance - Strategy.balance
+        Strategy.seriesLoss.valueUsd =
+          Strategy.initialBalanceUsd - Strategy.balanceUsd
         Strategy.seriesLoss.min = Strategy.balance
         Strategy.seriesLoss.max = Strategy.initialBalance
-        Strategy.seriesLoss.perc = profit.total / Strategy.balance
+        Strategy.seriesLoss.minUsd = Strategy.balanceUsd
+        Strategy.seriesLoss.maxUsd = Strategy.initialBalanceUsd
+        Strategy.seriesLoss.perc = profit.totalUsd / Strategy.balanceUsd
       }
       if (profit.total > 0) {
         if (Strategy.previousDeal && Strategy.previousDeal.profit.total < 0) {
@@ -2381,42 +2428,66 @@ export abstract class Strategy implements StrategyInterface {
         Strategy.seriesLoss.count += 1
       }
       Strategy.totalProfit += profit.total
+      Strategy.totalProfitUsd += profit.totalUsd
     }
-    if (Strategy.balance > Strategy.seriesWin.max) {
+    if (Strategy.balanceUsd > Strategy.seriesWin.maxUsd) {
+      Strategy.seriesWin.maxUsd = Strategy.balanceUsd
       Strategy.seriesWin.max = Strategy.balance
       if (Strategy.seriesWin.min === 0) {
         Strategy.seriesWin.min =
           Strategy.seriesLoss.min === 0
             ? Strategy.initialBalance
             : Math.min(Strategy.seriesLoss.min, Strategy.initialBalance)
+        Strategy.seriesWin.minUsd =
+          Strategy.seriesLoss.minUsd === 0
+            ? Strategy.initialBalanceUsd
+            : Math.min(Strategy.seriesLoss.minUsd, Strategy.initialBalanceUsd)
       }
-      const tempValue = Strategy.seriesWin.max - Strategy.seriesWin.min
-      if (tempValue > Strategy.seriesWin.value) {
-        Strategy.seriesWin.perc = Math.abs(tempValue / Strategy.seriesWin.max)
-        Strategy.seriesWin.value = tempValue
+      const tempValueUsd = Strategy.seriesWin.maxUsd - Strategy.seriesWin.minUsd
+      if (tempValueUsd > Strategy.seriesWin.valueUsd) {
+        Strategy.seriesWin.perc = Math.abs(
+          tempValueUsd / Strategy.seriesWin.maxUsd,
+        )
+        Strategy.seriesWin.valueUsd = tempValueUsd
+        Strategy.seriesWin.value =
+          Strategy.seriesWin.max - Strategy.seriesWin.min
       }
     }
-    if (Strategy.balance < Strategy.seriesWin.min) {
+    if (Strategy.balanceUsd < Strategy.seriesWin.minUsd) {
       Strategy.seriesWin.min = Strategy.balance
       Strategy.seriesWin.max = Strategy.balance
+      Strategy.seriesWin.minUsd = Strategy.balanceUsd
+      Strategy.seriesWin.maxUsd = Strategy.balanceUsd
     }
-    if (Strategy.balance < Strategy.seriesLoss.min) {
+    if (Strategy.balanceUsd < Strategy.seriesLoss.minUsd) {
       Strategy.seriesLoss.min = Strategy.balance
+      Strategy.seriesLoss.minUsd = Strategy.balanceUsd
       if (Strategy.seriesLoss.max === 0) {
         Strategy.seriesLoss.max =
           Strategy.seriesWin.max === 0
             ? Strategy.initialBalance
             : Math.max(Strategy.seriesWin.max, Strategy.initialBalance)
+        Strategy.seriesLoss.maxUsd =
+          Strategy.seriesWin.maxUsd === 0
+            ? Strategy.initialBalanceUsd
+            : Math.max(Strategy.seriesWin.maxUsd, Strategy.initialBalanceUsd)
       }
-      const tempValue = Strategy.seriesLoss.max - Strategy.seriesLoss.min
-      if (tempValue > Strategy.seriesLoss.value) {
-        Strategy.seriesLoss.perc = Math.abs(tempValue / Strategy.seriesLoss.max)
-        Strategy.seriesLoss.value = tempValue
+      const tempValueUsd =
+        Strategy.seriesLoss.maxUsd - Strategy.seriesLoss.minUsd
+      if (tempValueUsd > Strategy.seriesLoss.valueUsd) {
+        Strategy.seriesLoss.perc = Math.abs(
+          tempValueUsd / Strategy.seriesLoss.maxUsd,
+        )
+        Strategy.seriesLoss.valueUsd = tempValueUsd
+        Strategy.seriesLoss.value =
+          Strategy.seriesLoss.max - Strategy.seriesLoss.min
       }
     }
-    if (Strategy.balance > Strategy.seriesLoss.max) {
+    if (Strategy.balanceUsd > Strategy.seriesLoss.maxUsd) {
       Strategy.seriesLoss.max = Strategy.balance
       Strategy.seriesLoss.min = Strategy.balance
+      Strategy.seriesLoss.maxUsd = Strategy.balanceUsd
+      Strategy.seriesLoss.minUsd = Strategy.balanceUsd
     }
     if (Strategy.seriesWin.count > Strategy.maxConsecutiveWins) {
       Strategy.maxConsecutiveWins = Strategy.seriesWin.count
@@ -3177,16 +3248,19 @@ export abstract class Strategy implements StrategyInterface {
     )
   }
 
-  private getRate(quoteRate: number) {
-    const denQuote = this.profitBase ? quoteRate : 1
-    const numQuote = this.futures
-      ? this.coinm
-        ? quoteRate
-        : 1
+  private getRate() {
+    const usdRateQuote = this.usdRateQuote.values().next().value ?? 1
+    const usdRateBase = this.usdRateBase.values().next().value ?? 1
+    const usdRate = this.usdRate.values().next().value ?? 1
+    return this.futures
+      ? usdRate
       : this.long
-      ? 1
-      : quoteRate
-    return numQuote / denQuote
+      ? this.profitBase
+        ? usdRateQuote
+        : usdRate
+      : this.profitBase
+      ? usdRate
+      : usdRateBase
   }
 
   private getMaxLeverage(s: string) {
@@ -3253,14 +3327,25 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  private getBuyAndHold(firstData?: FullBar, lastData?: FullBar) {
-    if (!firstData || !lastData) {
+  private getBuyAndHold(
+    firstDataMap?: Map<string, FullBar>,
+    lastDataMap?: Map<string, FullBar>,
+  ) {
+    if (!firstDataMap || !lastDataMap) {
       return
     }
+    const firstData = firstDataMap.get(Strategy.initialBalanceSymbol)
+    const lastData = lastDataMap.get(Strategy.initialBalanceSymbol)
+    if (!lastData || !firstData) {
+      return
+    }
+    const usdRateQuote = this.usdRateQuote.get(firstData.symbol) ?? 1
+    const usdRate = this.usdRate.get(firstData.symbol) ?? 1
     const firstPrice = firstData?.close
     const lastPrice = lastData?.close
     const buyAndHoldUsage =
       Strategy.initialBalance * (this.profitBase ? firstPrice : 1)
+    console.log(Strategy.initialBalance, buyAndHoldUsage)
     const buyAndHold =
       firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
@@ -3297,8 +3382,7 @@ export abstract class Strategy implements StrategyInterface {
       ) {
         data.push(lastData)
       }
-      const usdRateQuote = this.usdRateQuote.get(firstData.symbol) ?? 1
-      const usdRate = this.usdRate.get(firstData.symbol) ?? 1
+
       buyAndHoldEquity.push({
         value: this.math.round(
           buyAndHoldUsage * (this.profitBase ? usdRateQuote : usdRate),
@@ -3321,6 +3405,7 @@ export abstract class Strategy implements StrategyInterface {
     }
     return {
       buyAndHold,
+      buyAndHoldUsd: buyAndHold * (this.profitBase ? usdRateQuote : usdRate),
       buyAndHoldUsage,
       buyAndHoldEquity: buyAndHoldEquity.sort((a, b) => a.time - b.time),
     }
@@ -3387,12 +3472,10 @@ export abstract class Strategy implements StrategyInterface {
     }
     maxTheoreticalUsage *= +maxNumberOfOpenDeals
     maxTheoreticalUsage /= this.leverage
-    const usdRate = this.usdRate.values().next().value ?? 1
-    const usdRateQuote = this.usdRateQuote.values().next().value ?? 1
     const precision = this.precision.values().next().value ?? 8
     const precisionQuote = this.precisionQuote.values().next().value ?? 8
     const totalProfit = this.math.round(Strategy.totalProfit, precision)
-    const totalProfitUsd = this.math.round(Strategy.totalProfit * usdRate, 2)
+    const totalProfitUsd = this.math.round(Strategy.totalProfitUsd, 2)
     const totalDuration = Strategy.deals.reduce(
       (acc, d) => (acc += d.duration),
       0,
@@ -3418,11 +3501,15 @@ export abstract class Strategy implements StrategyInterface {
       (d) => d.profit.perc <= 0 && d.status === 'closed',
     )
     const allProfit = profitDeals.reduce((acc, d) => (acc += d.profit.total), 0)
-    const allProfitUsd =
-      profitDeals.reduce((acc, d) => (acc += d.profit.total), 0) * usdRate
+    const allProfitUsd = profitDeals.reduce(
+      (acc, d) => (acc += d.profit.totalUsd),
+      0,
+    )
     const allLoss = lossDeals.reduce((acc, d) => (acc += d.profit.total), 0)
-    const allLossUsd =
-      lossDeals.reduce((acc, d) => (acc += d.profit.total), 0) * usdRate
+    const allLossUsd = lossDeals.reduce(
+      (acc, d) => (acc += d.profit.totalUsd),
+      0,
+    )
     const avgUsable =
       Strategy.deals.length > 0
         ? this.math.round(
@@ -3503,25 +3590,27 @@ export abstract class Strategy implements StrategyInterface {
                 (qty - base) * tpPrice * (this.long ? 1 : -1)) *
               (this.long ? 1 : -1) -
             commission
+          const usdRateCurrent = this.usdRate.get(od.symbol.pair) ?? 1
           unrealizedPnL += unPnl
-          unrealizedPnLUsd += unPnl * usdRate
+          unrealizedPnLUsd += unPnl * usdRateCurrent
           unrealizedUsage +=
-            (this.combo
+            ((this.combo
               ? this.futures
                 ? this.coinm
-                  ? od.usage.max.base * (this.profitBase ? 1 : tpPrice)
-                  : od.usage.max.quote / (this.profitBase ? tpPrice : 1)
+                  ? od.usage.max.base /* * (this.profitBase ? 1 : tpPrice) */
+                  : od.usage.max.quote /* / (this.profitBase ? tpPrice : 1) */
                 : this.long
-                ? od.usage.max.quote / (this.profitBase ? tpPrice : 1)
-                : od.usage.max.base * (this.profitBase ? 1 : tpPrice)
+                ? od.usage.max.quote /* / (this.profitBase ? tpPrice : 1) */
+                : od.usage.max.base /* * (this.profitBase ? 1 : tpPrice) */
               : this.futures
               ? this.coinm
-                ? od.usage.current.base * (this.profitBase ? 1 : tpPrice)
-                : od.usage.current.quote / (this.profitBase ? tpPrice : 1)
+                ? od.usage.current.base /* * (this.profitBase ? 1 : tpPrice) */
+                : od.usage.current.quote /* / (this.profitBase ? tpPrice : 1) */
               : this.long
-              ? od.usage.current.quote / (this.profitBase ? tpPrice : 1)
-              : od.usage.current.base * (this.profitBase ? 1 : tpPrice)) /
-            this.leverage
+              ? od.usage.current.quote /*  / (this.profitBase ? tpPrice : 1) */
+              : od.usage.current.base) /* * (this.profitBase ? 1 : tpPrice) */ /
+              this.leverage) *
+            this.getRate()
         }
       }
     }
@@ -3605,8 +3694,7 @@ export abstract class Strategy implements StrategyInterface {
       precision,
     )
     const maxTheoreticalUsageWithRate =
-      maxTheoreticalUsageValue * this.getRate(lastPrice)
-
+      maxTheoreticalUsageValue * this.getRate()
     /* Strategy.deals = Strategy.deals.map((d) => {
       if (!this.combo) {
         d.ordersHistory = d.ordersHistory.filter(
@@ -3617,7 +3705,7 @@ export abstract class Strategy implements StrategyInterface {
       return d
     }) */
     const confidenceGrade = this.getConfidenceGrade()
-    const buyAndHold = this.getBuyAndHold(firstDataItem, lastDataItem)
+    const buyAndHold = this.getBuyAndHold(firstData, lastData)
     const result: DCABacktestingResult = {
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
@@ -3649,19 +3737,19 @@ export abstract class Strategy implements StrategyInterface {
         netProfitTotal: totalProfit,
         netProfitTotalUsd: totalProfitUsd,
         netProfitTotalPerc: this.math.round(
-          (totalProfit / maxTheoreticalUsageWithRate) * 100,
+          (totalProfitUsd / maxTheoreticalUsageWithRate) * 100,
           2,
         ),
         grossProfit: this.math.round(allProfit, precision),
         grossProfitUsd: this.math.round(allProfitUsd, 2),
         grossProfitPerc: this.math.round(
-          (allProfit / maxTheoreticalUsageWithRate) * 100,
+          (allProfitUsd / maxTheoreticalUsageWithRate) * 100,
           2,
         ),
         grossLoss: this.math.round(allLoss, precision),
         grossLossUsd: this.math.round(allLossUsd, 2),
         grossLossPerc: this.math.round(
-          (allLoss / maxTheoreticalUsageWithRate) * 100,
+          (allLossUsd / maxTheoreticalUsageWithRate) * 100,
           2,
         ),
         avgGrossProfit:
@@ -3675,7 +3763,9 @@ export abstract class Strategy implements StrategyInterface {
         avgGrossProfitPerc:
           profitDeals.length > 0
             ? this.math.round(
-                (allProfit / profitDeals.length / maxTheoreticalUsageWithRate) *
+                (allProfitUsd /
+                  profitDeals.length /
+                  maxTheoreticalUsageWithRate) *
                   100,
                 2,
               )
@@ -3691,7 +3781,7 @@ export abstract class Strategy implements StrategyInterface {
         avgGrossLossPerc:
           lossDeals.length > 0
             ? this.math.round(
-                (allLoss / lossDeals.length / maxTheoreticalUsageWithRate) *
+                (allLossUsd / lossDeals.length / maxTheoreticalUsageWithRate) *
                   100,
                 2,
               )
@@ -3707,7 +3797,7 @@ export abstract class Strategy implements StrategyInterface {
         avgNetProfitPerc:
           closedDeals.length > 0
             ? this.math.round(
-                (totalProfit /
+                (totalProfitUsd /
                   closedDeals.length /
                   maxTheoreticalUsageWithRate) *
                   100,
@@ -3725,32 +3815,30 @@ export abstract class Strategy implements StrategyInterface {
         avgNetDailyPerc:
           workingDays > 0
             ? this.math.round(
-                (totalProfit / workingDays / maxTheoreticalUsageWithRate) * 100,
+                (totalProfitUsd / workingDays / maxTheoreticalUsageWithRate) *
+                  100,
                 2,
               )
             : 0,
         unrealizedPnL: this.math.round(unrealizedPnL, precision),
         unrealizedPnLUsd: this.math.round(unrealizedPnLUsd, 2),
         unrealizedPnLPerc: this.math.round(
-          (unrealizedPnL / unrealizedUsage) * 100,
+          (unrealizedPnLUsd / unrealizedUsage) * 100,
         ),
         maxDealLoss: this.math.round(Strategy.maxLoss, precision),
         maxDealLossPerc: this.math.round(
-          (Strategy.maxLoss / maxTheoreticalUsageWithRate) * 100,
+          (Strategy.maxLossUsd / maxTheoreticalUsageWithRate) * 100,
           2,
         ),
         maxDealProfit: this.math.round(Strategy.maxProfit, precision),
         maxDealProfitPerc: this.math.round(
-          (Strategy.maxProfit / maxTheoreticalUsageWithRate) * 100,
+          (Strategy.maxProfitUsd / maxTheoreticalUsageWithRate) * 100,
           2,
         ),
-        maxDealLossUsd: this.math.round(Strategy.maxLoss * usdRate, 2),
-        maxDealProfitUsd: this.math.round(Strategy.maxProfit * usdRate, 2),
+        maxDealLossUsd: this.math.round(Strategy.maxLossUsd, 2),
+        maxDealProfitUsd: this.math.round(Strategy.maxProfitUsd, 2),
         maxDrawDown: -this.math.round(Strategy.seriesLoss.value, precision),
-        maxDrawDownUsd: -this.math.round(
-          Strategy.seriesLoss.value * usdRate,
-          2,
-        ),
+        maxDrawDownUsd: -this.math.round(Strategy.seriesLoss.valueUsd, 2),
         maxDrawDownPerc: this.math.round(
           Strategy.seriesLoss.perc * 100,
           2,
@@ -3758,7 +3846,7 @@ export abstract class Strategy implements StrategyInterface {
           true,
         ),
         maxRunUp: this.math.round(Strategy.seriesWin.value, precision),
-        maxRunUpUsd: this.math.round(Strategy.seriesWin.value * usdRate, 2),
+        maxRunUpUsd: this.math.round(Strategy.seriesWin.valueUsd, 2),
         maxRunUpPerc: this.math.round(
           Strategy.seriesWin.perc * 100,
           2,
@@ -3793,7 +3881,11 @@ export abstract class Strategy implements StrategyInterface {
       },
       usage: {
         maxTheoreticalUsage: this.math.round(
-          maxTheoreticalUsageValue / maxNumberOfOpenDeals,
+          Math.max(
+            maxDealUsage,
+            maxBotUsage / maxNumberOfOpenDeals,
+            maxTheoreticalUsageValue / maxNumberOfOpenDeals,
+          ),
           precision,
         ),
         maxRealUsage: this.math.round(
@@ -3840,10 +3932,7 @@ export abstract class Strategy implements StrategyInterface {
         profitByPeriod,
         buyAndHold: {
           value: this.math.round(buyAndHold?.buyAndHold ?? 0, precisionQuote),
-          valueUsd: this.math.round(
-            (buyAndHold?.buyAndHold ?? 0) * usdRateQuote,
-            2,
-          ),
+          valueUsd: this.math.round(buyAndHold?.buyAndHoldUsd ?? 0, 2),
           perc: this.math.round(
             ((buyAndHold?.buyAndHold ?? 0) /
               (buyAndHold?.buyAndHoldUsage ?? 1)) *
