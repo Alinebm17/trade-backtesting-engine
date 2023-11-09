@@ -216,7 +216,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     interval: ExchangeIntervals
     countBack: number
   }[] {
-    return Strategy.indicators.flatMap((i) => {
+    const intervals = Strategy.indicators.flatMap((i) => {
       const int = [
         {
           interval: i.settings.indicatorInterval,
@@ -235,6 +235,14 @@ class TIStrategy extends Strategy implements StrategyInterface {
       }
       return int
     })
+
+    if (
+      Strategy.lowestInterval &&
+      !intervals.map((i) => i.interval).includes(Strategy.lowestInterval)
+    ) {
+      intervals.push({ interval: Strategy.lowestInterval, countBack: 0 })
+    }
+    return intervals
   }
 
   public async test(): Promise<void> {
