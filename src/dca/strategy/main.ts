@@ -259,13 +259,13 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.balance = 0
     Strategy.initialBalance = 0
     Strategy.initialBalanceUsd = 0
-    Strategy.position = Strategy.emptyPositon
+    Strategy.position = new Map()
     Strategy.edge = undefined
     Strategy.previousResult = undefined
     Strategy.multi = false
   }
 
-  static position = Strategy.emptyPositon
+  static position: Map<string, typeof Strategy.emptyPositon> = new Map()
 
   private combo = false
 
@@ -521,13 +521,17 @@ export abstract class Strategy implements StrategyInterface {
     return this.settings.coinm
   }
 
-  private updatePositionWithOrder(order: DCAGrid) {
+  private updatePositionWithOrder(order: DCAGrid, s: string) {
     if (this.futures) {
+      let position = Strategy.position.get(s)
+      if (!position) {
+        position = Strategy.emptyPositon
+      }
       const margin = order.qty
       const sameDirection =
-        (Strategy.position.side === PositionSide.LONG &&
+        (position.side === PositionSide.LONG &&
           order.side === BotOrderSideEnum.buy) ||
-        (Strategy.position.side === PositionSide.SHORT &&
+        (position.side === PositionSide.SHORT &&
           order.side === BotOrderSideEnum.sell)
       const liquidationPrice = (entryPrice: number, position: PositionSide) =>
         entryPrice *
@@ -539,37 +543,37 @@ export abstract class Strategy implements StrategyInterface {
           ? this.userFee
           : 1 / this.userFee)
 
-      if (sameDirection || Strategy.position.qty === 0) {
+      if (sameDirection || position.qty === 0) {
         const entryPrice =
-          (Strategy.position.qty * Strategy.position.entryPrice +
-            order.qty * order.price) /
-          (Strategy.position.qty + order.qty)
+          (position.qty * position.entryPrice + order.qty * order.price) /
+          (position.qty + order.qty)
         const side = this.long ? PositionSide.LONG : PositionSide.SHORT
-        Strategy.position = {
+        position = {
           side,
-          qty: Strategy.position.qty + margin,
+          qty: position.qty + margin,
           entryPrice,
           liquidationPrice: liquidationPrice(entryPrice, side),
         }
       } else {
-        const diff = Strategy.position.qty - order.qty
+        const diff = position.qty - order.qty
         if (Math.abs(diff) <= Number.EPSILON) {
-          Strategy.position = Strategy.emptyPositon
+          position = Strategy.emptyPositon
         } else if (diff < 0) {
           const side =
-            Strategy.position.side === PositionSide.SHORT
+            position.side === PositionSide.SHORT
               ? PositionSide.LONG
               : PositionSide.SHORT
-          Strategy.position = {
+          position = {
             qty: -diff,
             entryPrice: order.price,
             side,
             liquidationPrice: liquidationPrice(order.price, side),
           }
         } else {
-          Strategy.position.qty -= margin
+          position.qty -= margin
         }
       }
+      Strategy.position.set(s, position)
     }
   }
 
@@ -918,7 +922,7 @@ export abstract class Strategy implements StrategyInterface {
         dealId: id,
       }))
     const baseOrder = filledOrders[0]
-    this.updatePositionWithOrder(baseOrder)
+    this.updatePositionWithOrder(baseOrder, s)
     initialOrders = [
       ...initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp),
     ]
@@ -1165,7 +1169,7 @@ export abstract class Strategy implements StrategyInterface {
       .filter((o) => o.type === DCAOrderTypeEnum.tp)
       .filter(this.filterFn.filledTp(b))
     for (const tp of filledTp) {
-      this.updatePositionWithOrder(tp)
+      this.updatePositionWithOrder(tp, b.symbol)
     }
     if (
       this.settings.useMultiTp &&
@@ -1713,7 +1717,7 @@ export abstract class Strategy implements StrategyInterface {
         o.filledTime = b.time
         m.filledOrders.push(o)
         d.filledOrders.push({ ...o, dealId: d.id })
-        this.updatePositionWithOrder(o)
+        this.updatePositionWithOrder(o, b.symbol)
         m.avgPrice = this.avgPrice(undefined, m)
         const profit = this.createTransaction(o, m)
         total += this.profitBase ? profit.profitBase : profit.profitQuote
@@ -1738,7 +1742,7 @@ export abstract class Strategy implements StrategyInterface {
         o.filledTime = b.time
         m.filledOrders.push(o)
         d.filledOrders.push({ ...o, dealId: d.id })
-        this.updatePositionWithOrder(o)
+        this.updatePositionWithOrder(o, b.symbol)
         m.avgPrice = this.avgPrice(undefined, m)
         const profit = this.createTransaction(o, m)
         total += this.profitBase ? profit.profitBase : profit.profitQuote
@@ -1950,7 +1954,7 @@ export abstract class Strategy implements StrategyInterface {
             }
           }
         }
-        this.updatePositionWithOrder(o)
+        this.updatePositionWithOrder(o, b.symbol)
         d.lastPrice = o.price
       }
       d.filledOrders = [...d.filledOrders, ...filledDCA].map((o) => ({
@@ -2074,7 +2078,7 @@ export abstract class Strategy implements StrategyInterface {
             sl.tpSlTarget &&
             !(d.tpSlTargetFilled ?? []).includes(sl.tpSlTarget)
           ) {
-            this.updatePositionWithOrder(sl)
+            this.updatePositionWithOrder(sl, b.symbol)
             d.tpSlTargetFilled = [...(d.tpSlTargetFilled ?? []), sl.tpSlTarget]
           }
         }
@@ -2248,7 +2252,7 @@ export abstract class Strategy implements StrategyInterface {
           : slOrder.price <= min
           ? min
           : min
-      this.updatePositionWithOrder(slOrder)
+      this.updatePositionWithOrder(slOrder, b.symbol)
       return { deal: d, order: slOrder }
     }
     return { deal: d }
@@ -2270,22 +2274,19 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   closeAllDeals(b: FullBar, sl = false) {
-    let closePosition = false
     Strategy.deals = Strategy.deals.map((d) => {
       if (
         d.status === 'open' &&
         ((!sl && this.checkMinTp(b.open, d)) || sl) &&
         d.symbol.pair === b.symbol
       ) {
-        closePosition = true
+        const position = Strategy.emptyPositon
+        Strategy.position.set(b.symbol, position)
         const tp = this.getTP(d, b.open, true, false)[0]
         return this.closeDeal(d, b, tp)
       }
       return d
     })
-    if (closePosition) {
-      Strategy.position = Strategy.emptyPositon
-    }
   }
 
   private closeMinigrid(minigrid: Minigrid): Minigrid {
@@ -2497,7 +2498,10 @@ export abstract class Strategy implements StrategyInterface {
     if (!this.futures) {
       return
     }
-    const current = Strategy.position
+    let current = Strategy.position.get(b.symbol)
+    if (!current) {
+      return
+    }
     const long = current.side === PositionSide.LONG
     const price = long ? b.low : b.high
     const minPrice = Strategy.minPrice.get(b.symbol) ?? 0
@@ -2512,18 +2516,21 @@ export abstract class Strategy implements StrategyInterface {
       ? current.liquidationPrice > price
       : current.liquidationPrice < price
     if (close) {
-      Strategy.deals = Strategy.deals.map((d) => {
-        if (d.status === 'open') {
-          const tp = this.getTP(d, current.liquidationPrice, true, false)[0]
-          return this.closeDeal(d, b, tp, undefined, current.liquidationPrice)
-        }
-        return d
-      })
-      Strategy.position = Strategy.emptyPositon
+      Strategy.deals = Strategy.deals
+        .filter((d) => d.symbol.pair === b.symbol && d.status === 'open')
+        .map((d) => {
+          if (current) {
+            const tp = this.getTP(d, current.liquidationPrice, true, false)[0]
+            return this.closeDeal(d, b, tp, undefined, current.liquidationPrice)
+          }
+          return d
+        })
+      current = Strategy.emptyPositon
       if (this.settings.startCondition === StartConditionEnum.asap) {
         this.openDeal(current.liquidationPrice, b.time, b.high, b.low, b.symbol)
       }
     }
+    Strategy.position.set(b.symbol, current)
   }
 
   private checkCloseTimer(d: Deal, b: FullBar) {
@@ -3840,7 +3847,8 @@ export abstract class Strategy implements StrategyInterface {
           perc: this.math.round(
             ((buyAndHold?.buyAndHold ?? 0) /
               (buyAndHold?.buyAndHoldUsage ?? 1)) *
-              100,
+              100 *
+              this.leverage,
             2,
           ),
         },
