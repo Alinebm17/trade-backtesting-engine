@@ -101,6 +101,8 @@ class TimerStrategy extends Strategy implements StrategyInterface {
         date.setDate(date.getDate() + +this.settings.hodlDay)
       }
       const maxPerSymbol =
+        this.settings.useMulti &&
+        Strategy.multi &&
         this.settings.maxDealsPerPair &&
         +this.settings.maxDealsPerPair !== 0 &&
         !isNaN(+this.settings.maxDealsPerPair)

@@ -71,6 +71,8 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
 
   public async processBar(bar: FullBar): Promise<void> {
     const maxPerSymbol =
+      this.settings.useMulti &&
+      Strategy.multi &&
       this.settings.maxDealsPerPair &&
       +this.settings.maxDealsPerPair !== 0 &&
       !isNaN(+this.settings.maxDealsPerPair)
