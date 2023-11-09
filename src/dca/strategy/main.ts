@@ -474,7 +474,6 @@ export abstract class Strategy implements StrategyInterface {
 
   private checkMaxDeals(symbol: string) {
     const { maxNumberOfOpenDeals } = this.settings
-    let result = true
     if (maxNumberOfOpenDeals && maxNumberOfOpenDeals !== '') {
       const max = +maxNumberOfOpenDeals
       if (max && !isNaN(max) && max > 0) {
@@ -490,7 +489,7 @@ export abstract class Strategy implements StrategyInterface {
         return false
       }
     }
-    return result
+    return true
   }
 
   private convertCooldown(interval?: number, units?: CooldownUnits) {
@@ -563,13 +562,12 @@ export abstract class Strategy implements StrategyInterface {
           order.side === BotOrderSideEnum.buy) ||
         (position.side === PositionSide.SHORT &&
           order.side === BotOrderSideEnum.sell)
-      const liquidationPrice = (entryPrice: number, position: PositionSide) =>
+      const liquidationPrice = (entryPrice: number, pos: PositionSide) =>
         entryPrice *
         (this.leverage > 1
-          ? 1 +
-            (1 / this.leverage) * (position === PositionSide.LONG ? -1 : 1) /* *
+          ? 1 + (1 / this.leverage) * (pos === PositionSide.LONG ? -1 : 1) /* *
               (1 + this.userFee * (position === PositionSide.LONG ? 1 : -1)) */
-          : position === PositionSide.LONG
+          : pos === PositionSide.LONG
           ? this.userFee
           : 1 / this.userFee)
 
