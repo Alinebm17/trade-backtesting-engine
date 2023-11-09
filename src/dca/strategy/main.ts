@@ -3368,16 +3368,18 @@ export abstract class Strategy implements StrategyInterface {
               0,
             )
         : 0
-    const { maxNumberOfOpenDeals } = this.settings
+    const { maxNumberOfOpenDeals: maxNumberOfOpenDealsString } = this.settings
+    let maxNumberOfOpenDeals = 1
     if (
-      maxNumberOfOpenDeals &&
-      maxNumberOfOpenDeals !== '' &&
-      !isNaN(+maxNumberOfOpenDeals) &&
-      +maxNumberOfOpenDeals > 0
+      maxNumberOfOpenDealsString &&
+      maxNumberOfOpenDealsString !== '' &&
+      !isNaN(+maxNumberOfOpenDealsString) &&
+      +maxNumberOfOpenDealsString > 0
     ) {
-      maxTheoreticalUsage *= +maxNumberOfOpenDeals
-      maxTheoreticalUsage /= this.leverage
+      maxNumberOfOpenDeals = +maxNumberOfOpenDealsString
     }
+    maxTheoreticalUsage *= +maxNumberOfOpenDeals
+    maxTheoreticalUsage /= this.leverage
     const usdRate = this.usdRate.values().next().value ?? 1
     const usdRateQuote = this.usdRateQuote.values().next().value ?? 1
     const precision = this.precision.values().next().value ?? 8
@@ -3783,9 +3785,12 @@ export abstract class Strategy implements StrategyInterface {
             : { d: '', h: '', min: '', s: '' },
       },
       usage: {
-        maxTheoreticalUsage: maxTheoreticalUsageValue,
+        maxTheoreticalUsage: this.math.round(
+          maxTheoreticalUsageValue / maxNumberOfOpenDeals,
+          precision,
+        ),
         maxRealUsage: this.math.round(
-          Math.max(maxDealUsage, maxBotUsage),
+          Math.max(maxDealUsage, maxBotUsage / maxNumberOfOpenDeals),
           precision,
         ),
         avgRealUsage: avgUsable,
