@@ -3343,7 +3343,6 @@ export abstract class Strategy implements StrategyInterface {
     const lastPrice = lastData?.close
     const buyAndHoldUsage =
       Strategy.initialBalance * (this.profitBase ? firstPrice : 1)
-    console.log(Strategy.initialBalance, buyAndHoldUsage)
     const buyAndHold =
       firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
