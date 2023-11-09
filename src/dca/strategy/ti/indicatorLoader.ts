@@ -115,6 +115,7 @@ export default class InternalIndicator {
       this.length = 100
       this.indicator = new FasterMOM(
         indicatorConfig.interval,
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         //@ts-ignore
         indicatorConfig.source,
       )
