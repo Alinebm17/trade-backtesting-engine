@@ -803,6 +803,24 @@ export type BuyAndHoldEquity = {
   time: number
 }
 
+export type SymbolStatsProfit = { total: number; totalUsd: number }
+
+export type SymbolStats = {
+  pair: string
+  deals: {
+    profit: number
+    loss: number
+    open: number
+  }
+  netProfit: SymbolStatsProfit
+  dailyReturn: SymbolStatsProfit
+  profitAsset: string
+  winRate: number
+  profitFactor: string
+  maxDealDuration: SplitTime
+  avgDealDuration: SplitTime
+}
+
 export type DCABacktestingResult = {
   // pair: string
   buyAndHoldEquity?: BuyAndHoldEquity[]
@@ -900,6 +918,7 @@ export type DCABacktestingResult = {
   shared?: boolean
   multi?: boolean
   multiPairs?: number
+  symbolStats?: SymbolStats[]
 }
 
 export enum FuturesStrategyEnum {

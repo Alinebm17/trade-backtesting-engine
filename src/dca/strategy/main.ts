@@ -41,6 +41,7 @@ import type {
   BuyAndHoldEquity,
   EdgeBacktestEnum,
   FullBar,
+  SymbolStats,
 } from '../../types'
 
 export type Bar = BarTV
@@ -180,6 +181,10 @@ export abstract class Strategy implements StrategyInterface {
 
   static totalProfit = 0
 
+  static totalProfitPerSymbol: Map<string, number> = new Map()
+
+  static totalProfitUsdPerSymbol: Map<string, number> = new Map()
+
   static totalProfitUsd = 0
 
   protected math = new MathHelper()
@@ -266,6 +271,8 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.maxConsecutiveWins = 0
     Strategy.maxConsecutiveLosses = 0
     Strategy.totalProfit = 0
+    Strategy.totalProfitPerSymbol = new Map()
+    Strategy.totalProfitUsdPerSymbol = new Map()
     Strategy.totalProfitUsd = 0
     Strategy.lastOpenedDeal = 0
     Strategy.lastClosedDeal = 0
@@ -2427,6 +2434,15 @@ export abstract class Strategy implements StrategyInterface {
       }
       Strategy.totalProfit += profit.total
       Strategy.totalProfitUsd += profit.totalUsd
+      Strategy.totalProfitPerSymbol.set(
+        d.symbol.pair,
+        (Strategy.totalProfitPerSymbol.get(d.symbol.pair) ?? 0) + profit.total,
+      )
+      Strategy.totalProfitUsdPerSymbol.set(
+        d.symbol.pair,
+        (Strategy.totalProfitUsdPerSymbol.get(d.symbol.pair) ?? 0) +
+          profit.total,
+      )
     }
     if (Strategy.balanceUsd > Strategy.seriesWin.maxUsd) {
       Strategy.seriesWin.maxUsd = Strategy.balanceUsd
@@ -3701,9 +3717,63 @@ export abstract class Strategy implements StrategyInterface {
     }) */
     const confidenceGrade = this.getConfidenceGrade()
     const buyAndHold = this.getBuyAndHold(firstData, lastData)
+    const symbolStats: SymbolStats[] = []
+    for (const s of this.symbols.keys()) {
+      const deals = Strategy.deals.filter((d) => d.symbol.pair === s)
+      const profitDeals = deals.filter(
+        (d) => d.profit.total > 0 && d.status === 'closed',
+      ).length
+      const lossDeals = deals.filter(
+        (d) => d.profit.total <= 0 && d.status === 'closed',
+      ).length
+      const closedDeals = deals.filter((d) => d.status === 'closed').length
+      const profit = Strategy.totalProfitPerSymbol.get(s) ?? 0
+      const profitUsd = Strategy.totalProfitPerSymbol.get(s) ?? 0
+      const precision = this.precision.get(s) ?? 8
+      const symbol = this.symbols.get(s)
+      const maxDealDuration = deals.length
+        ? friendlyTime(Math.max(...deals.map((cd) => cd.duration)))
+        : { d: '', h: '', min: '', s: '' }
+      const totalDealsDuration = deals.reduce(
+        (acc, d) => (acc += d.duration),
+        0,
+      )
+      const avgDealDuration = deals.length
+        ? friendlyTime(this.math.round(totalDealsDuration / deals.length, 0))
+        : { d: '', h: '', min: '', s: '' }
+      symbolStats.push({
+        pair: s,
+        deals: {
+          profit: profitDeals,
+          loss: lossDeals,
+          open: deals.filter((d) => d.status === 'open').length,
+        },
+        netProfit: {
+          total: this.math.round(profit, precision),
+          totalUsd: this.math.round(profitUsd),
+        },
+        dailyReturn: {
+          total: this.math.round(profit / workingDays, precision),
+          totalUsd: this.math.round(profitUsd / workingDays),
+        },
+        profitAsset: this.profitBase
+          ? symbol?.baseAsset?.name ?? ''
+          : symbol?.quoteAsset?.name ?? '',
+        winRate: closedDeals
+          ? this.math.round((profitDeals / closedDeals) * 100)
+          : 0,
+        maxDealDuration,
+        avgDealDuration,
+        profitFactor:
+          allLoss !== 0
+            ? `${this.math.round(Math.abs(profitDeals / lossDeals), 3)}`
+            : `${Infinity}`,
+      })
+    }
     const result: DCABacktestingResult = {
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
+      symbolStats,
       deals: [...Strategy.deals]
         .sort((a, b) =>
           Strategy.edge
