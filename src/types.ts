@@ -27,6 +27,7 @@ export enum IndicatorEnum {
   psar = 'PSAR',
   vo = 'VO',
   mom = 'MOM',
+  bbwp = 'BBWP',
 }
 
 export enum TradingviewAnalysisConditionEnum {
@@ -155,6 +156,12 @@ export type IndicatorConfigBackTesting =
       source: string
     }
   | {
+      type: IndicatorEnum.bbwp
+      interval: number
+      lookback: number
+      source: string
+    }
+  | {
       type:
         | IndicatorEnum.rsi
         | IndicatorEnum.adx
@@ -239,6 +246,7 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.mfi
         | IndicatorEnum.vo
         | IndicatorEnum.mom
+        | IndicatorEnum.bbwp
       value: number
     }
   | {
@@ -314,6 +322,7 @@ export type SettingsIndicators = {
   uoMiddle?: number
   uoSlow?: number
   momSource?: string
+  bbwpLookback?: number
 }
 
 export enum StochRangeEnum {

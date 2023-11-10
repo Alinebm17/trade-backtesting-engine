@@ -3722,10 +3722,15 @@ export abstract class Strategy implements StrategyInterface {
       const deals = Strategy.deals.filter((d) => d.symbol.pair === s)
       const profitDeals = deals.filter(
         (d) => d.profit.total > 0 && d.status === 'closed',
-      ).length
+      )
       const lossDeals = deals.filter(
         (d) => d.profit.total <= 0 && d.status === 'closed',
-      ).length
+      )
+      const allProfit = profitDeals.reduce(
+        (acc, d) => (acc += d.profit.total),
+        0,
+      )
+      const allLoss = lossDeals.reduce((acc, d) => (acc += d.profit.total), 0)
       const closedDeals = deals.filter((d) => d.status === 'closed').length
       const profit = Strategy.totalProfitPerSymbol.get(s) ?? 0
       const profitUsd = Strategy.totalProfitUsdPerSymbol.get(s) ?? 0
@@ -3744,8 +3749,8 @@ export abstract class Strategy implements StrategyInterface {
       symbolStats.push({
         pair: s,
         deals: {
-          profit: profitDeals,
-          loss: lossDeals,
+          profit: profitDeals.length,
+          loss: lossDeals.length,
           open: deals.filter((d) => d.status === 'open').length,
         },
         netProfit: {
@@ -3760,13 +3765,13 @@ export abstract class Strategy implements StrategyInterface {
           ? symbol?.baseAsset?.name ?? ''
           : symbol?.quoteAsset?.name ?? '',
         winRate: closedDeals
-          ? this.math.round((profitDeals / closedDeals) * 100)
+          ? this.math.round((profitDeals.length / closedDeals) * 100)
           : 0,
         maxDealDuration,
         avgDealDuration,
         profitFactor:
           allLoss !== 0
-            ? `${this.math.round(Math.abs(profitDeals / lossDeals), 3)}`
+            ? `${this.math.round(Math.abs(allProfit / allLoss), 3)}`
             : `${Infinity}`,
       })
     }

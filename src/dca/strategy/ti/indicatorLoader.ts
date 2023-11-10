@@ -25,6 +25,7 @@ import {
   FasterWilliamsR,
   FasterUltimateOscillator,
   FasterMOM,
+  FasterBBWP,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -61,6 +62,7 @@ export default class InternalIndicator {
     | FasterWilliamsR
     | FasterUltimateOscillator
     | FasterMOM
+    | FasterBBWP
 
   private data: IndicatorHistory[] = []
 
@@ -142,6 +144,15 @@ export default class InternalIndicator {
       )
       this.indicator = new FasterBollingerBandsWidth(bb)
       this.length = indicatorConfig.interval
+    }
+    if (indicatorConfig.type === IndicatorEnum.bbwp) {
+      const bb = new FasterBollingerBands(indicatorConfig.interval, 1)
+      this.indicator = new FasterBBWP(
+        bb,
+        indicatorConfig.lookback,
+        indicatorConfig.source,
+      )
+      this.length = indicatorConfig.interval + indicatorConfig.lookback
     }
     if (indicatorConfig.type === IndicatorEnum.bb) {
       this.indicator = new FasterBollingerBands(indicatorConfig.interval, 2)
@@ -304,7 +315,11 @@ export default class InternalIndicator {
         volume: +value.v,
       })
     }
-    if (this.indicator && this.indicator instanceof FasterMOM) {
+    if (
+      this.indicator &&
+      (this.indicator instanceof FasterMOM ||
+        this.indicator instanceof FasterBBWP)
+    ) {
       this.indicator?.update({
         high: +value.h,
         low: +value.l,

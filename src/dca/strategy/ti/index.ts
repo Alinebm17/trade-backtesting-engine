@@ -82,6 +82,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           uoMiddle,
           uoSlow,
           momSource,
+          bbwpLookback,
         } = i
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
@@ -131,6 +132,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 type,
                 interval: indicatorLength,
                 source: momSource ?? 'close',
+              }
+            : type === IndicatorEnum.bbwp
+            ? {
+                type,
+                interval: indicatorLength,
+                source: momSource ?? 'close',
+                lookback: bbwpLookback ?? 252,
               }
             : type === IndicatorEnum.sr
             ? {
@@ -509,6 +517,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               lastData.type === IndicatorEnum.mfi ||
               lastData.type === IndicatorEnum.adx ||
               lastData.type === IndicatorEnum.bbw ||
+              lastData.type === IndicatorEnum.bbwp ||
               lastData.type === IndicatorEnum.vo) &&
             (prevData.type === IndicatorEnum.rsi ||
               prevData.type === IndicatorEnum.ao ||
@@ -519,8 +528,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
               prevData.type === IndicatorEnum.mfi ||
               prevData.type === IndicatorEnum.adx ||
               prevData.type === IndicatorEnum.bbw ||
+              prevData.type === IndicatorEnum.bbwp ||
               prevData.type === IndicatorEnum.vo)
           ) {
+            console.log(new Date(lastData.time).toUTCString(), lastData.value)
             last = lastData.value
             prev = prevData.value
           }
