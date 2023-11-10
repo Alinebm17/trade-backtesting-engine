@@ -144,7 +144,7 @@ class DCABacktesting extends Backtesting {
     const loadingTime = (new Date().getTime() - startLoading) / 1000
     const start = new Date().getTime()
     const startTime = bars
-      ? testData[0]?.bar?.[0].time ?? this.period.from * 1000
+      ? testData[0]?.bar?.[0]?.time ?? this.period.from * 1000
       : this.period.from * 1000
     this.strategy.loadData(testData, startTime)
     return this.strategy.test(updateProgress).then(() => {
