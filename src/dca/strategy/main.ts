@@ -3746,6 +3746,7 @@ export abstract class Strategy implements StrategyInterface {
       const avgDealDuration = deals.length
         ? friendlyTime(this.math.round(totalDealsDuration / deals.length, 0))
         : { d: '', h: '', min: '', s: '' }
+      console.log(profitUsd, maxTheoreticalUsageWithRate, s)
       symbolStats.push({
         pair: s,
         deals: {
@@ -3756,10 +3757,16 @@ export abstract class Strategy implements StrategyInterface {
         netProfit: {
           total: this.math.round(profit, precision),
           totalUsd: this.math.round(profitUsd),
+          perc: this.math.round(
+            (profitUsd / maxTheoreticalUsageWithRate) * 100,
+          ),
         },
         dailyReturn: {
           total: this.math.round(profit / workingDays, precision),
           totalUsd: this.math.round(profitUsd / workingDays),
+          perc: this.math.round(
+            (profitUsd / workingDays / maxTheoreticalUsageWithRate) * 100,
+          ),
         },
         profitAsset: this.profitBase
           ? symbol?.baseAsset?.name ?? ''

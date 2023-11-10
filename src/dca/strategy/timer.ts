@@ -37,7 +37,10 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     if (!next) {
       next = 0
     }
-    if (Strategy.workingShift.length === 0) {
+    if (
+      Strategy.workingShift.length === 0 &&
+      ((Strategy.start && trade.timestamp >= Strategy.start) || !Strategy.start)
+    ) {
       this.startWorkingShift(trade.timestamp)
     }
     if (next === 0) {
@@ -79,7 +82,10 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     if (!next) {
       next = 0
     }
-    if (Strategy.workingShift.length === 0) {
+    if (
+      Strategy.workingShift.length === 0 &&
+      ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start)
+    ) {
       this.startWorkingShift(bar.time)
     }
     if (next === 0) {

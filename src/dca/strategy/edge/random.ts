@@ -65,7 +65,10 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
 
   public async processBar(bar: FullBar): Promise<void> {
     if (Strategy.deals.length === 0) {
-      if (Strategy.workingShift.length === 0) {
+      if (
+        Strategy.workingShift.length === 0 &&
+        ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start)
+      ) {
         this.startWorkingShift(bar.time)
       }
     }

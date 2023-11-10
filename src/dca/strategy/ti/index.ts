@@ -291,7 +291,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
     trade: TradeResponse,
     candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
   ): void {
-    if (Strategy.workingShift.length === 0) {
+    if (
+      Strategy.workingShift.length === 0 &&
+      ((Strategy.start && trade.timestamp >= Strategy.start) || !Strategy.start)
+    ) {
       this.startWorkingShift(trade.timestamp)
     }
     this.checkStatuses(trade.timestamp)
@@ -331,7 +334,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
   }
 
   public async processBar(bar: FullBar): Promise<void> {
-    if (Strategy.workingShift.length === 0) {
+    if (
+      Strategy.workingShift.length === 0 &&
+      ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start)
+    ) {
       this.startWorkingShift(bar.time)
     }
     this.checkStatuses(bar.time)
@@ -531,7 +537,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
               prevData.type === IndicatorEnum.bbwp ||
               prevData.type === IndicatorEnum.vo)
           ) {
-            console.log(new Date(lastData.time).toUTCString(), lastData.value)
             last = lastData.value
             prev = prevData.value
           }

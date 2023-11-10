@@ -25,7 +25,11 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
 
   public processTrade(trade: TradeResponse): void {
     if (Strategy.deals.length === 0) {
-      if (Strategy.workingShift.length === 0) {
+      if (
+        Strategy.workingShift.length === 0 &&
+        ((Strategy.start && trade.timestamp >= Strategy.start) ||
+          !Strategy.start)
+      ) {
         this.startWorkingShift(trade.timestamp)
       }
       this.openDeal(
@@ -82,7 +86,10 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
       (d) => d.symbol.pair === bar.symbol,
     )
     if (dealsPerSymbols.length === 0) {
-      if (Strategy.workingShift.length === 0) {
+      if (
+        Strategy.workingShift.length === 0 &&
+        ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start)
+      ) {
         this.startWorkingShift(bar.time)
       }
       for (const _ of [...Array(maxPerSymbol).keys()]) {

@@ -812,7 +812,11 @@ export type BuyAndHoldEquity = {
   time: number
 }
 
-export type SymbolStatsProfit = { total: number; totalUsd: number }
+export type SymbolStatsProfit = {
+  total: number
+  totalUsd: number
+  perc: number
+}
 
 export type SymbolStats = {
   pair: string
