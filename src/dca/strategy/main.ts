@@ -2585,15 +2585,13 @@ export abstract class Strategy implements StrategyInterface {
       ? current.liquidationPrice > price
       : current.liquidationPrice < price
     if (close) {
-      Strategy.deals = Strategy.deals
-        .filter((d) => d.symbol.pair === b.symbol && d.status === 'open')
-        .map((d) => {
-          if (current) {
-            const tp = this.getTP(d, current.liquidationPrice, true, false)[0]
-            return this.closeDeal(d, b, tp, undefined, current.liquidationPrice)
-          }
-          return d
-        })
+      Strategy.deals = Strategy.deals.map((d) => {
+        if (current && d.symbol.pair === b.symbol && d.status === 'open') {
+          const tp = this.getTP(d, current.liquidationPrice, true, false)[0]
+          return this.closeDeal(d, b, tp, undefined, current.liquidationPrice)
+        }
+        return d
+      })
       current = Strategy.emptyPositon
       if (this.settings.startCondition === StartConditionEnum.asap) {
         this.openDeal(current.liquidationPrice, b.time, b.high, b.low, b.symbol)
