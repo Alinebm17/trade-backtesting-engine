@@ -2441,7 +2441,7 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.totalProfitUsdPerSymbol.set(
         d.symbol.pair,
         (Strategy.totalProfitUsdPerSymbol.get(d.symbol.pair) ?? 0) +
-          profit.total,
+          profit.totalUsd,
       )
     }
     if (Strategy.balanceUsd > Strategy.seriesWin.maxUsd) {
@@ -3728,7 +3728,7 @@ export abstract class Strategy implements StrategyInterface {
       ).length
       const closedDeals = deals.filter((d) => d.status === 'closed').length
       const profit = Strategy.totalProfitPerSymbol.get(s) ?? 0
-      const profitUsd = Strategy.totalProfitPerSymbol.get(s) ?? 0
+      const profitUsd = Strategy.totalProfitUsdPerSymbol.get(s) ?? 0
       const precision = this.precision.get(s) ?? 8
       const symbol = this.symbols.get(s)
       const maxDealDuration = deals.length
