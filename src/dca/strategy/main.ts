@@ -3492,7 +3492,7 @@ export abstract class Strategy implements StrategyInterface {
       0,
     )
     const lastDataItem = lastData?.values().next().value
-    const firstDataItem = firstData?.get(lastDataItem.symbol)
+    const firstDataItem = firstData?.get(lastDataItem?.symbol ?? '')
     const workingTime = Strategy.workingShift.reduce(
       (acc, ws) =>
         (acc += (ws.end || lastDataItem?.time || ws.start) - ws.start),
