@@ -424,7 +424,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     ) {
       const currentState = [...Strategy.indicators].filter(
         (i) =>
-          i.id !== i.settings.maUUID &&
+          i.id !== `${i.settings.maUUID}@${nextBar.symbol}` &&
           i.data.length > 0 &&
           i.symbol === nextBar.symbol,
       )
@@ -557,7 +557,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
               value = lastData.value.price
               prevValue = prevData.value.price
             } else if (lastData.value.maType === maType) {
-              const findMA = Strategy.indicators.find((ii) => ii.id === maUUID)
+              const findMA = Strategy.indicators.find(
+                (ii) => ii.id === `${maUUID}@${nextBar.symbol}`,
+              )
               if (findMA) {
                 const [dataMA, prevMAData] = [
                   ...findMA.instance.currentData,

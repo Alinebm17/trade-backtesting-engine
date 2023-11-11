@@ -3746,7 +3746,6 @@ export abstract class Strategy implements StrategyInterface {
       const avgDealDuration = deals.length
         ? friendlyTime(this.math.round(totalDealsDuration / deals.length, 0))
         : { d: '', h: '', min: '', s: '' }
-      console.log(profitUsd, maxTheoreticalUsageWithRate, s)
       symbolStats.push({
         pair: s,
         deals: {
