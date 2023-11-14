@@ -2188,24 +2188,20 @@ export abstract class Strategy implements StrategyInterface {
           this.settings.useSl &&
           this.settings.dealCloseConditionSL === CloseConditionEnum.tp
         const price = b.close
-        const qty =
+        const qty = Math.max(
           (this.long
             ? d.currentBalance.base
             : d.initialBalance.base - d.currentBalance.base) +
-          (this.coinm ? d.profit.total * (this.long ? 1 : -1) : 0)
+            (this.coinm ? d.profit.total * (this.long ? 1 : -1) : 0),
+          0,
+        )
         const quote =
           (this.long
             ? d.initialBalance.quote - d.currentBalance.quote
             : d.currentBalance.quote) +
           d.profit.total * (this.long ? 1 : -1)
         const quoteTp = qty * price
-        const commission = this.futures
-          ? this.coinm
-            ? qty * this.userFee
-            : qty * price * this.userFee
-          : !this.long
-          ? qty * this.userFee
-          : qty * price * this.userFee
+        const commission = qty * price * this.userFee
         const unpnl = (quoteTp - quote) * (this.long ? 1 : -1)
         const total = d.profit.total + unpnl - commission
         const denominator = this.futures
@@ -2265,6 +2261,8 @@ export abstract class Strategy implements StrategyInterface {
             'qtp',
             quote,
             'q',
+            commission,
+            'fee',
             { ...d },
           )
         } */
@@ -2356,7 +2354,6 @@ export abstract class Strategy implements StrategyInterface {
         ...d.filledOrders.filter((fo) => fo.id !== tpOrder.id),
         { ...tpOrder, filledTime: b.time },
       ].map((o) => ({ ...o, dealId: d.id }))
-
       const _profit = this.getProfit(d, b.time)
       if (_profit) {
         d.profit = _profit
@@ -2930,7 +2927,9 @@ export abstract class Strategy implements StrategyInterface {
       id: botFunctions.utils.id(20),
       filledTime: time,
     }
-
+    if (qty < 0 && this.combo) {
+      return [{ ...tpOrder, qty: 0 }]
+    }
     if (this.profitBase) {
       const newQty = this.math.round(
         (origQty * deal.avgPrice) / tpOrder.price,
@@ -3153,7 +3152,9 @@ export abstract class Strategy implements StrategyInterface {
       .filter((o) => (this.combo ? o.type === DCAOrderTypeEnum.tp : true))
       .reduce(
         (acc, v) =>
-          (acc += this.profitBase
+          (acc += this.combo
+            ? v.qty * v.price * userFee
+            : this.profitBase
             ? v.qty * userFee
             : v.qty * v.price * userFee),
         0,
@@ -3171,9 +3172,12 @@ export abstract class Strategy implements StrategyInterface {
         d.profit.total * (this.long ? 1 : -1)
       : regularOrders.reduce((acc, ro) => (acc += ro.qty * ro.price), 0)
     const base = this.combo
-      ? this.long
-        ? d.currentBalance.base
-        : d.initialBalance.base - d.currentBalance.base
+      ? Math.max(
+          this.long
+            ? d.currentBalance.base
+            : d.initialBalance.base - d.currentBalance.base,
+          0,
+        )
       : regularOrders.reduce((acc, ro) => (acc += ro.qty), 0)
     const tpOrder = filledOrders.filter(
       (fo) =>
@@ -3181,7 +3185,8 @@ export abstract class Strategy implements StrategyInterface {
     )
     const qty = tpOrder.reduce((acc, tpo) => acc + tpo.qty, 0)
     const quoteTp = tpOrder.reduce((acc, tpo) => acc + tpo.qty * tpo.price, 0)
-    const price = quoteTp / qty
+    let price = quoteTp / qty
+    price = isNaN(price) ? tpOrder[0]?.price : price
     const pureProfit =
       (this.profitBase
         ? base - qty + (quoteTp - quote) / price
@@ -3583,7 +3588,9 @@ export abstract class Strategy implements StrategyInterface {
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
           const commission = od.filledOrders.reduce(
             (acc, v) =>
-              (acc += this.profitBase
+              (acc += this.combo
+                ? v.qty * v.price * this.userFee
+                : this.profitBase
                 ? v.qty * this.userFee
                 : v.qty * v.price * this.userFee),
             0,
