@@ -756,6 +756,7 @@ export interface Bar {
 
 export enum EdgeBacktestEnum {
   random = 'random',
+  randomMulti = 'randomMulti',
 }
 
 export type DCABacktestingInput = BacktestingInput<DCABotSettings> & {
