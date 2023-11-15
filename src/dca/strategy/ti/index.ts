@@ -28,7 +28,7 @@ import type {
   TradeResponse,
   FullBar,
 } from '../../../types'
-import type { StrategyInput } from '../main'
+import type { DataType, StrategyInput } from '../main'
 
 export type Indicator = {
   instance: InternalIndicator
@@ -43,6 +43,7 @@ export type Indicator = {
 }
 
 class TIStrategy extends Strategy implements StrategyInterface {
+  private lowestData: DataType[] = []
   constructor(input: StrategyInput) {
     input.settings.indicators = input.settings.indicators.filter(
       (i) => i.indicatorAction !== IndicatorAction.stopBot,
@@ -266,7 +267,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
   }
 
   public async preTest(): Promise<void> {
-    void 0
+    if (this.lowestData.length === 0) {
+      this.lowestData = [...Strategy.data].sort(
+        (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
+      )
+    }
   }
 
   private checkStatuses(time: number) {
@@ -760,13 +765,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
     }
     if (nextBar) {
       const isProcess = nextBar.time >= Strategy.start
-      const data = [...Strategy.data].sort(
-        (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
-      )
+      /* const data = this.lowestData
       const lowest = data[data.length - 1]
       const lowestBar = lowest?.bar?.find(
         (l) => l.time === nextBar.time && l.symbol === nextBar.symbol,
-      )
+      ) */
       const closeDealSl = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.closeDeal &&
@@ -811,17 +814,17 @@ class TIStrategy extends Strategy implements StrategyInterface {
             time: nextBar.time,
             price:
               this.settings.strategy === StrategyEnum.long
-                ? lowestBar?.high ?? nextBar.high
-                : lowestBar?.low ?? nextBar.low,
+                ? /* lowestBar?.high ?? */ nextBar.high
+                : /* lowestBar?.low ?? */ nextBar.low,
             symbol: nextBar.symbol,
           })
           this.closeAllDeals(
             {
-              open: lowestBar?.open ?? nextBar.open,
+              open: /* lowestBar?.open ?? */ nextBar.open,
               time: nextBar.time,
-              high: lowestBar?.open ?? nextBar.high,
-              low: lowestBar?.low ?? nextBar.low,
-              close: lowestBar?.close ?? nextBar.close,
+              high: /* lowestBar?.open ?? */ nextBar.high,
+              low: /* lowestBar?.low ?? */ nextBar.low,
+              close: /* lowestBar?.close ?? */ nextBar.close,
               symbol: nextBar.symbol,
             },
             true,
@@ -848,16 +851,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
             time: nextBar.time,
             price:
               this.settings.strategy === StrategyEnum.long
-                ? lowestBar?.high ?? nextBar.high
-                : lowestBar?.low ?? nextBar.low,
+                ? /* lowestBar?.high ?? */ nextBar.high
+                : /*  lowestBar?.low ?? */ nextBar.low,
             symbol: nextBar.symbol,
           })
           this.closeAllDeals({
-            open: lowestBar?.open ?? nextBar.open,
+            open: /* lowestBar?.open ?? */ nextBar.open,
             time: nextBar.time,
-            high: lowestBar?.open ?? nextBar.high,
-            low: lowestBar?.low ?? nextBar.low,
-            close: lowestBar?.close ?? nextBar.close,
+            high: /*  lowestBar?.open ??  */ nextBar.high,
+            low: /*  lowestBar?.low ?? */ nextBar.low,
+            close: /* lowestBar?.close ??  */ nextBar.close,
             symbol: nextBar.symbol,
           })
         }
@@ -879,15 +882,15 @@ class TIStrategy extends Strategy implements StrategyInterface {
             time: nextBar.time,
             price:
               this.settings.strategy === StrategyEnum.long
-                ? lowestBar?.low ?? nextBar.low
-                : lowestBar?.high ?? nextBar.high,
+                ? /* lowestBar?.low ?? */ nextBar.low
+                : /* lowestBar?.high ??  */ nextBar.high,
             symbol: nextBar.symbol,
           })
           this.openDeal(
-            lowestBar?.open ?? nextBar.open,
+            /* lowestBar?.open ??  */ nextBar.open,
             nextBar.time,
-            lowestBar?.high ?? nextBar.high,
-            lowestBar?.low ?? nextBar.low,
+            /* lowestBar?.high ??  */ nextBar.high,
+            /* lowestBar?.low ?? */ nextBar.low,
             nextBar.symbol,
           )
         }
@@ -912,7 +915,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           const index = startDca.findIndex((si) => si.id === i.id)
           this.addDCAOrder(
             index,
-            lowestBar?.close ?? nextBar.close,
+            /* lowestBar?.close ?? */ nextBar.close,
             nextBar.time,
             nextBar.symbol,
           )
