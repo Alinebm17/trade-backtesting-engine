@@ -28,6 +28,13 @@ export enum IndicatorEnum {
   vo = 'VO',
   mom = 'MOM',
   bbwp = 'BBWP',
+  ecd = 'ECD',
+}
+
+export enum ECDTriggerEnum {
+  bearish = 'bearish',
+  bullish = 'bullish',
+  both = 'both',
 }
 
 export enum TradingviewAnalysisConditionEnum {
@@ -323,6 +330,7 @@ export type SettingsIndicators = {
   uoSlow?: number
   momSource?: string
   bbwpLookback?: number
+  ecdTrigger?: ECDTriggerEnum
 }
 
 export enum StochRangeEnum {
