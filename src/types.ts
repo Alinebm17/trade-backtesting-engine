@@ -142,6 +142,7 @@ export type MAResult = {
 }
 
 export type IndicatorConfigBackTesting =
+  | { type: IndicatorEnum.ecd }
   | {
       type: IndicatorEnum.tv
       checkLevel?: number

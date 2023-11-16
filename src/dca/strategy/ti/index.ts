@@ -18,6 +18,7 @@ import {
   DCAConditionEnum,
   StrategyEnum,
   BotOrderSideEnum,
+  ECDTriggerEnum,
 } from '../../../types'
 
 import type {
@@ -396,7 +397,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
         }
       }
     }
-
+    const isProcess = bar.time >= Strategy.start
+    if (!isProcess) {
+      return
+    }
     this.checkIndicators(bar)
     await this.checkDeals(bar)
   }
@@ -455,6 +459,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             srCrossingValue,
             stochRange,
             keepConditionBars,
+            ecdTrigger,
           },
           data,
         } = i
@@ -505,6 +510,31 @@ class TIStrategy extends Strategy implements StrategyInterface {
           } else if (
             signal === TradingviewAnalysisSignalEnum.bothSell &&
             (tvta === 3 || tvta === 4)
+          ) {
+            action = true
+          }
+        } else if (type === IndicatorEnum.ecd && ecdTrigger) {
+          /**
+           * Engulfing candle detector
+           *
+           * Result:
+           *  - 0 - na
+           *
+           *  - 1 - Bearish
+           *
+           *  - 2 - Bullish
+           *
+           */
+          const [lastData] = [...data].sort((a, b) => b.time - a.time)
+          const ecd = lastData.value as number
+          if (
+            ecd === 1 &&
+            [ECDTriggerEnum.bearish, ECDTriggerEnum.both].includes(ecdTrigger)
+          ) {
+            action = true
+          } else if (
+            ecd === 2 &&
+            [ECDTriggerEnum.bullish, ECDTriggerEnum.both].includes(ecdTrigger)
           ) {
             action = true
           }
@@ -764,7 +794,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
       }
     }
     if (nextBar) {
-      const isProcess = nextBar.time >= Strategy.start
       /* const data = this.lowestData
       const lowest = data[data.length - 1]
       const lowestBar = lowest?.bar?.find(
@@ -804,32 +833,31 @@ class TIStrategy extends Strategy implements StrategyInterface {
         closeDealSl.length === closeDealSlStatus.length &&
         closeDealSl.length
       ) {
-        if (isProcess) {
-          Strategy.indicatorEvents.push({
-            type: IndicatorAction.closeDeal,
-            side:
-              this.settings.strategy === StrategyEnum.long
-                ? BotOrderSideEnum.sell
-                : BotOrderSideEnum.buy,
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.closeDeal,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.sell
+              : BotOrderSideEnum.buy,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? /* lowestBar?.high ?? */ nextBar.high
+              : /* lowestBar?.low ?? */ nextBar.low,
+          symbol: nextBar.symbol,
+        })
+        this.closeAllDeals(
+          {
+            open: /* lowestBar?.open ?? */ nextBar.open,
             time: nextBar.time,
-            price:
-              this.settings.strategy === StrategyEnum.long
-                ? /* lowestBar?.high ?? */ nextBar.high
-                : /* lowestBar?.low ?? */ nextBar.low,
+            high: /* lowestBar?.open ?? */ nextBar.high,
+            low: /* lowestBar?.low ?? */ nextBar.low,
+            close: /* lowestBar?.close ?? */ nextBar.close,
             symbol: nextBar.symbol,
-          })
-          this.closeAllDeals(
-            {
-              open: /* lowestBar?.open ?? */ nextBar.open,
-              time: nextBar.time,
-              high: /* lowestBar?.open ?? */ nextBar.high,
-              low: /* lowestBar?.low ?? */ nextBar.low,
-              close: /* lowestBar?.close ?? */ nextBar.close,
-              symbol: nextBar.symbol,
-            },
-            true,
-          )
-        }
+          },
+          true,
+        )
+
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealSlStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
@@ -841,29 +869,28 @@ class TIStrategy extends Strategy implements StrategyInterface {
         closeDealTp.length === closeDealTpStatus.length &&
         closeDealTp.length
       ) {
-        if (isProcess) {
-          Strategy.indicatorEvents.push({
-            type: IndicatorAction.closeDeal,
-            side:
-              this.settings.strategy === StrategyEnum.long
-                ? BotOrderSideEnum.sell
-                : BotOrderSideEnum.buy,
-            time: nextBar.time,
-            price:
-              this.settings.strategy === StrategyEnum.long
-                ? /* lowestBar?.high ?? */ nextBar.high
-                : /*  lowestBar?.low ?? */ nextBar.low,
-            symbol: nextBar.symbol,
-          })
-          this.closeAllDeals({
-            open: /* lowestBar?.open ?? */ nextBar.open,
-            time: nextBar.time,
-            high: /*  lowestBar?.open ??  */ nextBar.high,
-            low: /*  lowestBar?.low ?? */ nextBar.low,
-            close: /* lowestBar?.close ??  */ nextBar.close,
-            symbol: nextBar.symbol,
-          })
-        }
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.closeDeal,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.sell
+              : BotOrderSideEnum.buy,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? /* lowestBar?.high ?? */ nextBar.high
+              : /*  lowestBar?.low ?? */ nextBar.low,
+          symbol: nextBar.symbol,
+        })
+        this.closeAllDeals({
+          open: /* lowestBar?.open ?? */ nextBar.open,
+          time: nextBar.time,
+          high: /*  lowestBar?.open ??  */ nextBar.high,
+          low: /*  lowestBar?.low ?? */ nextBar.low,
+          close: /* lowestBar?.close ??  */ nextBar.close,
+          symbol: nextBar.symbol,
+        })
+
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealTpStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }
@@ -872,28 +899,27 @@ class TIStrategy extends Strategy implements StrategyInterface {
         })
       }
       if (startDeal.length === startDealStatus.length && startDeal.length) {
-        if (isProcess) {
-          Strategy.indicatorEvents.push({
-            type: IndicatorAction.startDeal,
-            side:
-              this.settings.strategy === StrategyEnum.long
-                ? BotOrderSideEnum.buy
-                : BotOrderSideEnum.sell,
-            time: nextBar.time,
-            price:
-              this.settings.strategy === StrategyEnum.long
-                ? /* lowestBar?.low ?? */ nextBar.low
-                : /* lowestBar?.high ??  */ nextBar.high,
-            symbol: nextBar.symbol,
-          })
-          this.openDeal(
-            /* lowestBar?.open ??  */ nextBar.open,
-            nextBar.time,
-            /* lowestBar?.high ??  */ nextBar.high,
-            /* lowestBar?.low ?? */ nextBar.low,
-            nextBar.symbol,
-          )
-        }
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.startDeal,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.buy
+              : BotOrderSideEnum.sell,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? /* lowestBar?.low ?? */ nextBar.low
+              : /* lowestBar?.high ??  */ nextBar.high,
+          symbol: nextBar.symbol,
+        })
+        this.openDeal(
+          /* lowestBar?.open ??  */ nextBar.open,
+          nextBar.time,
+          /* lowestBar?.high ??  */ nextBar.high,
+          /* lowestBar?.low ?? */ nextBar.low,
+          nextBar.symbol,
+        )
+
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
             return { ...i, status: false, statusSince: 0, statusTo: 0 }

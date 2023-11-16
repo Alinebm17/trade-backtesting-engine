@@ -26,6 +26,7 @@ import {
   FasterUltimateOscillator,
   FasterMOM,
   FasterBBWP,
+  FasterECD,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -63,6 +64,7 @@ export default class InternalIndicator {
     | FasterUltimateOscillator
     | FasterMOM
     | FasterBBWP
+    | FasterECD
 
   private data: IndicatorHistory[] = []
 
@@ -88,6 +90,10 @@ export default class InternalIndicator {
     if (indicatorConfig.type === IndicatorEnum.rsi) {
       this.indicator = new FasterRSI(indicatorConfig.interval)
       this.length = indicatorConfig.interval
+    }
+    if (indicatorConfig.type === IndicatorEnum.ecd) {
+      this.indicator = new FasterECD()
+      this.length = 2
     }
     if (indicatorConfig.type === IndicatorEnum.cci) {
       this.indicator = new FasterCCI(indicatorConfig.interval, 'hlc3')
@@ -318,7 +324,8 @@ export default class InternalIndicator {
     if (
       this.indicator &&
       (this.indicator instanceof FasterMOM ||
-        this.indicator instanceof FasterBBWP)
+        this.indicator instanceof FasterBBWP ||
+        this.indicator instanceof FasterECD)
     ) {
       this.indicator?.update({
         high: +value.h,
