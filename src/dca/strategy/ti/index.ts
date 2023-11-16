@@ -174,6 +174,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 voLong: voLong ?? 10,
                 voShort: voShort ?? 5,
               }
+            : type === IndicatorEnum.ecd
+            ? { type }
             : ({
                 type,
                 interval: indicatorLength,
