@@ -1926,7 +1926,10 @@ export abstract class Strategy implements StrategyInterface {
 
   addDCAOrder(index: number, price: number, time: number, symbol: string) {
     for (const d of Strategy.deals.filter(
-      (dd) => dd.status === 'open' && dd.lastFilled + 1 === index + 1,
+      (dd) =>
+        dd.status === 'open' &&
+        dd.lastFilled + 1 === index + 1 &&
+        dd.symbol.pair === symbol,
     )) {
       if (this.settings.dcaCondition === DCAConditionEnum.indicators) {
         const ind = this.settings.indicators.filter(
