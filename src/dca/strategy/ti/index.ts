@@ -277,6 +277,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
           countBack: i.instance.length,
         })
       }
+      if (
+        i.settings.type === IndicatorEnum.xo &&
+        i.settings.xOscillator2Interval &&
+        i.settings.indicatorInterval !== i.settings.xOscillator2Interval
+      ) {
+        int.push({
+          interval: i.settings.xOscillator2Interval,
+          countBack: i.instance.length,
+        })
+      }
       return int
     })
 
@@ -670,13 +680,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
               ].sort((a, b) => b.time - a.time)
               prevValue = prevXOData ? (prevXOData.value as number) : 0
               value = dataXO ? (dataXO.value as number) : 0
-              if (
-                (prevValue === 0 && value !== 0) ||
-                (value === 0 && prevValue !== 0)
-              ) {
-                value = 0
-                prevValue = 0
-              }
             } else {
               last = 0
               prev = 0
