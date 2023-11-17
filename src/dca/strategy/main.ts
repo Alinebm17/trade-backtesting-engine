@@ -1250,15 +1250,6 @@ export abstract class Strategy implements StrategyInterface {
       deal.profit.totalUsd + previousValues + Strategy.initialBalanceUsd,
       3,
     )
-    console.log(
-      Strategy.deals.filter(
-        (d) =>
-          d.closedTime && d.closedTime <= (deal.closedTime ?? deal.startTime),
-      ),
-      deal,
-      previousValues,
-      Strategy.initialBalanceUsd,
-    )
     return deal
   }
 
