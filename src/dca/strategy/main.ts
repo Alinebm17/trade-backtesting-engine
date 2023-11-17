@@ -1016,6 +1016,8 @@ export abstract class Strategy implements StrategyInterface {
       startPrice: orderPrice,
       lastFilled: 0,
       lastPrice: orderPrice,
+      volume: 0,
+      equity: 0,
     }
 
     if (
@@ -1142,6 +1144,7 @@ export abstract class Strategy implements StrategyInterface {
         },
       },
     }
+    deal = this.updateDealVolume(deal)
 
     if (botFunctions.isTrailingSl || botFunctions.isTrailingTp) {
       deal = this.checkTrailing(deal, price, startTime)
@@ -1188,6 +1191,75 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.initialBalanceUsd = Strategy.balanceUsd
       Strategy.initialBalanceSymbol = s
     }
+  }
+
+  /* private getUsdRate(symbol: string, price: number, type?: 'base' | 'quote') {
+    const s = this.symbols.get(symbol)
+    if (!s) {
+      return 1
+    }
+    return findUSDRate(
+      type === 'base'
+        ? s.baseAsset.name
+        : type === 'quote'
+        ? s.quoteAsset.name
+        : this.profitBase
+        ? s.baseAsset.name
+        : s.quoteAsset.name,
+      [...this.prices.filter((p) => p.symbol !== symbol), { symbol, price }],
+    )
+  } */
+
+  private updateDealVolume(deal: Deal /* , bar: FullBar */) {
+    const usdRateQuote =
+      /* this.getUsdRate(deal.symbol.pair, bar.close, 'quote') */ this.usdRateQuote.get(
+        deal.symbol.pair,
+      ) ?? 1
+    const usdRate =
+      /* this.getUsdRate(deal.symbol.pair, bar.close) */ this.usdRate.get(
+        deal.symbol.pair,
+      ) ?? 1
+    deal.volume = this.math.round(
+      (this.futures
+        ? this.coinm
+          ? deal.usage.current.base
+          : deal.usage.current.quote
+        : this.long
+        ? deal.usage.current.quote * (this.profitBase ? 1 / deal.avgPrice : 1)
+        : deal.usage.current.base * (this.profitBase ? 1 : deal.avgPrice)) *
+        (this.profitBase ? deal.avgPrice : 1) *
+        (this.profitBase ? usdRateQuote : usdRate),
+      3,
+    )
+    return deal
+  }
+
+  private updateDealEquity(deal: Deal) {
+    if (!deal.closedTime) {
+      return deal
+    }
+    const previousValues = Strategy.deals
+      .filter(
+        (d) =>
+          d.closedTime &&
+          d.closedTime <= (deal.closedTime ?? deal.startTime) &&
+          deal.id !== d.id,
+      )
+      .reduce((acc, v) => acc + v.profit.totalUsd, 0)
+    deal.equity = this.math.round(
+      deal.profit.totalUsd + previousValues + Strategy.initialBalanceUsd,
+      3,
+    )
+    console.log(
+      Strategy.deals.filter(
+        (d) =>
+          d.closedTime && d.closedTime <= (deal.closedTime ?? deal.startTime),
+      ),
+      deal,
+      previousValues,
+      Strategy.initialBalanceUsd,
+    )
+    return deal
   }
 
   private filterTP(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
@@ -1733,6 +1805,7 @@ export abstract class Strategy implements StrategyInterface {
     d = this.updateDealUsage(d)
     d = this.updateDealAvgPrice(d, b.time)
     d = this.updateDealDuration(d, b)
+    d = this.updateDealVolume(d)
     return d
   }
 
@@ -2380,6 +2453,7 @@ export abstract class Strategy implements StrategyInterface {
       d.profit.totalUsd = this.math.round(d.profit.totalUsd, 2)
       profit = d.profit
     }
+    d = this.updateDealEquity(d)
 
     if (profit) {
       Strategy.balance += profit.total

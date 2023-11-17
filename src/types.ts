@@ -747,6 +747,8 @@ export type Deal = {
   bestPriceSet?: boolean
   tpSlTargetFilled?: string[]
   lastFilled: number
+  volume: number
+  equity: number
 }
 
 type Balance = {
