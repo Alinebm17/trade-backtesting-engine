@@ -85,6 +85,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
           uoSlow,
           momSource,
           bbwpLookback,
+          xOscillator1,
+          xOscillator2,
+          xOscillator2Interval,
+          xOscillator2length,
+          xoUUID,
         } = i
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
@@ -106,6 +111,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 type,
                 interval: indicatorLength,
                 maType: maType || MAEnum.ema,
+              }
+            : type === IndicatorEnum.xo
+            ? {
+                type: xOscillator1 || IndicatorEnum.rsi,
+                interval: indicatorLength,
               }
             : type === IndicatorEnum.stoch
             ? {
@@ -211,6 +221,28 @@ class TIStrategy extends Strategy implements StrategyInterface {
             id: `${maUUID}@${s.pair}`,
             settings: i,
             interval: maCrossingInterval,
+            statuses: [],
+            status: false,
+            ignore: true,
+            symbol: s.pair,
+          })
+        }
+        if (
+          type === IndicatorEnum.xo &&
+          xOscillator2 &&
+          xOscillator2Interval &&
+          xOscillator2length
+        ) {
+          const indicatorChild = new InternalIndicator({
+            type: xOscillator2 || IndicatorEnum.mfi,
+            interval: xOscillator2length || indicatorLength,
+          })
+          Strategy.indicators.push({
+            instance: indicatorChild,
+            data: [],
+            id: `${xoUUID}@${s.pair}`,
+            settings: i,
+            interval: xOscillator2Interval || indicatorInterval,
             statuses: [],
             status: false,
             ignore: true,
@@ -436,6 +468,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const currentState = [...Strategy.indicators].filter(
         (i) =>
           i.id !== `${i.settings.maUUID}@${nextBar.symbol}` &&
+          `${i.settings.xoUUID}@${nextBar.symbol}` &&
           i.data.length > 0 &&
           i.symbol === nextBar.symbol,
       )
@@ -462,6 +495,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
             stochRange,
             keepConditionBars,
             ecdTrigger,
+            xoUUID,
+            xOscillator1,
           },
           data,
         } = i
@@ -616,6 +651,37 @@ class TIStrategy extends Strategy implements StrategyInterface {
               prevValue = 0
               last = 0
               prev = 0
+            }
+          }
+          if (
+            IndicatorEnum.xo &&
+            lastData.type === xOscillator1 &&
+            prevData.type === xOscillator1
+          ) {
+            last = lastData.value
+            prev = prevData.value
+
+            const findXO = Strategy.indicators.find(
+              (ii) => ii.id === `${xoUUID}@${nextBar.symbol}`,
+            )
+            if (findXO) {
+              const [dataXO, prevXOData] = [
+                ...findXO.instance.currentData,
+              ].sort((a, b) => b.time - a.time)
+              prevValue = prevXOData ? (prevXOData.value as number) : 0
+              value = dataXO ? (dataXO.value as number) : 0
+              if (
+                (prevValue === 0 && value !== 0) ||
+                (value === 0 && prevValue !== 0)
+              ) {
+                value = 0
+                prevValue = 0
+              }
+            } else {
+              last = 0
+              prev = 0
+              value = 0
+              prevValue = 0
             }
           }
           if (

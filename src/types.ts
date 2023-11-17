@@ -29,6 +29,7 @@ export enum IndicatorEnum {
   mom = 'MOM',
   bbwp = 'BBWP',
   ecd = 'ECD',
+  xo = 'XO',
 }
 
 export enum ECDTriggerEnum {
@@ -255,6 +256,7 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.vo
         | IndicatorEnum.mom
         | IndicatorEnum.bbwp
+        | IndicatorEnum.xo
       value: number
     }
   | {
@@ -332,6 +334,11 @@ export type SettingsIndicators = {
   momSource?: string
   bbwpLookback?: number
   ecdTrigger?: ECDTriggerEnum
+  xOscillator1?: IndicatorEnum.rsi | IndicatorEnum.cci | IndicatorEnum.mfi
+  xOscillator2?: IndicatorEnum.rsi | IndicatorEnum.cci | IndicatorEnum.mfi
+  xOscillator2length?: number
+  xOscillator2Interval?: ExchangeIntervals
+  xoUUID?: string
 }
 
 export enum StochRangeEnum {
