@@ -18,6 +18,7 @@ import {
   DCAConditionEnum,
   IndicatorAction,
   timeIntervalMap,
+  OrderSizeTypeEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -3779,8 +3780,12 @@ export abstract class Strategy implements StrategyInterface {
       Math.max(maxTheoreticalUsage, maxDealUsage, maxBotUsage),
       precision,
     )
-    const maxTheoreticalUsageWithRate =
-      maxTheoreticalUsageValue * this.getRate()
+    const maxTheoreticalUsageWithRate = [
+      OrderSizeTypeEnum.percFree,
+      OrderSizeTypeEnum.percTotal,
+    ].includes(this.settings.orderSizeType)
+      ? Strategy.initialBalanceUsd
+      : maxTheoreticalUsageValue * this.getRate()
     /* Strategy.deals = Strategy.deals.map((d) => {
       if (!this.combo) {
         d.ordersHistory = d.ordersHistory.filter(
