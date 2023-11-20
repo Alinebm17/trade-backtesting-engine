@@ -3762,7 +3762,7 @@ export abstract class Strategy implements StrategyInterface {
           (d) => d.closedTime && d.closedTime >= prev && d.closedTime < i,
         )
 
-        const profit = deals.reduce((acc, v) => (acc += v.profit.total), 0)
+        const profit = deals.reduce((acc, v) => (acc += v.profit.perc / 100), 0)
         profitByPeriod.push(profit)
         if (periodRatio === 365) {
           startDate.setHours(24)
