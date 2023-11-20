@@ -1353,6 +1353,17 @@ export class Strategy implements StrategyInterface {
         this.updatePriceWithOldPrice(this.lastBarPrice),
       ) * (this.profitBase ? this.lastBarPrice : 1)
     const buyAndHold = this.getBuyAndHold(firstData, lastData)
+    const budgetUsd =
+      (this.usdRateQuote *
+        +this.settings.budget *
+        (this.coinm ? firstPrice : 1)) /
+      this.leverage
+    const sharpe = this.math.sharpeRatio(profitByPeriod, budgetUsd, periodRatio)
+    const sortino = this.math.santinoRatio(
+      profitByPeriod,
+      budgetUsd,
+      periodRatio,
+    )
     return {
       buyAndHoldEquity: buyAndHold.buyAndHoldEquity,
       values: this.values.sort((a, b) => a.time - b.time),
@@ -1392,11 +1403,7 @@ export class Strategy implements StrategyInterface {
           (totalProfit / this.initialBalances) * 100,
           2,
         ),
-        budgetUsd:
-          (this.usdRateQuote *
-            +this.settings.budget *
-            (this.coinm ? firstPrice : 1)) /
-          this.leverage,
+        budgetUsd,
         avgNetDaily:
           workingDays > 0
             ? this.math.convertFromExponential(
@@ -1531,6 +1538,7 @@ export class Strategy implements StrategyInterface {
           workingTime > 0
             ? friendlyTime(workingTime)
             : { d: '', h: '', min: '', s: '' },
+        botWorkingTimeNumber: workingTime,
       },
       numerical: {
         all: this.transactions.length,
@@ -1557,6 +1565,8 @@ export class Strategy implements StrategyInterface {
           ),
         },
         periodRatio,
+        sharpe: isNaN(sharpe) || !isFinite(sharpe) ? 0 : sharpe,
+        sortino: isNaN(sortino) || !isFinite(sharpe) ? 0 : sortino,
       },
       interval: this.interval ?? ExchangeIntervals.fiveM,
       quoteRate: lastPrice ?? 0,
