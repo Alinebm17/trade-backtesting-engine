@@ -910,6 +910,7 @@ export type DCABacktestingResult = {
     botWorkingTime: SplitTime
     maxDealDuration: SplitTime
     periodName?: string
+    botWorkingTimeNumber: number
   }
   usage: {
     maxTheoreticalUsage: number
@@ -942,6 +943,8 @@ export type DCABacktestingResult = {
       perc: number
     }
     periodRatio: number
+    sharpe: number
+    santino: number
   }
   interval: ExchangeIntervals
   quoteRate: number
