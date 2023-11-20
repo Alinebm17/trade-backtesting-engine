@@ -3873,6 +3873,16 @@ export abstract class Strategy implements StrategyInterface {
         ? quoteRate
         : 1)
     const ratiosUsage = ratiosRate * maxRealUsage
+    const sortino = this.math.santinoRatio(
+      profitByPeriod,
+      ratiosUsage,
+      periodRatio,
+    )
+    const sharpe = this.math.sharpeRatio(
+      profitByPeriod,
+      ratiosUsage,
+      periodRatio,
+    )
     const result: DCABacktestingResult = {
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
@@ -4108,12 +4118,8 @@ export abstract class Strategy implements StrategyInterface {
           ),
         },
         periodRatio,
-        sharpe: this.math.sharpeRatio(profitByPeriod, ratiosUsage, periodRatio),
-        sortino: this.math.santinoRatio(
-          profitByPeriod,
-          ratiosUsage,
-          periodRatio,
-        ),
+        sharpe: isNaN(sharpe) || !isFinite(sharpe) ? 0 : sharpe,
+        sortino: isNaN(sortino) || !isFinite(sharpe) ? 0 : sortino,
       },
       interval: Strategy.interval,
       quoteRate,

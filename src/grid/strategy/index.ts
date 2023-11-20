@@ -1358,6 +1358,12 @@ export class Strategy implements StrategyInterface {
         +this.settings.budget *
         (this.coinm ? firstPrice : 1)) /
       this.leverage
+    const sharpe = this.math.sharpeRatio(profitByPeriod, budgetUsd, periodRatio)
+    const sortino = this.math.santinoRatio(
+      profitByPeriod,
+      budgetUsd,
+      periodRatio,
+    )
     return {
       buyAndHoldEquity: buyAndHold.buyAndHoldEquity,
       values: this.values.sort((a, b) => a.time - b.time),
@@ -1559,8 +1565,8 @@ export class Strategy implements StrategyInterface {
           ),
         },
         periodRatio,
-        sharpe: this.math.sharpeRatio(profitByPeriod, budgetUsd, periodRatio),
-        sortino: this.math.sharpeRatio(profitByPeriod, budgetUsd, periodRatio),
+        sharpe: isNaN(sharpe) || !isFinite(sharpe) ? 0 : sharpe,
+        sortino: isNaN(sortino) || !isFinite(sharpe) ? 0 : sortino,
       },
       interval: this.interval ?? ExchangeIntervals.fiveM,
       quoteRate: lastPrice ?? 0,
