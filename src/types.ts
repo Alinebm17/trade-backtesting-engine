@@ -910,6 +910,7 @@ export type DCABacktestingResult = {
     botWorkingTime: SplitTime
     maxDealDuration: SplitTime
     periodName?: string
+    botWorkingTimeNumber: number
   }
   usage: {
     maxTheoreticalUsage: number
@@ -942,6 +943,8 @@ export type DCABacktestingResult = {
       perc: number
     }
     periodRatio: number
+    sharpe: number
+    sortino: number
   }
   interval: ExchangeIntervals
   quoteRate: number
@@ -1094,6 +1097,7 @@ export type GridBacktestingResult = {
     processingDataTime: number
     botWorkingTime: SplitTime
     periodName?: string
+    botWorkingTimeNumber: number
   }
   numerical: {
     all: number
@@ -1109,6 +1113,8 @@ export type GridBacktestingResult = {
       perc: number
     }
     periodRatio: number
+    sharpe: number
+    sortino: number
   }
   interval?: ExchangeIntervals
   quoteRate: number

@@ -3856,6 +3856,23 @@ export abstract class Strategy implements StrategyInterface {
             : `${Infinity}`,
       })
     }
+    const quoteRate = lastPrice ?? 0
+    const maxRealUsage = this.math.round(
+      Math.max(maxDealUsage, maxBotUsage / maxNumberOfOpenDeals),
+      precision,
+    )
+    const ratiosRate =
+      (this.settings?.futures
+        ? this.settings.coinm
+          ? quoteRate
+          : 1
+        : this.settings.strategy === StrategyEnum.long
+        ? 1
+        : quoteRate) /
+      (this.settings.profitCurrency === 'base' || this.settings.coinm
+        ? quoteRate
+        : 1)
+    const ratiosUsage = ratiosRate * maxRealUsage
     const result: DCABacktestingResult = {
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
@@ -4029,6 +4046,7 @@ export abstract class Strategy implements StrategyInterface {
           Strategy.deals.length > 0
             ? friendlyTime(Math.max(...Strategy.deals.map((cd) => cd.duration)))
             : { d: '', h: '', min: '', s: '' },
+        botWorkingTimeNumber: workingTime,
       },
       usage: {
         maxTheoreticalUsage: this.math.round(
@@ -4039,10 +4057,7 @@ export abstract class Strategy implements StrategyInterface {
           ),
           precision,
         ),
-        maxRealUsage: this.math.round(
-          Math.max(maxDealUsage, maxBotUsage / maxNumberOfOpenDeals),
-          precision,
-        ),
+        maxRealUsage,
         avgRealUsage: avgUsable,
       },
       numerical: {
@@ -4093,9 +4108,15 @@ export abstract class Strategy implements StrategyInterface {
           ),
         },
         periodRatio,
+        sharpe: this.math.sharpeRatio(profitByPeriod, ratiosUsage, periodRatio),
+        sortino: this.math.santinoRatio(
+          profitByPeriod,
+          ratiosUsage,
+          periodRatio,
+        ),
       },
       interval: Strategy.interval,
-      quoteRate: lastPrice ?? 0,
+      quoteRate,
       profits: Strategy.profits,
       multi: Strategy.multi,
       multiPairs: Strategy.multi
