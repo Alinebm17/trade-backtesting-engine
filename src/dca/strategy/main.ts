@@ -4029,7 +4029,6 @@ export abstract class Strategy implements StrategyInterface {
           Strategy.deals.length > 0
             ? friendlyTime(Math.max(...Strategy.deals.map((cd) => cd.duration)))
             : { d: '', h: '', min: '', s: '' },
-        botWorkingTimeNumber: workingTime,
       },
       usage: {
         maxTheoreticalUsage: this.math.round(
