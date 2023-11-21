@@ -115,7 +115,7 @@ class TimerStrategy extends Strategy implements StrategyInterface {
           ? +this.settings.maxDealsPerPair
           : 1
       for (const _ of [...Array(maxPerSymbol).keys()]) {
-        this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
+        this.openDeal(bar.open, bar.time, bar.high, bar.low, bar.symbol)
       }
       next = date.getTime()
     }

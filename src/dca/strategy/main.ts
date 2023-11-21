@@ -2709,7 +2709,6 @@ export abstract class Strategy implements StrategyInterface {
     if (this._stop) {
       return
     }
-    this.checkPosition(b)
     for (let d of Strategy.deals.filter(
       (dd) => dd.status === 'open' && dd.symbol.pair === b.symbol,
     )) {
@@ -2845,7 +2844,7 @@ export abstract class Strategy implements StrategyInterface {
       }
       Strategy.deals = [...Strategy.deals.filter((dd) => dd.id !== d.id), d]
     }
-
+    this.checkPosition(b)
     if ((this.long || this.futures) && !this.coinm) {
       const all = Strategy.deals
         .filter((df) => df.status === 'open')
