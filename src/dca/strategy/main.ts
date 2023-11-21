@@ -3448,7 +3448,7 @@ export abstract class Strategy implements StrategyInterface {
       lowestData.bar = lowestData.bar.filter(
         (b) => b.time >= Strategy.start && b.symbol === firstData.symbol,
       )
-      const steps = Math.min(lowestData.bar.length, 500)
+      const steps = Math.min(Math.floor(lowestData.bar.length / 2), 500)
       const step = Math.floor(lowestData.bar.length / steps)
       const data: FullBar[] = []
       data.push(firstData)
