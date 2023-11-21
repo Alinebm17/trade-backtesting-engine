@@ -46,6 +46,7 @@ export type Indicator = {
 class TIStrategy extends Strategy implements StrategyInterface {
   private lowestData: DataType[] = []
   private firstBar: Map<string, number> = new Map()
+  private nextBarTime: Map<string, number> = new Map()
   constructor(input: StrategyInput) {
     input.settings.indicators = input.settings.indicators.filter(
       (i) => i.indicatorAction !== IndicatorAction.stopBot,
@@ -420,6 +421,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
       this.checkDeals(bar)
     } */
     for (const i of restIndicators) {
+      const nextBarTime = this.nextBarTime.get(i.id)
+      if (
+        nextBarTime &&
+        !(nextBarTime >= range[0] && nextBarTime <= range[1])
+      ) {
+        continue
+      }
       const [data] = Strategy.data.filter((d) => d.interval === i.interval)
       if (data) {
         let bars: FullBar[] = []
@@ -453,6 +461,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             b.time,
             this.updateIndicatorData(i),
           )
+          this.nextBarTime.set(i.id, b.time + timeIntervalMap[i.interval])
           //this.checkDeals(b)
         }
       }
