@@ -40,6 +40,7 @@ class DCABacktesting extends Backtesting {
     edge,
     previousData,
     multi,
+    timezone,
     ...rest
   }: DCABacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
@@ -51,6 +52,7 @@ class DCABacktesting extends Backtesting {
       prices,
       settings,
       trades,
+      timezone,
     })
     this.edge = edge
     this.settings = settings
@@ -70,6 +72,7 @@ class DCABacktesting extends Backtesting {
           edge,
           previousData,
           multi,
+          timezone,
         },
         ...strategy,
       )

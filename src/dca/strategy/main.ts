@@ -60,6 +60,7 @@ export type StrategyInput = {
   edge?: EdgeBacktestEnum
   previousData?: DCABacktestingResult
   multi?: boolean
+  timezone?: string | null
 }
 
 export type DataType = {

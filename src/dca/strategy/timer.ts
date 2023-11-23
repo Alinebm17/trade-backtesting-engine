@@ -7,10 +7,15 @@ import type { DCABotSettings, FullBar, TradeResponse } from '../../types'
 class TimerStrategy extends Strategy implements StrategyInterface {
   public settings: DCABotSettings
 
+  private timezone?: string
+
   constructor(input: StrategyInput) {
     super(input)
     this.settings = input.settings
     this.processBar = this.processBar.bind(this)
+    this.timezone =
+      input.timezone ??
+      (Intl ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined)
   }
 
   public async test(): Promise<void> {
@@ -77,6 +82,26 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     Strategy.next.set(trade.symbol, next)
   }
 
+  private getTimezoneOffset(timeZone: string | undefined, date = new Date()) {
+    const tz = date
+      .toLocaleString('en', { timeZone, timeStyle: 'long' })
+      .split(' ')
+      .slice(-1)[0]
+    const dateString = date.toString()
+    const currentTz = new Date()
+      .toLocaleString('en', {
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timeStyle: 'long',
+      })
+      .split(' ')
+      .slice(-1)[0]
+    const offset =
+      Date.parse(`${dateString} ${currentTz}`) -
+      Date.parse(`${dateString} ${tz}`)
+    console.log(offset, currentTz, tz, dateString)
+    return offset
+  }
+
   public async processBar(bar: FullBar): Promise<void> {
     let next = Strategy.next.get(bar.symbol)
     if (!next) {
@@ -90,9 +115,10 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     }
     if (next === 0) {
       const firstTime = bar.time
-      next = new Date(
+      const time = new Date(
         `${new Date(firstTime).toDateString()} ${this.settings.hodlAt}`,
       ).getTime()
+      next = this.timezone ? time - this.getTimezoneOffset(this.timezone) : time
       if (next < firstTime) {
         const tempDate = new Date(next)
         tempDate.setDate(tempDate.getDate() + 1)

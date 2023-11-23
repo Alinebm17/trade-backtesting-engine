@@ -796,6 +796,7 @@ export type BacktestingInput<T> = {
   combo?: boolean
   trades?: boolean
   multi?: boolean
+  timezone?: string | null
 }
 
 export type LoadDataFn = (
