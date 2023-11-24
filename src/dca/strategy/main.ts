@@ -1942,7 +1942,7 @@ export abstract class Strategy implements StrategyInterface {
             d.filledOrders.find((o) => o.id === m.dcaOrderId) ??
             d.hiddenOrders.find((o) => o.id === m.dcaOrderId)
           if (order?.type === DCAOrderTypeEnum.bo) {
-            return this.closeDeal(d, b)
+            return this.closeDeal(d, b, this.getTP(d, b.close)[0])
           }
           if (order) {
             d.activeOrders.push({
