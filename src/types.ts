@@ -607,6 +607,16 @@ export enum ExchangeEnum {
   bybitSpot = 'bybitSpot',
   paperBybitAll = 'paperBybitAll',
   paperBybitSpot = 'paperBybitSpot',
+  okx = 'okx',
+  okxLinear = 'okxLinear',
+  okxInverse = 'okxInverse',
+  paperOkx = 'paperOkx',
+  paperOkxLinear = 'paperOkxLinear',
+  paperOkxInverse = 'paperOkxInverse',
+  okxAll = 'okxAll',
+  okxSpot = 'okxSpot',
+  paperOkxAll = 'paperOkxAll',
+  paperOkxSpot = 'paperOkxSpot',
 }
 
 export type DCAGrid = {
