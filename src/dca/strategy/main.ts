@@ -1221,14 +1221,18 @@ export abstract class Strategy implements StrategyInterface {
       /* this.getUsdRate(deal.symbol.pair, bar.close) */ this.usdRate.get(
         deal.symbol.pair,
       ) ?? 1
+    const usageBase = this.combo ? deal.usage.max.base : deal.usage.current.base
+    const usageQuote = this.combo
+      ? deal.usage.max.quote
+      : deal.usage.current.quote
     deal.volume = this.math.round(
       (this.futures
         ? this.coinm
-          ? deal.usage.current.base
-          : deal.usage.current.quote
+          ? usageBase
+          : usageQuote
         : this.long
-        ? deal.usage.current.quote * (this.profitBase ? 1 / deal.avgPrice : 1)
-        : deal.usage.current.base * (this.profitBase ? 1 : deal.avgPrice)) *
+        ? usageQuote * (this.profitBase ? 1 / deal.avgPrice : 1)
+        : usageBase * (this.profitBase ? 1 : deal.avgPrice)) *
         (this.profitBase ? deal.avgPrice : 1) *
         (this.profitBase ? usdRateQuote : usdRate),
       3,
@@ -2979,7 +2983,9 @@ export abstract class Strategy implements StrategyInterface {
     const priceDisplacement = this.long
       ? 1 + sellDisplacement
       : 1 - sellDisplacement
-    const price = (quote / qty) * priceDisplacement
+    const price = this.combo
+      ? deal.avgPrice * priceDisplacement
+      : (quote / qty) * priceDisplacement
     let tpPrice = this.math.round(
       _price ??
         price *
@@ -3004,7 +3010,7 @@ export abstract class Strategy implements StrategyInterface {
       filledTime: time,
     }
     if (qty < 0 && this.combo) {
-      return [{ ...tpOrder, qty: 0 }]
+      return []
     }
     if (this.profitBase) {
       const newQty = this.math.round(
@@ -3019,6 +3025,12 @@ export abstract class Strategy implements StrategyInterface {
         : sl
         ? Math.min(tpOrder.qty, newQty)
         : Math.max(tpOrder.qty, newQty)
+    }
+    if (
+      tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount &&
+      this.combo
+    ) {
+      return []
     }
     if (
       tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount &&
@@ -3297,7 +3309,7 @@ export abstract class Strategy implements StrategyInterface {
       true,
     )
 
-    /*  console.log(
+    /* console.log(
       'profit',
       total,
       'total',
