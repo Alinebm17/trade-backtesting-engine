@@ -2426,7 +2426,7 @@ export abstract class Strategy implements StrategyInterface {
     d.splitDuration = friendlyTime(d.duration)
     d.mingrids = d.mingrids.map((m) => this.closeMinigrid(m))
     d.liquidationPrice = liquidationPrice
-    if (tpOrder) {
+    if (tpOrder && tpOrder.qty > 0) {
       const { price } = tpOrder
       closePrice = price
       d.closePrice = price
@@ -3010,7 +3010,7 @@ export abstract class Strategy implements StrategyInterface {
       filledTime: time,
     }
     if (qty < 0 && this.combo) {
-      return []
+      return [{ ...tpOrder, qty: 0 }]
     }
     if (this.profitBase) {
       const newQty = this.math.round(
@@ -3030,7 +3030,7 @@ export abstract class Strategy implements StrategyInterface {
       tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount &&
       this.combo
     ) {
-      return []
+      return [{ ...tpOrder, qty: 0 }]
     }
     if (
       tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount &&
