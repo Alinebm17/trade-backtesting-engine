@@ -3651,7 +3651,11 @@ export abstract class Strategy implements StrategyInterface {
             true,
             false,
           )[0]
-          const { qty, price: tpPrice } = tp
+          const { price: tpPrice } = tp
+          const qty = tp?.qty ?? 0
+          if (qty === 0) {
+            continue
+          }
           const filledOrders = od.filledOrders.filter(
             (fo) =>
               fo.type &&
