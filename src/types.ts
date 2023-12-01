@@ -268,7 +268,10 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.mom
       value: PercentileResult
     }
-  | { type: IndicatorEnum.xo | IndicatorEnum.bbwp; value: number }
+  | {
+      type: IndicatorEnum.xo | IndicatorEnum.bbwp | IndicatorEnum.ecd
+      value: number
+    }
   | {
       type: IndicatorEnum.macd
       value: FasterMACDResult

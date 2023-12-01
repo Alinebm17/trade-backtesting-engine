@@ -669,7 +669,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
             last = lastData.value.value
             prev = prevData.value.value
             if (percentile) {
-              console.log(lastData, prevData)
               const tmpValue = lastData.value.percentile
               const tmpPrevValue = prevData.value.percentile
               if (
