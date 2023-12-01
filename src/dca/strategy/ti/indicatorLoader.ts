@@ -88,68 +88,127 @@ export default class InternalIndicator {
       this.length = 100
     }
     if (indicatorConfig.type === IndicatorEnum.rsi) {
-      this.indicator = new FasterRSI(indicatorConfig.interval)
-      this.length = indicatorConfig.interval
+      this.indicator = new FasterRSI(
+        indicatorConfig.interval,
+        undefined,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length =
+        indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.ecd) {
       this.indicator = new FasterECD()
       this.length = 2
     }
     if (indicatorConfig.type === IndicatorEnum.cci) {
-      this.indicator = new FasterCCI(indicatorConfig.interval, 'hlc3')
-      this.length = indicatorConfig.interval
+      this.indicator = new FasterCCI(
+        indicatorConfig.interval,
+        'hlc3',
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length =
+        indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.ao) {
-      this.indicator = new FasterAO(5, 34)
-      this.length = 34
+      this.indicator = new FasterAO(
+        5,
+        34,
+        undefined,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length = 34 + (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.wr) {
-      this.indicator = new FasterWilliamsR(indicatorConfig.interval)
-      this.length = indicatorConfig.interval
+      this.indicator = new FasterWilliamsR(
+        indicatorConfig.interval,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length =
+        indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.uo) {
       this.indicator = new FasterUltimateOscillator(
         indicatorConfig.fast,
         indicatorConfig.middle,
         indicatorConfig.slow,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
       )
-      this.length = Math.max(
-        indicatorConfig.fast,
-        indicatorConfig.middle,
-        indicatorConfig.slow,
-      )
+      this.length =
+        Math.max(
+          indicatorConfig.fast,
+          indicatorConfig.middle,
+          indicatorConfig.slow,
+        ) + (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.mom) {
-      this.length = 100
+      this.length = Math.max(
+        indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0),
+        100,
+      )
       this.indicator = new FasterMOM(
         indicatorConfig.interval,
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         //@ts-ignore
         indicatorConfig.source,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
       )
     }
     if (indicatorConfig.type === IndicatorEnum.vo) {
       this.indicator = new FasterVO(
         indicatorConfig.voShort,
         indicatorConfig.voLong,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
       )
-      this.length = indicatorConfig.voLong
+      this.length =
+        indicatorConfig.voLong + (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.mfi) {
-      this.indicator = new FasterMFI(indicatorConfig.interval)
-      this.length = indicatorConfig.interval
+      this.indicator = new FasterMFI(
+        indicatorConfig.interval,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length =
+        indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.adx) {
-      this.indicator = new FasterADX(indicatorConfig.interval)
-      this.length = indicatorConfig.interval
+      this.indicator = new FasterADX(
+        indicatorConfig.interval,
+        undefined,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length =
+        indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.bbw) {
       const bb = new FasterBollingerBands(
         indicatorConfig.interval,
         indicatorConfig.deviationMultiplier,
       )
-      this.indicator = new FasterBollingerBandsWidth(bb)
-      this.length = indicatorConfig.interval
+      this.indicator = new FasterBollingerBandsWidth(
+        bb,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length =
+        indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.bbwp) {
       const bb = new FasterBollingerBands(indicatorConfig.interval, 1)
@@ -169,10 +228,14 @@ export default class InternalIndicator {
         new FasterEMA(indicatorConfig.shortInterval),
         new FasterEMA(indicatorConfig.longInterval),
         new FasterEMA(indicatorConfig.signalInterval),
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
       )
       this.length =
         Math.max(indicatorConfig.longInterval + indicatorConfig.shortInterval) +
-        indicatorConfig.signalInterval
+        indicatorConfig.signalInterval +
+        (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.ma) {
       if (indicatorConfig.maType === MAEnum.ema) {

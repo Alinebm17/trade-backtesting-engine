@@ -149,6 +149,12 @@ export type MAResult = {
   price: number
 }
 
+type Percentile = {
+  percentile?: boolean
+  percentileLookback?: number
+  percentilePercentage?: number
+}
+
 export type IndicatorConfigBackTesting =
   | { type: IndicatorEnum.ecd }
   | {
@@ -156,21 +162,21 @@ export type IndicatorConfigBackTesting =
       checkLevel?: number
       useAsEntryExitPoints?: boolean
     }
-  | {
+  | ({
       type: IndicatorEnum.ao
-    }
-  | {
+    } & Percentile)
+  | ({
       type: IndicatorEnum.mom
       interval: number
       source: string
-    }
+    } & Percentile)
   | {
       type: IndicatorEnum.bbwp
       interval: number
       lookback: number
       source: string
     }
-  | {
+  | ({
       type:
         | IndicatorEnum.rsi
         | IndicatorEnum.adx
@@ -178,22 +184,22 @@ export type IndicatorConfigBackTesting =
         | IndicatorEnum.cci
         | IndicatorEnum.wr
       interval: number
-    }
-  | {
+    } & Percentile)
+  | ({
       type: IndicatorEnum.bbw
       interval: number
       deviationMultiplier?: number
-    }
+    } & Percentile)
   | {
       type: IndicatorEnum.bb
       interval: number
     }
-  | {
+  | ({
       type: IndicatorEnum.macd
       longInterval: number
       shortInterval: number
       signalInterval: number
-    }
+    } & Percentile)
   | {
       type: IndicatorEnum.ma
       maType: MAEnum
@@ -230,17 +236,22 @@ export type IndicatorConfigBackTesting =
       inc: number
       max: number
     }
-  | {
+  | ({
       type: IndicatorEnum.vo
       voLong: number
       voShort: number
-    }
-  | {
+    } & Percentile)
+  | ({
       type: IndicatorEnum.uo
       fast: number
       middle: number
       slow: number
-    }
+    } & Percentile)
+
+type PercentileResult = {
+  percentile?: number
+  value: number
+}
 
 export type IndicatorHistory = { time: number } & (
   | {
@@ -255,10 +266,9 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.mfi
         | IndicatorEnum.vo
         | IndicatorEnum.mom
-        | IndicatorEnum.bbwp
-        | IndicatorEnum.xo
-      value: number
+      value: PercentileResult
     }
+  | { type: IndicatorEnum.xo | IndicatorEnum.bbwp; value: number }
   | {
       type: IndicatorEnum.macd
       value: FasterMACDResult
@@ -339,6 +349,9 @@ export type SettingsIndicators = {
   xOscillator2length?: number
   xOscillator2Interval?: ExchangeIntervals
   xoUUID?: string
+  percentile?: boolean
+  percentileLookback?: number
+  percentilePercentage?: number
 }
 
 export enum StochRangeEnum {

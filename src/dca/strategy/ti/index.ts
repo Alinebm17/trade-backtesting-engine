@@ -92,6 +92,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
           xOscillator2Interval,
           xOscillator2length,
           xoUUID,
+          percentile,
+          percentileLookback,
+          percentilePercentage,
         } = i
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
@@ -100,6 +103,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 shortInterval: 12,
                 longInterval: 26,
                 signalInterval: indicatorLength,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
               }
             : type === IndicatorEnum.tv
             ? {
@@ -140,12 +146,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 fast: uoFast ?? 7,
                 middle: uoMiddle ?? 14,
                 slow: uoSlow ?? 28,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
               }
             : type === IndicatorEnum.mom
             ? {
                 type,
                 interval: indicatorLength,
                 source: momSource ?? 'close',
+                percentile,
+                percentileLookback,
+                percentilePercentage,
               }
             : type === IndicatorEnum.bbwp
             ? {
@@ -164,6 +176,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
             ? {
                 type,
                 interval: indicatorLength ?? 14,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
               }
             : type === IndicatorEnum.qfl
             ? {
@@ -185,12 +200,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 type,
                 voLong: voLong ?? 10,
                 voShort: voShort ?? 5,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
               }
             : type === IndicatorEnum.ecd
             ? { type }
             : ({
                 type,
                 interval: indicatorLength,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
               } as IndicatorConfigBackTesting),
         )
         Strategy.indicators.push({
@@ -534,6 +555,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             ecdTrigger,
             xoUUID,
             xOscillator1,
+            percentile,
           },
           data,
         } = i
@@ -632,7 +654,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
               lastData.type === IndicatorEnum.mfi ||
               lastData.type === IndicatorEnum.adx ||
               lastData.type === IndicatorEnum.bbw ||
-              lastData.type === IndicatorEnum.bbwp ||
               lastData.type === IndicatorEnum.vo) &&
             (prevData.type === IndicatorEnum.rsi ||
               prevData.type === IndicatorEnum.ao ||
@@ -643,8 +664,31 @@ class TIStrategy extends Strategy implements StrategyInterface {
               prevData.type === IndicatorEnum.mfi ||
               prevData.type === IndicatorEnum.adx ||
               prevData.type === IndicatorEnum.bbw ||
-              prevData.type === IndicatorEnum.bbwp ||
               prevData.type === IndicatorEnum.vo)
+          ) {
+            last = lastData.value.value
+            prev = prevData.value.value
+            if (percentile) {
+              console.log(lastData, prevData)
+              const tmpValue = lastData.value.percentile
+              const tmpPrevValue = prevData.value.percentile
+              if (
+                typeof tmpValue === 'undefined' ||
+                typeof tmpPrevValue === 'undefined'
+              ) {
+                last = 0
+                prev = 0
+                value = 0
+                prevValue = 0
+              } else {
+                value = tmpValue
+                prevValue = tmpPrevValue
+              }
+            }
+          }
+          if (
+            lastData.type === IndicatorEnum.bbwp &&
+            prevData.type === IndicatorEnum.bbwp
           ) {
             last = lastData.value
             prev = prevData.value
@@ -695,8 +739,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
             lastData.type === xOscillator1 &&
             prevData.type === xOscillator1
           ) {
-            last = lastData.value
-            prev = prevData.value
+            last = lastData.value.value
+            prev = prevData.value.value
 
             const findXO = Strategy.indicators.find(
               (ii) => ii.id === `${xoUUID}@${nextBar.symbol}`,
