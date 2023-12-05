@@ -27,6 +27,7 @@ import {
   FasterMOM,
   FasterBBWP,
   FasterECD,
+  FasterMAR,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -65,6 +66,7 @@ export default class InternalIndicator {
     | FasterMOM
     | FasterBBWP
     | FasterECD
+    | FasterMAR
 
   private data: IndicatorHistory[] = []
 
@@ -97,6 +99,20 @@ export default class InternalIndicator {
       )
       this.length =
         indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0)
+    }
+    if (indicatorConfig.type === IndicatorEnum.mar) {
+      this.indicator = new FasterMAR(
+        indicatorConfig.mar1type,
+        indicatorConfig.mar1length,
+        indicatorConfig.mar2type,
+        indicatorConfig.mar2length,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length =
+        Math.max(indicatorConfig.mar1length, indicatorConfig.mar2length) +
+        (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.ecd) {
       this.indicator = new FasterECD()
@@ -375,7 +391,8 @@ export default class InternalIndicator {
       this.indicator &&
       (this.indicator instanceof FasterVWMA ||
         this.indicator instanceof FasterMFI ||
-        this.indicator instanceof FasterTVTA)
+        this.indicator instanceof FasterTVTA ||
+        this.indicator instanceof FasterMAR)
     ) {
       this.indicator?.update({
         high: +value.h,

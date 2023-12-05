@@ -30,6 +30,7 @@ export enum IndicatorEnum {
   bbwp = 'BBWP',
   ecd = 'ECD',
   xo = 'XO',
+  mar = 'MAR',
 }
 
 export enum ECDTriggerEnum {
@@ -242,6 +243,13 @@ export type IndicatorConfigBackTesting =
       voShort: number
     } & Percentile)
   | ({
+      type: IndicatorEnum.mar
+      mar1type: MAEnum
+      mar1length: number
+      mar2type: MAEnum
+      mar2length: number
+    } & Percentile)
+  | ({
       type: IndicatorEnum.uo
       fast: number
       middle: number
@@ -266,6 +274,7 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.mfi
         | IndicatorEnum.vo
         | IndicatorEnum.mom
+        | IndicatorEnum.mar
       value: PercentileResult
     }
   | {
@@ -355,6 +364,10 @@ export type SettingsIndicators = {
   percentile?: boolean
   percentileLookback?: number
   percentilePercentage?: number
+  mar1length?: number
+  mar1type?: MAEnum
+  mar2length?: number
+  mar2type?: MAEnum
 }
 
 export enum StochRangeEnum {

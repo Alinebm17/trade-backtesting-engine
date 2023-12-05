@@ -95,6 +95,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
           percentile,
           percentileLookback,
           percentilePercentage,
+          mar1type,
+          mar1length,
+          mar2type,
+          mar2length,
         } = i
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
@@ -158,6 +162,14 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 percentile,
                 percentileLookback,
                 percentilePercentage,
+              }
+            : type === IndicatorEnum.mar
+            ? {
+                type,
+                mar1type: mar1type || MAEnum.ema,
+                mar1length: mar1length || 20,
+                mar2type: mar2type || MAEnum.price,
+                mar2length: mar2length || 20,
               }
             : type === IndicatorEnum.bbwp
             ? {
@@ -654,7 +666,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
               lastData.type === IndicatorEnum.mfi ||
               lastData.type === IndicatorEnum.adx ||
               lastData.type === IndicatorEnum.bbw ||
-              lastData.type === IndicatorEnum.vo) &&
+              lastData.type === IndicatorEnum.vo ||
+              lastData.type === IndicatorEnum.mar) &&
             (prevData.type === IndicatorEnum.rsi ||
               prevData.type === IndicatorEnum.ao ||
               prevData.type === IndicatorEnum.cci ||
@@ -664,7 +677,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
               prevData.type === IndicatorEnum.mfi ||
               prevData.type === IndicatorEnum.adx ||
               prevData.type === IndicatorEnum.bbw ||
-              prevData.type === IndicatorEnum.vo)
+              prevData.type === IndicatorEnum.vo ||
+              prevData.type === IndicatorEnum.mar)
           ) {
             last = lastData.value.value
             prev = prevData.value.value
