@@ -170,6 +170,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 mar1length: mar1length || 20,
                 mar2type: mar2type || MAEnum.price,
                 mar2length: mar2length || 20,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
               }
             : type === IndicatorEnum.bbwp
             ? {
