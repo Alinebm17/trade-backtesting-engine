@@ -30,7 +30,7 @@ import type {
   FullBar,
 } from '../../../types'
 import type { DataType, StrategyInput } from '../main'
-import { PercentileResult } from 'indicators/src'
+import { PercentileResult } from '../../../../indicators/src'
 
 export type Indicator = {
   instance: InternalIndicator
