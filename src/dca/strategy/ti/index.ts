@@ -30,6 +30,7 @@ import type {
   FullBar,
 } from '../../../types'
 import type { DataType, StrategyInput } from '../main'
+import { PercentileResult } from 'indicators/src'
 
 export type Indicator = {
   instance: InternalIndicator
@@ -765,8 +766,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
               const [dataXO, prevXOData] = [
                 ...findXO.instance.currentData,
               ].sort((a, b) => b.time - a.time)
-              prevValue = prevXOData ? (prevXOData.value as number) : 0
-              value = dataXO ? (dataXO.value as number) : 0
+              prevValue = prevXOData
+                ? (prevXOData.value as PercentileResult).value
+                : 0
+              value = dataXO ? (dataXO.value as PercentileResult).value : 0
             } else {
               last = 0
               prev = 0
