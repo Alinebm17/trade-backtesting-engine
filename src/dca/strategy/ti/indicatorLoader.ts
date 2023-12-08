@@ -418,6 +418,7 @@ export default class InternalIndicator {
         this.indicator instanceof FasterTVTA ||
         this.indicator instanceof FasterMAR ||
         this.indicator instanceof FasterBollingerBandsWidth ||
+        this.indicator instanceof FasterBBWP ||
         this.indicator instanceof FasterBollingerBands)
     ) {
       this.indicator?.update({
@@ -431,7 +432,6 @@ export default class InternalIndicator {
     if (
       this.indicator &&
       (this.indicator instanceof FasterMOM ||
-        this.indicator instanceof FasterBBWP ||
         this.indicator instanceof FasterECD)
     ) {
       this.indicator?.update({
