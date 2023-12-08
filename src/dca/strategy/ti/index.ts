@@ -100,6 +100,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
           mar1length,
           mar2type,
           mar2length,
+          bbwMa,
+          bbwMaLength,
+          bbwMult,
         } = i
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
@@ -124,6 +127,25 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 type,
                 interval: indicatorLength,
                 maType: maType || MAEnum.ema,
+              }
+            : type === IndicatorEnum.bb
+            ? {
+                type,
+                interval: indicatorLength,
+                bbwMa: bbwMa || MAEnum.sma,
+                bbwMaLength: bbwMaLength || 20,
+                bbwMult: bbwMult || 2,
+              }
+            : type === IndicatorEnum.bbw
+            ? {
+                type,
+                interval: indicatorLength,
+                bbwMa: bbwMa || MAEnum.sma,
+                bbwMaLength: bbwMaLength || 20,
+                bbwMult: bbwMult || 2,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
               }
             : type === IndicatorEnum.xo
             ? {

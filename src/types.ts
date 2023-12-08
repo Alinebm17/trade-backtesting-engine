@@ -187,14 +187,12 @@ export type IndicatorConfigBackTesting =
       interval: number
     } & Percentile)
   | ({
-      type: IndicatorEnum.bbw
+      type: IndicatorEnum.bbw | IndicatorEnum.bb
       interval: number
-      deviationMultiplier?: number
+      bbwMult?: number
+      bbwMa?: MAEnum
+      bbwMaLength?: number
     } & Percentile)
-  | {
-      type: IndicatorEnum.bb
-      interval: number
-    }
   | ({
       type: IndicatorEnum.macd
       longInterval: number
@@ -368,6 +366,9 @@ export type SettingsIndicators = {
   mar1type?: MAEnum
   mar2length?: number
   mar2type?: MAEnum
+  bbwMult?: number
+  bbwMa?: MAEnum
+  bbwMaLength?: number
 }
 
 export enum StochRangeEnum {

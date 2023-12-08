@@ -216,7 +216,9 @@ export default class InternalIndicator {
     if (indicatorConfig.type === IndicatorEnum.bbw) {
       const bb = new FasterBollingerBands(
         indicatorConfig.interval,
-        indicatorConfig.deviationMultiplier,
+        indicatorConfig.bbwMult ?? 2,
+        indicatorConfig.bbwMa ?? MAEnum.sma,
+        indicatorConfig.bbwMaLength ?? 20,
       )
       this.indicator = new FasterBollingerBandsWidth(
         bb,
@@ -225,10 +227,22 @@ export default class InternalIndicator {
         indicatorConfig.percentilePercentage,
       )
       this.length =
-        indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0)
+        indicatorConfig.interval +
+        (indicatorConfig.bbwMaLength ?? 0) *
+          (indicatorConfig.bbwMa === MAEnum.tema
+            ? 3
+            : indicatorConfig.bbwMa === MAEnum.dema
+            ? 2
+            : 1) +
+        (indicatorConfig.percentileLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.bbwp) {
-      const bb = new FasterBollingerBands(indicatorConfig.interval, 1)
+      const bb = new FasterBollingerBands(
+        indicatorConfig.interval,
+        1,
+        MAEnum.sma,
+        20,
+      )
       this.indicator = new FasterBBWP(
         bb,
         indicatorConfig.lookback,
@@ -237,8 +251,20 @@ export default class InternalIndicator {
       this.length = indicatorConfig.interval + indicatorConfig.lookback
     }
     if (indicatorConfig.type === IndicatorEnum.bb) {
-      this.indicator = new FasterBollingerBands(indicatorConfig.interval, 2)
-      this.length = indicatorConfig.interval
+      this.indicator = new FasterBollingerBands(
+        indicatorConfig.interval,
+        indicatorConfig.bbwMult ?? 2,
+        indicatorConfig.bbwMa ?? MAEnum.sma,
+        indicatorConfig.bbwMaLength ?? 20,
+      )
+      this.length =
+        indicatorConfig.interval +
+        (indicatorConfig.bbwMaLength ?? 0) *
+          (indicatorConfig.bbwMa === MAEnum.tema
+            ? 3
+            : indicatorConfig.bbwMa === MAEnum.dema
+            ? 2
+            : 1)
     }
     if (indicatorConfig.type === IndicatorEnum.macd) {
       this.indicator = new FasterMACD(
@@ -356,8 +382,6 @@ export default class InternalIndicator {
     if (
       this.indicator &&
       (this.indicator instanceof FasterRSI ||
-        this.indicator instanceof FasterBollingerBandsWidth ||
-        this.indicator instanceof FasterBollingerBands ||
         this.indicator instanceof FasterMACD ||
         this.indicator instanceof FasterEMA ||
         this.indicator instanceof FasterDEMA ||
@@ -392,7 +416,9 @@ export default class InternalIndicator {
       (this.indicator instanceof FasterVWMA ||
         this.indicator instanceof FasterMFI ||
         this.indicator instanceof FasterTVTA ||
-        this.indicator instanceof FasterMAR)
+        this.indicator instanceof FasterMAR ||
+        this.indicator instanceof FasterBollingerBandsWidth ||
+        this.indicator instanceof FasterBollingerBands)
     ) {
       this.indicator?.update({
         high: +value.h,
