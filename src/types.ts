@@ -31,6 +31,7 @@ export enum IndicatorEnum {
   ecd = 'ECD',
   xo = 'XO',
   mar = 'MAR',
+  bbpb = 'BBPB',
 }
 
 export enum ECDTriggerEnum {
@@ -187,7 +188,7 @@ export type IndicatorConfigBackTesting =
       interval: number
     } & Percentile)
   | ({
-      type: IndicatorEnum.bbw | IndicatorEnum.bb
+      type: IndicatorEnum.bbw | IndicatorEnum.bb | IndicatorEnum.bbpb
       interval: number
       bbwMult?: number
       bbwMa?: MAEnum
@@ -273,6 +274,7 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.vo
         | IndicatorEnum.mom
         | IndicatorEnum.mar
+        | IndicatorEnum.bbpb
       value: PercentileResult
     }
   | {

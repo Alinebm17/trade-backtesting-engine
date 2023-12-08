@@ -28,6 +28,7 @@ import {
   FasterBBWP,
   FasterECD,
   FasterMAR,
+  FasterBBPB,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -67,6 +68,7 @@ export default class InternalIndicator {
     | FasterBBWP
     | FasterECD
     | FasterMAR
+    | FasterBBPB
 
   private data: IndicatorHistory[] = []
 
@@ -221,6 +223,29 @@ export default class InternalIndicator {
         indicatorConfig.bbwMaLength ?? 20,
       )
       this.indicator = new FasterBollingerBandsWidth(
+        bb,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length =
+        indicatorConfig.interval +
+        (indicatorConfig.bbwMaLength ?? 0) *
+          (indicatorConfig.bbwMa === MAEnum.tema
+            ? 3
+            : indicatorConfig.bbwMa === MAEnum.dema
+            ? 2
+            : 1) +
+        (indicatorConfig.percentileLookback ?? 0)
+    }
+    if (indicatorConfig.type === IndicatorEnum.bbpb) {
+      const bb = new FasterBollingerBands(
+        indicatorConfig.interval,
+        indicatorConfig.bbwMult ?? 2,
+        indicatorConfig.bbwMa ?? MAEnum.sma,
+        indicatorConfig.bbwMaLength ?? 20,
+      )
+      this.indicator = new FasterBBPB(
         bb,
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
@@ -419,6 +444,7 @@ export default class InternalIndicator {
         this.indicator instanceof FasterMAR ||
         this.indicator instanceof FasterBollingerBandsWidth ||
         this.indicator instanceof FasterBBWP ||
+        this.indicator instanceof FasterBBPB ||
         this.indicator instanceof FasterBollingerBands)
     ) {
       this.indicator?.update({

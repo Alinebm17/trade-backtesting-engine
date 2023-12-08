@@ -147,6 +147,17 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 percentileLookback,
                 percentilePercentage,
               }
+            : type === IndicatorEnum.bbpb
+            ? {
+                type,
+                interval: indicatorLength,
+                bbwMa: bbwMa || MAEnum.sma,
+                bbwMaLength: bbwMaLength || 20,
+                bbwMult: bbwMult || 2,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+              }
             : type === IndicatorEnum.xo
             ? {
                 type: xOscillator1 || IndicatorEnum.rsi,
@@ -692,6 +703,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               lastData.type === IndicatorEnum.mfi ||
               lastData.type === IndicatorEnum.adx ||
               lastData.type === IndicatorEnum.bbw ||
+              lastData.type === IndicatorEnum.bbpb ||
               lastData.type === IndicatorEnum.vo ||
               lastData.type === IndicatorEnum.mar) &&
             (prevData.type === IndicatorEnum.rsi ||
@@ -703,6 +715,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               prevData.type === IndicatorEnum.mfi ||
               prevData.type === IndicatorEnum.adx ||
               prevData.type === IndicatorEnum.bbw ||
+              prevData.type === IndicatorEnum.bbpb ||
               prevData.type === IndicatorEnum.vo ||
               prevData.type === IndicatorEnum.mar)
           ) {
