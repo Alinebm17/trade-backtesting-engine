@@ -936,7 +936,14 @@ export abstract class Strategy implements StrategyInterface {
       symbol.priceAssetPrecision,
     )
     let initialOrders = botFunctions
-      .createOrders(orderPrice, true, undefined, undefined, this.getBalances(s))
+      .createOrders(
+        orderPrice,
+        true,
+        undefined,
+        undefined,
+        this.getBalances(s),
+        true,
+      )
       .filter(
         (o) =>
           o.type !== DCAOrderTypeEnum.sl && o.type !== DCAOrderTypeEnum.grid,
@@ -2029,6 +2036,7 @@ export abstract class Strategy implements StrategyInterface {
                 undefined,
                 [],
                 this.getBalances(d.symbol.pair),
+                true,
               )
               const dcaOrder = orders.find((o) => o.levelNumber === index + 1)
               if (dcaOrder) {
@@ -2770,17 +2778,16 @@ export abstract class Strategy implements StrategyInterface {
           d = this.checkTrailing(d, b.high, b.time)
           // high -> low movement. Check SL if it was moved. If SL not filled check DCA
           if (!tpOrder) {
+            d = this.processGridOrders(d, b)
+            if (d.status === 'closed') {
+              continue
+            }
+            d = this.processDCAOrders(d, b)
+
             const slReturn = this.getSLOrder(d, b)
             d = slReturn.deal
             if (slReturn.order) {
               tpOrder = slReturn.order
-            }
-            if (!tpOrder) {
-              d = this.processGridOrders(d, b)
-              if (d.status === 'closed') {
-                return
-              }
-              d = this.processDCAOrders(d, b)
             }
           }
           // low -> close movement. Check TP
@@ -2800,17 +2807,16 @@ export abstract class Strategy implements StrategyInterface {
           d = this.checkTrailing(d, b.low, b.time)
           // low -> high movement. Check moved SL, If SL not filled, check DCA
           if (!tpOrder) {
+            d = this.processGridOrders(d, b)
+            if (d.status === 'closed') {
+              return
+            }
+            d = this.processDCAOrders(d, b)
+
             const slReturn = this.getSLOrder(d, b)
             d = slReturn.deal
             if (slReturn.order) {
               tpOrder = slReturn.order
-            }
-            if (!tpOrder) {
-              d = this.processGridOrders(d, b)
-              if (d.status === 'closed') {
-                return
-              }
-              d = this.processDCAOrders(d, b)
             }
           }
           // high -> close. Check TP
@@ -3392,6 +3398,7 @@ export abstract class Strategy implements StrategyInterface {
       undefined,
       undefined,
       this.balances,
+      true,
     )
     const regular = dealOrders
       .filter(
