@@ -3830,6 +3830,21 @@ export abstract class Strategy implements StrategyInterface {
     const symbolStats: SymbolStats[] = []
     for (const s of this.symbols.keys()) {
       const deals = Strategy.deals.filter((d) => d.symbol.pair === s)
+      const maxSymbolValue =
+        Math.max(
+          ...deals.map(
+            (d) =>
+              (this.futures
+                ? this.coinm
+                  ? d.usage.current.base
+                  : d.usage.current.quote
+                : !this.long
+                ? d.usage.current.base
+                : d.usage.current.quote) / this.leverage,
+          ),
+        ) *
+        this.getRate() *
+        +(this.settings.maxDealsPerPair ?? '1')
       const profitDealsStats = deals.filter(
         (d) => d.profit.total > 0 && d.status === 'closed',
       )
@@ -3869,16 +3884,20 @@ export abstract class Strategy implements StrategyInterface {
         netProfit: {
           total: this.math.round(profit, precisionStats),
           totalUsd: this.math.round(profitUsd),
-          perc: this.math.round(
-            (profitUsd / maxTheoreticalUsageWithRate) * 100,
-          ),
+          perc:
+            maxSymbolValue === 0
+              ? 0
+              : this.math.round((profitUsd / maxSymbolValue) * 100),
         },
         dailyReturn: {
           total: this.math.round(profit / workingDays, precisionStats),
           totalUsd: this.math.round(profitUsd / workingDays),
-          perc: this.math.round(
-            (profitUsd / workingDays / maxTheoreticalUsageWithRate) * 100,
-          ),
+          perc:
+            maxSymbolValue === 0
+              ? 0
+              : this.math.round(
+                  (profitUsd / workingDays / maxSymbolValue) * 100,
+                ),
         },
         profitAsset: this.profitBase
           ? symbol?.baseAsset?.name ?? ''
