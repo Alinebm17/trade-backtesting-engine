@@ -942,6 +942,8 @@ export type DCABacktestingResult = {
     maxDrawDownUsd: number
     maxDrawDownPerc: number
     initialBalanceUsd: number
+    stDevWinningTrade?: number
+    stDevLosingTrade?: number
   }
   duration: {
     avgDealDuration: number
@@ -954,6 +956,10 @@ export type DCABacktestingResult = {
     maxDealDuration: SplitTime
     periodName?: string
     botWorkingTimeNumber: number
+    avgWinningTrade?: number
+    maxWinningTrade?: number
+    avgLosingTrade?: number
+    maxLosingTrade?: number
   }
   usage: {
     maxTheoreticalUsage: number

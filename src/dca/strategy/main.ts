@@ -3611,6 +3611,25 @@ export abstract class Strategy implements StrategyInterface {
     const lossDeals = Strategy.deals.filter(
       (d) => d.profit.perc <= 0 && d.status === 'closed',
     )
+    const profitDuration = profitDeals.reduce(
+      (acc, d) => (acc += d.duration),
+      0,
+    )
+    const avgProfitDuration =
+      profitDeals.length > 0
+        ? this.math.round(profitDuration / profitDeals.length, 0)
+        : 0
+    const maxProfitDuration = Math.max(...profitDeals.map((d) => d.duration), 0)
+    let stDevProfit = this.math.stDev(profitDeals.map((d) => d.profit.perc))
+    stDevProfit = isNaN(stDevProfit) ? 0 : stDevProfit
+    const lossDuration = lossDeals.reduce((acc, d) => (acc += d.duration), 0)
+    const avgLossDuration =
+      lossDeals.length > 0
+        ? this.math.round(lossDuration / lossDeals.length, 0)
+        : 0
+    const maxLossDuration = Math.max(...lossDeals.map((d) => d.duration), 0)
+    let stDevLoss = this.math.stDev(lossDeals.map((d) => d.profit.perc))
+    stDevLoss = isNaN(stDevLoss) ? 0 : stDevLoss
     const allProfit = profitDeals.reduce((acc, d) => (acc += d.profit.total), 0)
     const allProfitUsd = profitDeals.reduce(
       (acc, d) => (acc += d.profit.totalUsd),
@@ -4089,9 +4108,15 @@ export abstract class Strategy implements StrategyInterface {
           true,
         ),
         initialBalanceUsd: this.math.round(Strategy.initialBalanceUsd, 4),
+        stDevLosingTrade: stDevLoss,
+        stDevWinningTrade: stDevProfit,
       },
       noData: !firstData && !lastData,
       duration: {
+        avgLosingTrade: avgLossDuration,
+        avgWinningTrade: avgProfitDuration,
+        maxLosingTrade: maxLossDuration,
+        maxWinningTrade: maxProfitDuration,
         avgDealDuration: avgDuration,
         avgSplitDealDuration:
           avgDuration > 0
