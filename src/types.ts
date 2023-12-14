@@ -848,6 +848,8 @@ export type LoadDataFn = (
   resolution: ResolutionString,
   periodToUse: PeriodParams,
   exchange: ExchangeEnum,
+  index?: number,
+  total?: number,
 ) => Promise<Bar[]>
 
 export type Profit = {

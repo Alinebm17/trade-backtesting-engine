@@ -125,10 +125,12 @@ class DCABacktesting extends Backtesting {
         const data = await this._loadData()
         testData = [{ bar: data, interval: this.interval }]
       } else {
-        const queries: Promise<void>[] = []
+        let i = 1
         for (const oi of otherIntervals) {
-          queries.push(
-            this._loadData(oi.interval, undefined, {
+          await this._loadData(
+            oi.interval,
+            undefined,
+            {
               from:
                 (this.period.from * 1000 -
                   oi.countBack * timeIntervalMap[oi.interval]) /
@@ -136,12 +138,14 @@ class DCABacktesting extends Backtesting {
               to: this.period.to,
               firstDataRequest: false,
               countBack: oi.countBack,
-            }).then((res) => {
-              testData.push({ bar: res, interval: oi.interval })
-            }),
-          )
+            },
+            i,
+            otherIntervals.length,
+          ).then((res) => {
+            testData.push({ bar: res, interval: oi.interval })
+            i++
+          })
         }
-        await Promise.all(queries)
       }
     }
     const loadingTime = (new Date().getTime() - startLoading) / 1000

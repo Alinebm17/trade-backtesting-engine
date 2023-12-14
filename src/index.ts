@@ -108,6 +108,8 @@ class Backtesting {
     int?: ExchangeIntervals,
     from?: number,
     periodParam?: PeriodParams,
+    index?: number,
+    total?: number,
   ): Promise<(Bar & { symbol: string })[]> {
     const { symbols, interval, period } = this
     const resolution = tvIntervalMap[int ?? interval] as ResolutionString
@@ -117,6 +119,7 @@ class Backtesting {
     }
     if (this.loadFn) {
       let data: (Bar & { symbol: string })[] = []
+      let si = 0
       for (const s of symbols.values()) {
         const result = await this.loadFn(
           s.pair,
@@ -125,7 +128,10 @@ class Backtesting {
           resolution,
           periodToUse,
           this.exchange,
+          (index ?? 1) * (symbols.size === 1 ? 1 : index ?? 1) + si,
+          (total ?? 1) * symbols.size,
         )
+        si++
 
         data = data.concat(result.map((r) => ({ ...r, symbol: s.pair })))
       }
