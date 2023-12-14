@@ -787,7 +787,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             }
           }
           if (
-            IndicatorEnum.xo &&
+            i.settings.type === IndicatorEnum.xo &&
             lastData.type === xOscillator1 &&
             prevData.type === xOscillator1
           ) {
