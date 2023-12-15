@@ -114,6 +114,15 @@ export class MathHelper {
     )
   }
 
+  downsideStDev(array: number[], MAR = 2) {
+    const mar = MAR / 100
+    const DD = Math.sqrt(
+      array.reduce((acc, v) => (acc += Math.min(0, v - mar) ** 2), 0) /
+        array.length,
+    )
+    return DD
+  }
+
   isZero(a: number) {
     return Math.abs(a) <= this.eps
   }

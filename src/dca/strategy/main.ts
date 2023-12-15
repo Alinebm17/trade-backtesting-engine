@@ -3628,8 +3628,7 @@ export abstract class Strategy implements StrategyInterface {
         ? this.math.round(lossDuration / lossDeals.length, 0)
         : 0
     const maxLossDuration = Math.max(...lossDeals.map((d) => d.duration), 0)
-    let stDevLoss = this.math.stDev(lossDeals.map((d) => d.profit.perc))
-    stDevLoss = isNaN(stDevLoss) ? 0 : stDevLoss
+
     const allProfit = profitDeals.reduce((acc, d) => (acc += d.profit.total), 0)
     const allProfitUsd = profitDeals.reduce(
       (acc, d) => (acc += d.profit.totalUsd),
@@ -3959,6 +3958,11 @@ export abstract class Strategy implements StrategyInterface {
       ratiosUsage,
       periodRatio,
     )
+    let stDevLoss = this.math.downsideStDev(
+      lossDeals.map((d) => d.profit.perc),
+      2 / periodRatio,
+    )
+    stDevLoss = isNaN(stDevLoss) ? 0 : stDevLoss
     const result: DCABacktestingResult = {
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
