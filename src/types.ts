@@ -946,6 +946,7 @@ export type DCABacktestingResult = {
     initialBalanceUsd: number
     stDevWinningTrade?: number
     stDevLosingTrade?: number
+    stDownDevLosingTrade?: number
   }
   duration: {
     avgDealDuration: number

@@ -3958,10 +3958,12 @@ export abstract class Strategy implements StrategyInterface {
       ratiosUsage,
       periodRatio,
     )
-    let stDevLoss = this.math.downsideStDev(
+    let stDevDownLoss = this.math.downsideStDev(
       lossDeals.map((d) => d.profit.perc),
       2 / periodRatio,
     )
+    stDevDownLoss = isNaN(stDevDownLoss) ? 0 : stDevDownLoss
+    let stDevLoss = this.math.stDev(lossDeals.map((d) => d.profit.perc))
     stDevLoss = isNaN(stDevLoss) ? 0 : stDevLoss
     const result: DCABacktestingResult = {
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
@@ -4113,6 +4115,7 @@ export abstract class Strategy implements StrategyInterface {
         ),
         initialBalanceUsd: this.math.round(Strategy.initialBalanceUsd, 4),
         stDevLosingTrade: stDevLoss,
+        stDownDevLosingTrade: stDevDownLoss,
         stDevWinningTrade: stDevProfit,
       },
       noData: !firstData && !lastData,
