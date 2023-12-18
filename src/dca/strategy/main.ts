@@ -2305,13 +2305,14 @@ export abstract class Strategy implements StrategyInterface {
         const commission = qty * price * this.userFee
         const unpnl = (quoteTp - quote) * (this.long ? 1 : -1)
         const total = d.profit.total + unpnl - commission
-        const denominator = this.futures
-          ? this.coinm
-            ? d.usage.max.base * d.startPrice
-            : d.usage.max.quote
-          : this.long
-          ? d.usage.max.quote
-          : d.usage.max.base * d.startPrice
+        const denominator =
+          (this.futures
+            ? this.coinm
+              ? d.usage.max.base * d.startPrice
+              : d.usage.max.quote
+            : this.long
+            ? d.usage.max.quote
+            : d.usage.max.base * d.startPrice) / this.leverage
         const perc = total / denominator
         if (
           isFinite(Math.abs(perc)) &&
@@ -3322,7 +3323,7 @@ export abstract class Strategy implements StrategyInterface {
       ? base
       : quote
     const perc = this.math.round(
-      (total / denominator) * 100 * (this.combo ? 1 : this.leverage),
+      (total / denominator) * 100 * /* this.combo ? 1 : */ this.leverage,
       2,
       false,
       true,
