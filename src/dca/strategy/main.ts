@@ -3040,7 +3040,7 @@ export abstract class Strategy implements StrategyInterface {
     ) {
       return [{ ...tpOrder, qty: 0 }]
     }
-    if (
+    /* if (
       tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount &&
       !this.futures
     ) {
@@ -3050,7 +3050,7 @@ export abstract class Strategy implements StrategyInterface {
         false,
         true,
       )
-    }
+    } */
     let tpOrders = [tpOrder]
     if (aggregate) {
       return tpOrders
@@ -3090,12 +3090,12 @@ export abstract class Strategy implements StrategyInterface {
           if (qtyTp > restQty) {
             qtyTp = restQty
           }
-          if (qtyTp < symbol.baseAsset.minAmount) {
+          /* if (qtyTp < symbol.baseAsset.minAmount) {
             qtyTp = symbol.baseAsset.minAmount
           }
           if (priceTp * qtyTp < symbol.quoteAsset.minAmount) {
             qtyTp = symbol.quoteAsset.minAmount / priceTp
-          }
+          } */
           const modQty = this.math.remainder(qtyTp, symbol.baseAsset.step)
           if (modQty !== 0) {
             qtyTp = this.math.round(
