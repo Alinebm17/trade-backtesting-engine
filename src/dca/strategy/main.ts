@@ -1183,14 +1183,25 @@ export abstract class Strategy implements StrategyInterface {
         : this.long
         ? deal.usage.max.quote * (this.profitBase ? 1 / deal.startPrice : 1)
         : deal.usage.max.base * (this.profitBase ? 1 : deal.startPrice)
-      const { maxNumberOfOpenDeals } = this.settings
+      const { maxNumberOfOpenDeals, maxDealsPerPair, useMulti } = this.settings
       if (
         maxNumberOfOpenDeals &&
         maxNumberOfOpenDeals !== '' &&
         !isNaN(+maxNumberOfOpenDeals) &&
-        +maxNumberOfOpenDeals > 0
+        +maxNumberOfOpenDeals > 0 &&
+        (Strategy.multi || (!Strategy.multi && !useMulti))
       ) {
         Strategy.balance *= +maxNumberOfOpenDeals
+      }
+      if (
+        maxDealsPerPair &&
+        maxDealsPerPair !== '' &&
+        !isNaN(+maxDealsPerPair) &&
+        +maxDealsPerPair > 0 &&
+        !Strategy.multi &&
+        useMulti
+      ) {
+        Strategy.balance *= +maxDealsPerPair
       }
       Strategy.balanceUsd =
         Strategy.balance *
@@ -3576,15 +3587,30 @@ export abstract class Strategy implements StrategyInterface {
               0,
             )
         : 0
-    const { maxNumberOfOpenDeals: maxNumberOfOpenDealsString } = this.settings
+    const {
+      maxNumberOfOpenDeals: maxNumberOfOpenDealsString,
+      maxDealsPerPair,
+      useMulti,
+    } = this.settings
     let maxNumberOfOpenDeals = 1
     if (
       maxNumberOfOpenDealsString &&
       maxNumberOfOpenDealsString !== '' &&
       !isNaN(+maxNumberOfOpenDealsString) &&
-      +maxNumberOfOpenDealsString > 0
+      +maxNumberOfOpenDealsString > 0 &&
+      (Strategy.multi || (!Strategy.multi && !useMulti))
     ) {
       maxNumberOfOpenDeals = +maxNumberOfOpenDealsString
+    }
+    if (
+      maxDealsPerPair &&
+      maxDealsPerPair !== '' &&
+      !isNaN(+maxDealsPerPair) &&
+      +maxDealsPerPair > 0 &&
+      !Strategy.multi &&
+      useMulti
+    ) {
+      maxNumberOfOpenDeals = +maxDealsPerPair
     }
     maxTheoreticalUsage *= +maxNumberOfOpenDeals
     maxTheoreticalUsage /= this.leverage
