@@ -1260,7 +1260,9 @@ export abstract class Strategy implements StrategyInterface {
       )
       .reduce((acc, v) => acc + v.profit.totalUsd, 0)
     deal.equity = this.math.round(
-      deal.profit.totalUsd + previousValues + Strategy.initialBalanceUsd,
+      deal.profit.totalUsd +
+        previousValues +
+        Strategy.initialBalanceUsd / this.leverage,
       3,
     )
     return deal
@@ -3459,7 +3461,8 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.initialBalance * (this.profitBase ? firstPrice : 1)
     const buyAndHold =
       firstPrice && lastPrice
-        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
+        ? ((buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage) /
+          this.leverage
         : 0
     /* const buyAndHoldLastEquity =
       (firstPrice && lastPrice
@@ -3496,7 +3499,8 @@ export abstract class Strategy implements StrategyInterface {
 
       buyAndHoldEquity.push({
         value: this.math.round(
-          buyAndHoldUsage * (this.profitBase ? usdRateQuote : usdRate),
+          (buyAndHoldUsage * (this.profitBase ? usdRateQuote : usdRate)) /
+            this.leverage,
           4,
         ),
         time: firstData.time,
@@ -3505,9 +3509,10 @@ export abstract class Strategy implements StrategyInterface {
         const lp = d.close
         const bh = this.math.round(
           firstPrice && lp
-            ? (buyAndHoldUsage / firstPrice) *
+            ? ((buyAndHoldUsage / firstPrice) *
                 lp *
-                (this.profitBase ? usdRateQuote : usdRate)
+                (this.profitBase ? usdRateQuote : usdRate)) /
+                this.leverage
             : 0,
           3,
         )
