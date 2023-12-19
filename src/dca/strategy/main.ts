@@ -2166,7 +2166,8 @@ export abstract class Strategy implements StrategyInterface {
   private getSLOrder(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
     if (
       this.settings.dealCloseConditionSL !== CloseConditionEnum.tp &&
-      !this.combo
+      !this.combo &&
+      !this.settings.moveSLForAll
     ) {
       return { deal: d }
     }
@@ -2269,6 +2270,10 @@ export abstract class Strategy implements StrategyInterface {
     } else if (
       this.settings.useSl &&
       typeof d.slPerc !== 'undefined' &&
+      (this.settings.dealCloseConditionSL === CloseConditionEnum.tp ||
+        (this.settings.moveSL &&
+          this.settings.moveSLForAll &&
+          d.moveSlActivated)) &&
       !this.combo
     ) {
       const sl = d.slPerc
@@ -2949,13 +2954,15 @@ export abstract class Strategy implements StrategyInterface {
       this.settings.moveSL &&
       typeof this.settings.moveSLTrigger !== 'undefined' &&
       typeof this.settings.moveSLValue !== 'undefined' &&
-      this.settings.dealCloseConditionSL === CloseConditionEnum.tp
+      (this.settings.dealCloseConditionSL === CloseConditionEnum.tp ||
+        (this.settings.moveSLForAll && !d.moveSlActivated))
     ) {
       const trigger = +this.settings.moveSLTrigger / 100
       const value = +this.settings.moveSLValue / 100
       if (unPnL / usage - this.userFee * 2 >= trigger) {
         d.changed = true
         d.slPerc = value
+        d.moveSlActivated = true
         const slOrder = this.getSlHistoryLine(d, b.time)
         d = this.replaceSlHistoryLine(d, slOrder, b.time)
       }

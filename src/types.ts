@@ -493,6 +493,7 @@ export interface DCABotSettings extends BaseSettings {
   moveSL?: boolean
   moveSLTrigger?: string
   moveSLValue?: string
+  moveSLForAll?: boolean
   trailingSl?: boolean
   trailingTp?: boolean
   trailingTpPerc?: string
@@ -747,6 +748,7 @@ export type Minigrid = {
 }
 
 export type Deal = {
+  moveSlActivated?: boolean
   symbol: Symbols
   transactions: BacktestingTransaction[]
   mingrids: Minigrid[]
