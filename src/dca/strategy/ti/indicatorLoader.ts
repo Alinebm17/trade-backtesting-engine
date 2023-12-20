@@ -292,10 +292,14 @@ export default class InternalIndicator {
             : 1)
     }
     if (indicatorConfig.type === IndicatorEnum.macd) {
+      const maSource =
+        indicatorConfig.maSource === MAEnum.sma ? FasterSMA : FasterEMA
+      const maSignal =
+        indicatorConfig.maSignal === MAEnum.sma ? FasterSMA : FasterEMA
       this.indicator = new FasterMACD(
-        new FasterEMA(indicatorConfig.shortInterval),
-        new FasterEMA(indicatorConfig.longInterval),
-        new FasterEMA(indicatorConfig.signalInterval),
+        new maSource(indicatorConfig.shortInterval),
+        new maSource(indicatorConfig.longInterval),
+        new maSignal(indicatorConfig.signalInterval),
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
         indicatorConfig.percentilePercentage,

@@ -199,6 +199,8 @@ export type IndicatorConfigBackTesting =
       longInterval: number
       shortInterval: number
       signalInterval: number
+      maSource?: MAEnum
+      maSignal?: MAEnum
     } & Percentile)
   | {
       type: IndicatorEnum.ma
@@ -371,6 +373,10 @@ export type SettingsIndicators = {
   bbwMult?: number
   bbwMa?: MAEnum
   bbwMaLength?: number
+  macdFast?: number
+  macdSlow?: number
+  macdMaSource?: MAEnum
+  macdMaSignal?: MAEnum
 }
 
 export enum StochRangeEnum {

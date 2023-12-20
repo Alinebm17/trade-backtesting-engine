@@ -103,17 +103,23 @@ class TIStrategy extends Strategy implements StrategyInterface {
           bbwMa,
           bbwMaLength,
           bbwMult,
+          macdFast,
+          macdSlow,
+          macdMaSignal,
+          macdMaSource,
         } = i
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
             ? {
                 type,
-                shortInterval: 12,
-                longInterval: 26,
+                shortInterval: macdFast ?? 12,
+                longInterval: macdSlow ?? 26,
                 signalInterval: indicatorLength,
                 percentile,
                 percentileLookback,
                 percentilePercentage,
+                maSignal: macdMaSignal ?? MAEnum.ema,
+                maSource: macdMaSource ?? MAEnum.ema,
               }
             : type === IndicatorEnum.tv
             ? {
