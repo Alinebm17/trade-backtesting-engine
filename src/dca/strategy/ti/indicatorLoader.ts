@@ -29,6 +29,8 @@ import {
   FasterECD,
   FasterMAR,
   FasterBBPB,
+  FasterDIV,
+  DIVUsableOscillators,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -69,7 +71,7 @@ export default class InternalIndicator {
     | FasterECD
     | FasterMAR
     | FasterBBPB
-
+    | FasterDIV
   private data: IndicatorHistory[] = []
 
   private readonly type: IndicatorEnum
@@ -130,6 +132,18 @@ export default class InternalIndicator {
       )
       this.length =
         indicatorConfig.interval + (indicatorConfig.percentileLookback ?? 0)
+    }
+    if (indicatorConfig.type === IndicatorEnum.div) {
+      this.length = 200
+      this.indicator = new FasterDIV(
+        indicatorConfig.oscillators.map((v) =>
+          v.toLowerCase(),
+        ) as DIVUsableOscillators[],
+        indicatorConfig.leftBars ?? 3,
+        indicatorConfig.rightBars ?? 1,
+        indicatorConfig.rangeLower ?? 1,
+        indicatorConfig.rangeUpper ?? 60,
+      )
     }
     if (indicatorConfig.type === IndicatorEnum.ao) {
       this.indicator = new FasterAO(

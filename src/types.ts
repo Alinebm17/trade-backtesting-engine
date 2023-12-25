@@ -3,6 +3,7 @@ import type {
   FasterBandsResult,
   FasterStochasticResult,
   PivotResult,
+  DIVResult,
 } from '../indicators/src'
 
 export enum IndicatorEnum {
@@ -32,6 +33,7 @@ export enum IndicatorEnum {
   xo = 'XO',
   mar = 'MAR',
   bbpb = 'BBPB',
+  div = 'DIV',
 }
 
 export enum ECDTriggerEnum {
@@ -157,7 +159,29 @@ type Percentile = {
   percentilePercentage?: number
 }
 
+type DivergenceOscillators =
+  | IndicatorEnum.adx
+  | IndicatorEnum.cci
+  | IndicatorEnum.mfi
+  | IndicatorEnum.rsi
+  | IndicatorEnum.wr
+  | IndicatorEnum.macd
+  | IndicatorEnum.uo
+  | IndicatorEnum.ao
+  | IndicatorEnum.mom
+  | IndicatorEnum.bbw
+  | IndicatorEnum.vo
+  | IndicatorEnum.bbpb
+
 export type IndicatorConfigBackTesting =
+  | {
+      type: IndicatorEnum.div
+      oscillators: DivergenceOscillators[]
+      leftBars?: number
+      rightBars?: number
+      rangeLower?: number
+      rangeUpper?: number
+    }
   | { type: IndicatorEnum.ecd }
   | {
       type: IndicatorEnum.tv
@@ -284,6 +308,10 @@ export type IndicatorHistory = { time: number } & (
       value: number
     }
   | {
+      type: IndicatorEnum.div
+      value: DIVResult
+    }
+  | {
       type: IndicatorEnum.macd
       value: FasterMACDResult
     }
@@ -377,6 +405,18 @@ export type SettingsIndicators = {
   macdSlow?: number
   macdMaSource?: MAEnum
   macdMaSignal?: MAEnum
+  divOscillators?: DivergenceOscillators[]
+  divType?: DivTypeEnum
+  divMinCount?: number
+}
+
+export enum DivTypeEnum {
+  bull = 'Bullish',
+  bear = 'Bearish',
+  hbull = 'Hidden Bullish',
+  hbear = 'Hidden Bearish',
+  abull = 'Any Bullish',
+  abear = 'Any Bearish',
 }
 
 export enum StochRangeEnum {

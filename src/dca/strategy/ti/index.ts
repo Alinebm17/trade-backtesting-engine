@@ -19,6 +19,7 @@ import {
   StrategyEnum,
   BotOrderSideEnum,
   ECDTriggerEnum,
+  DivTypeEnum,
 } from '../../../types'
 
 import type {
@@ -30,7 +31,7 @@ import type {
   FullBar,
 } from '../../../types'
 import type { DataType, StrategyInput } from '../main'
-import { PercentileResult } from '../../../../indicators/src'
+import { DIVResult, PercentileResult } from '../../../../indicators/src'
 
 export type Indicator = {
   instance: InternalIndicator
@@ -107,6 +108,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           macdSlow,
           macdMaSignal,
           macdMaSource,
+          divOscillators,
         } = i
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
@@ -127,6 +129,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 checkLevel,
                 useAsEntryExitPoints:
                   condition === TradingviewAnalysisConditionEnum.entry,
+              }
+            : type === IndicatorEnum.div
+            ? {
+                type,
+                oscillators: divOscillators ?? [],
               }
             : type === IndicatorEnum.ma
             ? {
@@ -611,10 +618,25 @@ class TIStrategy extends Strategy implements StrategyInterface {
             xoUUID,
             xOscillator1,
             percentile,
+            divMinCount,
+            divType,
           },
           data,
         } = i
-        if (type === IndicatorEnum.qfl) {
+        if (type === IndicatorEnum.div) {
+          const [lastData] = [...data].sort((a, b) => b.time - a.time)
+          const result = lastData.value as DIVResult
+          const min = divMinCount ?? 2
+          action =
+            ((divType === DivTypeEnum.bear || divType === DivTypeEnum.abear) &&
+              min > result.negdivergence) ||
+            ((divType === DivTypeEnum.hbear || divType === DivTypeEnum.abear) &&
+              min > result.negdivergencehidden) ||
+            ((divType === DivTypeEnum.bull || divType === DivTypeEnum.abull) &&
+              min > result.posdivergence) ||
+            ((divType === DivTypeEnum.hbull || divType === DivTypeEnum.abull) &&
+              min > result.posdivergencehidden)
+        } else if (type === IndicatorEnum.qfl) {
           const [lastData] = [...data].sort((a, b) => b.time - a.time)
           action = lastData.value as boolean
         } else if (type === IndicatorEnum.tv && checkLevel && signal) {
