@@ -93,6 +93,7 @@ class DCABacktesting extends Backtesting {
     if (!this.strategy) {
       return
     }
+    console.log(this.settings)
     const startLoading = new Date().getTime()
     const otherIntervals = this.strategy.getOtherIntervals()
     const intervals = otherIntervals.map((oi) => oi.interval)

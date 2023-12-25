@@ -463,7 +463,8 @@ export default class InternalIndicator {
         this.indicator instanceof FasterBollingerBandsWidth ||
         this.indicator instanceof FasterBBWP ||
         this.indicator instanceof FasterBBPB ||
-        this.indicator instanceof FasterBollingerBands)
+        this.indicator instanceof FasterBollingerBands ||
+        this.indicator instanceof FasterDIV)
     ) {
       this.indicator?.update({
         high: +value.h,

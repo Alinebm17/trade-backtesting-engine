@@ -629,13 +629,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
           const min = divMinCount ?? 2
           action =
             ((divType === DivTypeEnum.bear || divType === DivTypeEnum.abear) &&
-              min > result.negdivergence) ||
+              result.negdivergence >= min) ||
             ((divType === DivTypeEnum.hbear || divType === DivTypeEnum.abear) &&
-              min > result.negdivergencehidden) ||
+              result.negdivergencehidden >= min) ||
             ((divType === DivTypeEnum.bull || divType === DivTypeEnum.abull) &&
-              min > result.posdivergence) ||
+              result.posdivergence >= min) ||
             ((divType === DivTypeEnum.hbull || divType === DivTypeEnum.abull) &&
-              min > result.posdivergencehidden)
+              result.posdivergencehidden >= min)
         } else if (type === IndicatorEnum.qfl) {
           const [lastData] = [...data].sort((a, b) => b.time - a.time)
           action = lastData.value as boolean
