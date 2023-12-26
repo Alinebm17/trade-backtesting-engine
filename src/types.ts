@@ -172,6 +172,7 @@ type DivergenceOscillators =
   | IndicatorEnum.bbw
   | IndicatorEnum.vo
   | IndicatorEnum.bbpb
+  | IndicatorEnum.stoch
 
 export type IndicatorConfigBackTesting =
   | {
