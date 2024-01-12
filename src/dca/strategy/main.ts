@@ -1176,13 +1176,15 @@ export abstract class Strategy implements StrategyInterface {
       const usdRateQuote = this.usdRateQuote.get(s) ?? 1
       const usdRate = this.usdRate.get(s) ?? 1
 
-      Strategy.balance = this.futures
-        ? this.coinm
-          ? deal.usage.max.base
-          : deal.usage.max.quote
-        : this.long
-        ? deal.usage.max.quote * (this.profitBase ? 1 / deal.startPrice : 1)
-        : deal.usage.max.base * (this.profitBase ? 1 : deal.startPrice)
+      Strategy.balance =
+        (this.futures
+          ? this.coinm
+            ? deal.usage.max.base
+            : deal.usage.max.quote
+          : this.long
+          ? deal.usage.max.quote * (this.profitBase ? 1 / deal.startPrice : 1)
+          : deal.usage.max.base * (this.profitBase ? 1 : deal.startPrice)) /
+        this.leverage
       const { maxNumberOfOpenDeals, maxDealsPerPair, useMulti } = this.settings
       if (
         maxNumberOfOpenDeals &&
@@ -1271,9 +1273,7 @@ export abstract class Strategy implements StrategyInterface {
       )
       .reduce((acc, v) => acc + v.profit.totalUsd, 0)
     deal.equity = this.math.round(
-      deal.profit.totalUsd +
-        previousValues +
-        Strategy.initialBalanceUsd / this.leverage,
+      deal.profit.totalUsd + previousValues + Strategy.initialBalanceUsd,
       3,
     )
     return deal
@@ -3480,8 +3480,7 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.initialBalance * (this.profitBase ? firstPrice : 1)
     const buyAndHold =
       firstPrice && lastPrice
-        ? ((buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage) /
-          this.leverage
+        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
         : 0
     /* const buyAndHoldLastEquity =
       (firstPrice && lastPrice
@@ -3518,8 +3517,7 @@ export abstract class Strategy implements StrategyInterface {
 
       buyAndHoldEquity.push({
         value: this.math.round(
-          (buyAndHoldUsage * (this.profitBase ? usdRateQuote : usdRate)) /
-            this.leverage,
+          buyAndHoldUsage * (this.profitBase ? usdRateQuote : usdRate),
           4,
         ),
         time: firstData.time,
@@ -3528,10 +3526,9 @@ export abstract class Strategy implements StrategyInterface {
         const lp = d.close
         const bh = this.math.round(
           firstPrice && lp
-            ? ((buyAndHoldUsage / firstPrice) *
+            ? (buyAndHoldUsage / firstPrice) *
                 lp *
-                (this.profitBase ? usdRateQuote : usdRate)) /
-                this.leverage
+                (this.profitBase ? usdRateQuote : usdRate)
             : 0,
           3,
         )
