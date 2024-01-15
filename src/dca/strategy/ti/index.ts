@@ -33,16 +33,14 @@ import type {
 import type { DataType, StrategyInput } from '../main'
 import { DIVResult, PercentileResult } from '../../../../indicators/src'
 
-type Status = { status: boolean; statusSince: number; statusTo: number }
-
 export type Indicator = {
   instance: InternalIndicator
   data: IndicatorHistory[]
   id: string
   settings: SettingsIndicators
   interval: ExchangeIntervals
-  statuses: Status[]
-  status: Status
+  statuses: { status: boolean; statusSince: number; statusTo: number }[]
+  status: boolean
   ignore: boolean
   symbol: string
 }
@@ -285,7 +283,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           settings: i,
           interval: indicatorInterval,
           statuses: [],
-          status: { status: false, statusSince: 0, statusTo: 0 },
+          status: false,
           ignore: false,
           symbol: s.pair,
         })
@@ -309,7 +307,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             settings: i,
             interval: maCrossingInterval,
             statuses: [],
-            status: { status: false, statusSince: 0, statusTo: 0 },
+            status: false,
             ignore: true,
             symbol: s.pair,
           })
@@ -331,7 +329,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             settings: i,
             interval: xOscillator2Interval || indicatorInterval,
             statuses: [],
-            status: { status: false, statusSince: 0, statusTo: 0 },
+            status: false,
             ignore: true,
             symbol: s.pair,
           })
@@ -417,11 +415,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             s.statusSince !== findStatus.statusSince &&
             s.statusTo !== findStatus.statusTo,
         )
-        i.status = findStatus
-      } else {
-        if (i.status.statusTo < time) {
-          i.status = { status: false, statusSince: 0, statusTo: 0 }
-        }
+        i.status = findStatus.status
       }
 
       return i
@@ -1055,14 +1049,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
           !i.ignore &&
           i.symbol === nextBar.symbol,
       )
-      const filterFn = (i: Indicator) =>
-        i.status.status &&
-        i.status.statusSince <= nextBar.time &&
-        i.status.statusTo >= nextBar.time
-      const closeDealSlStatus = closeDealSl.filter(filterFn)
-      const closeDealTpStatus = closeDealTp.filter(filterFn)
-      const startDealStatus = startDeal.filter(filterFn)
-      const startDcaStatus = startDca.filter(filterFn)
+      const closeDealSlStatus = closeDealSl.filter((i) => i.status)
+      const closeDealTpStatus = closeDealTp.filter((i) => i.status)
+      const startDealStatus = startDeal.filter((i) => i.status)
+      const startDcaStatus = startDca.filter((i) => i.status)
       if (
         closeDealSl.length === closeDealSlStatus.length &&
         closeDealSl.length
@@ -1094,13 +1084,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealSlStatus.map((ai) => ai.id).includes(i.id)) {
-            return {
-              ...i,
-              status: {
-                ...i.status,
-                status: i.status.statusTo ? i.status.status : false,
-              },
-            }
+            return { ...i, status: false, statusSince: 0, statusTo: 0 }
           }
           return i
         })
@@ -1133,13 +1117,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealTpStatus.map((ai) => ai.id).includes(i.id)) {
-            return {
-              ...i,
-              status: {
-                ...i.status,
-                status: i.status.statusTo ? i.status.status : false,
-              },
-            }
+            return { ...i, status: false, statusSince: 0, statusTo: 0 }
           }
           return i
         })
@@ -1168,13 +1146,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
-            return {
-              ...i,
-              status: {
-                ...i.status,
-                status: i.status.statusTo ? i.status.status : false,
-              },
-            }
+            return { ...i, status: false, statusSince: 0, statusTo: 0 }
           }
           return i
         })
@@ -1186,13 +1158,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         for (const i of startDcaStatus) {
           Strategy.indicators = Strategy.indicators.map((is) => {
             if (i.id === is.id) {
-              return {
-                ...i,
-                status: {
-                  ...i.status,
-                  status: i.status.statusTo ? i.status.status : false,
-                },
-              }
+              return { ...is, status: false, statusSince: 0, statusTo: 0 }
             }
             return is
           })
