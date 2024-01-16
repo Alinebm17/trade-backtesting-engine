@@ -2568,7 +2568,7 @@ export abstract class Strategy implements StrategyInterface {
       const tempValueUsd = Strategy.seriesWin.maxUsd - Strategy.seriesWin.minUsd
       if (tempValueUsd > Strategy.seriesWin.valueUsd) {
         Strategy.seriesWin.perc = Math.abs(
-          tempValueUsd / Strategy.seriesWin.maxUsd,
+          tempValueUsd / Strategy.seriesWin.minUsd,
         )
         Strategy.seriesWin.valueUsd = tempValueUsd
         Strategy.seriesWin.value =
@@ -2622,6 +2622,7 @@ export abstract class Strategy implements StrategyInterface {
     if (cbClose) {
       cbClose(closePrice)
     }
+    console.log({ ...Strategy.seriesWin }, { ...Strategy.seriesLoss })
     return d
   }
 

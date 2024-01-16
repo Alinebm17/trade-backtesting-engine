@@ -1191,26 +1191,27 @@ class TIStrategy extends Strategy implements StrategyInterface {
             : 1
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
+            const maxNumberExceed =
+              i.interval === Strategy.highestInterval &&
+              useMaxDealsPerSignal &&
+              (i.status.numberOfSignals ?? 0) + 1 >= maxDealsPerSignal
             return {
               ...i,
-              status:
-                i.interval === Strategy.highestInterval &&
-                useMaxDealsPerSignal &&
-                (i.status.numberOfSignals ?? 0) + 1 > maxDealsPerSignal
-                  ? {
-                      status: false,
-                      statusSince: 0,
-                      statusTo: 0,
-                      numberOfSignals: 0,
-                    }
-                  : {
-                      ...i.status,
-                      status: i.status.statusTo ? i.status.status : false,
-                      numberOfSignals:
-                        i.interval === Strategy.highestInterval
-                          ? (i.status?.numberOfSignals ?? 0) + 1
-                          : i.status.numberOfSignals,
-                    },
+              status: maxNumberExceed
+                ? {
+                    status: false,
+                    statusSince: 0,
+                    statusTo: 0,
+                    numberOfSignals: 0,
+                  }
+                : {
+                    ...i.status,
+                    status: i.status.statusTo ? i.status.status : false,
+                    numberOfSignals:
+                      i.interval === Strategy.highestInterval
+                        ? (i.status?.numberOfSignals ?? 0) + 1
+                        : i.status.numberOfSignals,
+                  },
             }
           }
           return i
