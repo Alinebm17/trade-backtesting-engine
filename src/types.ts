@@ -576,6 +576,8 @@ export interface DCABotSettings extends BaseSettings {
   closeByTimer?: boolean
   closeByTimerValue?: number
   closeByTimerUnits?: CooldownUnits
+  maxDealsPerHigherTimeframe?: string
+  useMaxDealsPerHigherTimeframe?: boolean
 }
 
 export enum BotStartTypeEnum {

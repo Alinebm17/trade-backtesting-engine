@@ -33,7 +33,12 @@ import type {
 import type { DataType, StrategyInput } from '../main'
 import { DIVResult, PercentileResult } from '../../../../indicators/src'
 
-type Status = { status: boolean; statusSince: number; statusTo: number }
+type Status = {
+  status: boolean
+  statusSince: number
+  statusTo: number
+  numberOfSignals?: number
+}
 
 export type Indicator = {
   instance: InternalIndicator
@@ -341,6 +346,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
     this.updateIndicatorData = this.updateIndicatorData.bind(this)
     this.checkIndicators = this.checkIndicators.bind(this)
     Strategy.lowestInterval = Strategy.interval
+    Strategy.highestInterval = input.settings.indicators
+      .filter((i) => i.indicatorAction === IndicatorAction.startDeal)
+      .map((i) => i.indicatorInterval)
+      .sort((a, b) => timeIntervalMap[b] - timeIntervalMap[a])?.[0]
   }
 
   public override getOtherIntervals(): {
@@ -1165,15 +1174,43 @@ class TIStrategy extends Strategy implements StrategyInterface {
           /* lowestBar?.low ?? */ nextBar.low,
           nextBar.symbol,
         )
-
+        const useMaxDealsPerSignal =
+          this.settings.indicators
+            .filter((i) => i.indicatorAction === IndicatorAction.startDeal)
+            .reduce(
+              (acc, v) => acc.add(v.indicatorInterval),
+              new Set<ExchangeIntervals>(),
+            ).size > 1
+            ? typeof this.settings.useMaxDealsPerHigherTimeframe !== 'undefined'
+              ? !!this.settings.useMaxDealsPerHigherTimeframe
+              : true
+            : false
+        const maxDealsPerSignal =
+          typeof this.settings.useMaxDealsPerHigherTimeframe !== 'undefined'
+            ? +(this.settings.maxDealsPerHigherTimeframe ?? '1')
+            : 1
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
             return {
               ...i,
-              status: {
-                ...i.status,
-                status: i.status.statusTo ? i.status.status : false,
-              },
+              status:
+                i.interval === Strategy.highestInterval &&
+                useMaxDealsPerSignal &&
+                (i.status.numberOfSignals ?? 0) + 1 > maxDealsPerSignal
+                  ? {
+                      status: false,
+                      statusSince: 0,
+                      statusTo: 0,
+                      numberOfSignals: 0,
+                    }
+                  : {
+                      ...i.status,
+                      status: i.status.statusTo ? i.status.status : false,
+                      numberOfSignals:
+                        i.interval === Strategy.highestInterval
+                          ? (i.status?.numberOfSignals ?? 0) + 1
+                          : i.status.numberOfSignals,
+                    },
             }
           }
           return i

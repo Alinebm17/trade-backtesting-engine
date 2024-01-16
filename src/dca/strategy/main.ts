@@ -223,6 +223,8 @@ export abstract class Strategy implements StrategyInterface {
 
   static lowestInterval?: ExchangeIntervals
 
+  static highestInterval?: ExchangeIntervals
+
   static indicators: Indicator[] = []
 
   static next: Map<string, number> = new Map()
@@ -279,6 +281,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.lastOpenedDeal = 0
     Strategy.lastClosedDeal = 0
     Strategy.lowestInterval = undefined
+    Strategy.highestInterval = undefined
     Strategy.indicators = []
     Strategy.data = []
     Strategy.next = new Map()
