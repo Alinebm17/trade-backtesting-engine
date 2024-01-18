@@ -27,9 +27,9 @@ class Backtesting {
 
   protected readonly math: MathHelper = new MathHelper()
 
-  private readonly from?: number
+  public from?: number
 
-  private readonly to?: number
+  public to?: number
 
   private loadFn?: LoadDataFn
 

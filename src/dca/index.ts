@@ -79,6 +79,14 @@ class DCABacktesting extends Backtesting {
     }
   }
 
+  set _from(value: number) {
+    this.from = value
+  }
+
+  set _to(value: number) {
+    this.to = value
+  }
+
   override set stop(value: boolean) {
     this._stop = value
     if (this.strategy) {
