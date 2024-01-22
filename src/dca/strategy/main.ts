@@ -2927,7 +2927,7 @@ export abstract class Strategy implements StrategyInterface {
     if (!botFunctions) {
       return d
     }
-    if (botFunctions.isTrailingSl || botFunctions.isTrailingTp) {
+    if (botFunctions.isTrailingSl /* || botFunctions.isTrailingTp */) {
       return d
     }
     let unPnL = 0
