@@ -94,6 +94,12 @@ class DCABacktesting extends Backtesting {
     }
   }
 
+  public getOtherIntervals() {
+    if (this.strategy) {
+      return this.strategy.getOtherIntervals()
+    }
+  }
+
   public async test(
     bars?: { bar: FullBar[]; interval: ExchangeIntervals }[],
     updateProgress?: (value: number, text: string) => void,
