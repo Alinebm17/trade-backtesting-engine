@@ -4157,7 +4157,7 @@ export abstract class Strategy implements StrategyInterface {
         stDownDevLosingTrade: stDevDownLoss,
         stDevWinningTrade: stDevProfit,
       },
-      noData: !firstData && !lastData,
+      noData: !firstData.size && !lastData.size,
       duration: {
         avgLosingTrade: avgLossDuration,
         avgWinningTrade: avgProfitDuration,

@@ -178,8 +178,10 @@ class DCABacktesting extends Backtesting {
           const barsBySymbol = lowest.bar.filter(
             (b) => b.time > startTime && b.symbol === s,
           )
-          startBar.set(s, barsBySymbol[0])
-          lastBar.set(s, barsBySymbol[barsBySymbol.length - 1])
+          if (barsBySymbol.length) {
+            startBar.set(s, barsBySymbol[0])
+            lastBar.set(s, barsBySymbol[barsBySymbol.length - 1])
+          }
         }
         const result = this.strategy.returnResult(
           startBar,
