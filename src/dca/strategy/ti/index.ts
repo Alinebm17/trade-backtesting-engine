@@ -428,6 +428,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         )
         i.status = findStatus
       } else {
+        i.statuses = i.statuses.filter((s) => s.statusTo > time)
         if (i.status.statusTo < time) {
           i.status = { status: false, statusSince: 0, statusTo: 0 }
         }
@@ -439,7 +440,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
   public processTrade(
     trade: TradeResponse,
-    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
   ): void {
     if (
       Strategy.workingShift.length === 0 &&
@@ -452,25 +453,33 @@ class TIStrategy extends Strategy implements StrategyInterface {
     if (candles.length) {
       for (const c of candles) {
         if (!c.candle) {
-          return
+          continue
         }
+
         const indicator = Strategy.indicators.find(
-          (i) => i.interval === c.interval,
+          (i) =>
+            i.interval === c.interval && i.symbol === c.candle?.[0]?.symbol,
         )
-        if (indicator) {
-          indicator.instance.updateValue(
-            {
-              o: c.candle.open,
-              h: c.candle.high,
-              l: c.candle.low,
-              c: c.candle.close,
-              v: c.candle.volume ?? 0,
-            },
-            c.candle.time,
-            this.updateIndicatorData(indicator),
-          )
+        for (const _c of c.candle) {
+          if (indicator) {
+            indicator.instance.updateValue(
+              {
+                o: _c.open,
+                h: _c.high,
+                l: _c.low,
+                c: _c.close,
+                v: _c.volume ?? 0,
+              },
+              _c.time,
+              this.updateIndicatorData(indicator),
+            )
+          }
+          const isProcess = _c.time >= Strategy.start
+          if (!isProcess) {
+            continue
+          }
+          this.checkIndicators(_c)
         }
-        this.checkIndicators(c.candle)
       }
     }
     this.checkDeals({

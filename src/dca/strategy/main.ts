@@ -77,11 +77,11 @@ export interface StrategyInterface {
   processBar(bar: FullBar, nextBar?: FullBar): Promise<void>
   processTrade(
     trade: TradeResponse,
-    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
   ): void
   passTradeCandleData?: (
     trade: TradeResponse,
-    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
   ) => void
   openDeal(
     price: number,
@@ -101,6 +101,7 @@ export interface StrategyInterface {
   long: boolean
   profitBase: boolean
   stop: boolean
+  _start: number
 }
 
 enum CandleTypeEnum {
@@ -403,6 +404,10 @@ export abstract class Strategy implements StrategyInterface {
     this.settings = settings
   }
 
+  public set _start(value: number) {
+    Strategy.start = value
+  }
+
   public loadData(data: DataType[], start?: number): void {
     Strategy.start = start ?? 0
     Strategy.data = data
@@ -427,7 +432,7 @@ export abstract class Strategy implements StrategyInterface {
 
   public abstract processTrade(
     trade: TradeResponse,
-    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
   ): void
 
   public checkInRange(price: number, time: number) {

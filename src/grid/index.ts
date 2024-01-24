@@ -85,7 +85,7 @@ class DCABacktesting extends Backtesting {
 
   public passTradeCandleData(
     trade: TradeResponse,
-    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
   ) {
     if (this.strategy?.passTradeCandleData) {
       this.strategy.passTradeCandleData(trade, candles)

@@ -101,14 +101,14 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
 
   public passTradeCandleData(
     trade: TradeResponse,
-    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
   ) {
     this.processTrade(trade, candles)
   }
 
   public processTrade(
     trade: TradeResponse,
-    candles: { candle: FullBar | null; interval: ExchangeIntervals }[],
+    candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
   ): void {
     for (const s of this.strategies) {
       if (this._stop) {

@@ -45,7 +45,7 @@ export interface StrategyInterface {
   processBar(bar: Bar): Promise<void>
   passTradeCandleData?: (
     trade: TradeResponse,
-    candles: { candle: Bar | null; interval: ExchangeIntervals }[],
+    candles: { candle: Bar[] | null; interval: ExchangeIntervals }[],
   ) => void
   checkInRange(price: number, time: number): boolean
   returnResult(
