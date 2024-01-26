@@ -20,6 +20,7 @@ import {
   BotOrderSideEnum,
   ECDTriggerEnum,
   DivTypeEnum,
+  TrendFilterOperatorEnum,
 } from '../../../types'
 
 import type {
@@ -116,6 +117,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
           macdMaSignal,
           macdMaSource,
           divOscillators,
+          trendFilter,
+          trendFilterType,
+          trendFilterLookback,
+          trendFilterValue,
         } = i
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
@@ -227,6 +232,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 percentile,
                 percentileLookback,
                 percentilePercentage,
+                trendFilter,
+                trendFilterLookback,
+                trendFilterType,
+                trendFilterValue,
               }
             : type === IndicatorEnum.bbwp
             ? {
@@ -644,6 +653,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
             percentile,
             divMinCount,
             divType,
+            trendFilter,
+            trendFilterType,
           },
           data,
         } = i
@@ -788,6 +799,15 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 value = tmpValue
                 prevValue = tmpPrevValue
               }
+            }
+            if (trendFilter) {
+              action =
+                (trendFilterType === TrendFilterOperatorEnum.lower &&
+                  lastData.value.trend === 1) ||
+                (trendFilterType === TrendFilterOperatorEnum.higher &&
+                  lastData.value.trend === 2) ||
+                (trendFilterType === TrendFilterOperatorEnum.between &&
+                  lastData.value.trend === 3)
             }
           }
           if (
@@ -951,25 +971,27 @@ class TIStrategy extends Strategy implements StrategyInterface {
               checkValue = false
             }
           }
-          if (
-            (indicatorCondition === IndicatorStartConditionEnum.cu ||
-              indicatorCondition === IndicatorStartConditionEnum.cd) &&
-            data.length >= 2
-          ) {
-            if (indicatorCondition === IndicatorStartConditionEnum.cd) {
-              action =
-                this.math.gt(value, last) && this.math.lt(prevValue, prev)
+          if (!trendFilter) {
+            if (
+              (indicatorCondition === IndicatorStartConditionEnum.cu ||
+                indicatorCondition === IndicatorStartConditionEnum.cd) &&
+              data.length >= 2
+            ) {
+              if (indicatorCondition === IndicatorStartConditionEnum.cd) {
+                action =
+                  this.math.gt(value, last) && this.math.lt(prevValue, prev)
+              }
+              if (indicatorCondition === IndicatorStartConditionEnum.cu) {
+                action =
+                  this.math.lt(value, last) && this.math.gt(prevValue, prev)
+              }
             }
-            if (indicatorCondition === IndicatorStartConditionEnum.cu) {
-              action =
-                this.math.lt(value, last) && this.math.gt(prevValue, prev)
+            if (indicatorCondition === IndicatorStartConditionEnum.gt) {
+              action = this.math.gt(last, value)
             }
-          }
-          if (indicatorCondition === IndicatorStartConditionEnum.gt) {
-            action = this.math.gt(last, value)
-          }
-          if (indicatorCondition === IndicatorStartConditionEnum.lt) {
-            action = this.math.lt(last, value)
+            if (indicatorCondition === IndicatorStartConditionEnum.lt) {
+              action = this.math.lt(last, value)
+            }
           }
           if (
             ((lastData.type === IndicatorEnum.stoch &&

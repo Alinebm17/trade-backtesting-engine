@@ -159,6 +159,13 @@ type Percentile = {
   percentilePercentage?: number
 }
 
+type TrendFilter = {
+  trendFilter?: boolean
+  trendFilterLookback?: number
+  trendFilterType?: TrendFilterOperatorEnum
+  trendFilterValue?: number
+}
+
 type DivergenceOscillators =
   | IndicatorEnum.adx
   | IndicatorEnum.cci
@@ -274,7 +281,8 @@ export type IndicatorConfigBackTesting =
       mar1length: number
       mar2type: MAEnum
       mar2length: number
-    } & Percentile)
+    } & Percentile &
+      TrendFilter)
   | ({
       type: IndicatorEnum.uo
       fast: number
@@ -285,6 +293,7 @@ export type IndicatorConfigBackTesting =
 type PercentileResult = {
   percentile?: number
   value: number
+  trend?: number
 }
 
 export type IndicatorHistory = { time: number } & (
@@ -409,6 +418,16 @@ export type SettingsIndicators = {
   divOscillators?: DivergenceOscillators[]
   divType?: DivTypeEnum
   divMinCount?: number
+  trendFilter?: boolean
+  trendFilterLookback?: number
+  trendFilterType?: TrendFilterOperatorEnum
+  trendFilterValue?: number
+}
+
+export enum TrendFilterOperatorEnum {
+  lower = 'lower',
+  higher = 'higher',
+  between = 'between',
 }
 
 export enum DivTypeEnum {

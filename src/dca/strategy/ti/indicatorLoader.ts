@@ -113,10 +113,15 @@ export default class InternalIndicator {
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
         indicatorConfig.percentilePercentage,
+        indicatorConfig.trendFilter,
+        indicatorConfig.trendFilterLookback,
+        indicatorConfig.trendFilterValue,
+        indicatorConfig.trendFilterType,
       )
       this.length =
         Math.max(indicatorConfig.mar1length, indicatorConfig.mar2length) +
-        (indicatorConfig.percentileLookback ?? 0)
+        (indicatorConfig.percentileLookback ?? 0) +
+        (indicatorConfig.trendFilterLookback ?? 0)
     }
     if (indicatorConfig.type === IndicatorEnum.ecd) {
       this.indicator = new FasterECD()
