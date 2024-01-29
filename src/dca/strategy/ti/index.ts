@@ -628,6 +628,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
       for (const i of currentState) {
         let action = false
+        let trendFilterAction = false
         const {
           settings: {
             indicatorValue,
@@ -801,7 +802,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               }
             }
             if (trendFilter) {
-              action =
+              trendFilterAction =
                 (trendFilterType === TrendFilterOperatorEnum.lower &&
                   lastData.value.trend === 1) ||
                 (trendFilterType === TrendFilterOperatorEnum.higher &&
@@ -971,28 +972,28 @@ class TIStrategy extends Strategy implements StrategyInterface {
               checkValue = false
             }
           }
-          if (!trendFilter) {
-            if (
-              (indicatorCondition === IndicatorStartConditionEnum.cu ||
-                indicatorCondition === IndicatorStartConditionEnum.cd) &&
-              data.length >= 2
-            ) {
-              if (indicatorCondition === IndicatorStartConditionEnum.cd) {
-                action =
-                  this.math.gt(value, last) && this.math.lt(prevValue, prev)
-              }
-              if (indicatorCondition === IndicatorStartConditionEnum.cu) {
-                action =
-                  this.math.lt(value, last) && this.math.gt(prevValue, prev)
-              }
+
+          if (
+            (indicatorCondition === IndicatorStartConditionEnum.cu ||
+              indicatorCondition === IndicatorStartConditionEnum.cd) &&
+            data.length >= 2
+          ) {
+            if (indicatorCondition === IndicatorStartConditionEnum.cd) {
+              action =
+                this.math.gt(value, last) && this.math.lt(prevValue, prev)
             }
-            if (indicatorCondition === IndicatorStartConditionEnum.gt) {
-              action = this.math.gt(last, value)
-            }
-            if (indicatorCondition === IndicatorStartConditionEnum.lt) {
-              action = this.math.lt(last, value)
+            if (indicatorCondition === IndicatorStartConditionEnum.cu) {
+              action =
+                this.math.lt(value, last) && this.math.gt(prevValue, prev)
             }
           }
+          if (indicatorCondition === IndicatorStartConditionEnum.gt) {
+            action = this.math.gt(last, value)
+          }
+          if (indicatorCondition === IndicatorStartConditionEnum.lt) {
+            action = this.math.lt(last, value)
+          }
+
           if (
             ((lastData.type === IndicatorEnum.stoch &&
               prevData.type === IndicatorEnum.stoch) ||
@@ -1027,6 +1028,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
                   prev < lower &&
                   prevValue < lower))
           }
+        }
+        if (trendFilter) {
+          action = trendFilterAction && action
         }
         const [last] = [...data].sort((a, b) => b.time - a.time)
         const step = timeIntervalMap[i.interval]
