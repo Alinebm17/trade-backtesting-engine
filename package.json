@@ -29,5 +29,6 @@
     "lint": "tsc --project tsconfig.json --noEmit && eslint . --cache",
     "lint:fix": "eslint . --fix",
     "submodule": "git submodule init && git submodule update"
-  }
+  },
+  "dependencies": {}
 }

@@ -43,6 +43,7 @@ import type {
   EdgeBacktestEnum,
   FullBar,
   SymbolStats,
+  PeriodicStats,
 } from '../../types'
 
 export type Bar = BarTV
@@ -3975,6 +3976,170 @@ export abstract class Strategy implements StrategyInterface {
             : `${Infinity}`,
       })
     }
+    const periodicStats: PeriodicStats[] = []
+    const firstDataTime = Strategy.start || (firstDataItem?.time ?? +new Date())
+    const lastDataTime =
+      (lastDataItem?.time as number | undefined) ?? +new Date()
+
+    let monthlyValue = Strategy.initialBalanceUsd
+
+    for (
+      let i = firstDataTime;
+      i < lastDataTime;
+      i += 28 * 24 * 60 * 60 * 1000
+    ) {
+      const monthlyStart = new Date(i)
+      monthlyStart.setDate(1)
+      monthlyStart.setHours(0, 0, 0, 0)
+      const nextMonth = new Date(monthlyStart)
+      nextMonth.setDate(1)
+      nextMonth.setMonth(nextMonth.getMonth() + 1)
+      const findMonth = periodicStats.find(
+        (p) => p.startTime === +monthlyStart && p.period === 'month',
+      )
+      if (findMonth) {
+        continue
+      }
+      const monthlyDeals = Strategy.deals.filter(
+        (d) =>
+          d.closedTime &&
+          d.closedTime >= +monthlyStart &&
+          d.closedTime <= +nextMonth - 1,
+      )
+      let lowestBalanceDD = monthlyValue
+      let highestBalanceDD = monthlyValue
+      let lowestBalanceRU = monthlyValue
+      let highestBalanceRU = monthlyValue
+      let maxDrawdown = 0
+      let maxRunup = 0
+      let maxDrawdownValue = 0
+      let maxRunupValue = 0
+      let profit = 0
+      const startPeriodValue = Math.abs(monthlyValue)
+      for (const d of monthlyDeals) {
+        profit += d.profit.totalUsd
+        monthlyValue += d.profit.totalUsd
+        if (monthlyValue > highestBalanceRU) {
+          highestBalanceRU = monthlyValue
+          const tempRunup = highestBalanceRU - lowestBalanceRU
+          if (tempRunup > maxRunupValue) {
+            maxRunupValue = tempRunup
+            maxRunup = Math.abs(tempRunup / lowestBalanceRU)
+          }
+        }
+        if (monthlyValue < lowestBalanceRU) {
+          lowestBalanceRU = monthlyValue
+          highestBalanceRU = monthlyValue
+        }
+        if (monthlyValue < lowestBalanceDD) {
+          lowestBalanceDD = monthlyValue
+          const tempDrawdown = highestBalanceDD - lowestBalanceDD
+          if (tempDrawdown > maxDrawdownValue) {
+            maxDrawdownValue = tempDrawdown
+            maxDrawdown = Math.abs(tempDrawdown / highestBalanceDD)
+          }
+        }
+        if (monthlyValue > highestBalanceDD) {
+          highestBalanceDD = monthlyValue
+          lowestBalanceDD = monthlyValue
+        }
+      }
+      const netResult = this.math.round((profit / startPeriodValue) * 100)
+      periodicStats.push({
+        period: 'month',
+        startTime: +monthlyStart,
+        netResult,
+        drawdown: Math.min(
+          netResult,
+          this.math.round(Math.abs(maxDrawdown) * -100),
+        ),
+        runup: Math.max(netResult, this.math.round(Math.abs(maxRunup) * 100)),
+        deals: {
+          profit: monthlyDeals.filter((d) => d.profit.totalUsd > 0).length,
+          loss: monthlyDeals.filter((d) => d.profit.totalUsd <= 0).length,
+        },
+      })
+    }
+
+    let yearlyValue = Strategy.initialBalanceUsd
+    for (
+      let i = firstDataTime;
+      i < lastDataTime;
+      i += 365 * 24 * 60 * 60 * 1000
+    ) {
+      const yearStart = new Date(i)
+      yearStart.setDate(1)
+      yearStart.setHours(0, 0, 0, 0)
+      yearStart.setMonth(0)
+      const findYear = periodicStats.find(
+        (p) => p.startTime === +yearStart && p.period === 'year',
+      )
+      if (findYear) {
+        continue
+      }
+      const nextYear = new Date(yearStart)
+      nextYear.setFullYear(nextYear.getFullYear() + 1)
+      const yearlyDeals = Strategy.deals.filter(
+        (d) =>
+          d.closedTime &&
+          d.closedTime >= +yearStart &&
+          d.closedTime <= +nextYear - 1,
+      )
+      let highestBalanceRU = yearlyValue
+      let lowestBalanceRU = yearlyValue
+      let highestBalanceDD = yearlyValue
+      let lowestBalanceDD = yearlyValue
+      let maxDrawdown = 0
+      let maxRunup = 0
+      let maxDrawdownValue = 0
+      let maxRunupValue = 0
+      let profit = 0
+      const startPeriodValue = Math.abs(yearlyValue)
+      for (const d of yearlyDeals) {
+        profit += d.profit.totalUsd
+        yearlyValue += d.profit.totalUsd
+        if (yearlyValue > highestBalanceRU) {
+          highestBalanceRU = yearlyValue
+          const tempRunup = highestBalanceRU - lowestBalanceRU
+          if (tempRunup > maxRunupValue) {
+            maxRunupValue = tempRunup
+            maxRunup = Math.abs(tempRunup / lowestBalanceRU)
+          }
+        }
+        if (yearlyValue < lowestBalanceRU) {
+          lowestBalanceRU = yearlyValue
+          highestBalanceRU = yearlyValue
+        }
+        if (yearlyValue < lowestBalanceDD) {
+          lowestBalanceDD = yearlyValue
+          const tempDrawdown = highestBalanceDD - lowestBalanceDD
+          if (tempDrawdown > maxDrawdownValue) {
+            maxDrawdownValue = tempDrawdown
+            maxDrawdown = Math.abs(tempDrawdown / highestBalanceDD)
+          }
+        }
+        if (yearlyValue > highestBalanceDD) {
+          highestBalanceDD = yearlyValue
+          lowestBalanceDD = yearlyValue
+        }
+      }
+      const netResult = this.math.round((profit / startPeriodValue) * 100)
+      periodicStats.push({
+        period: 'year',
+        startTime: +yearStart,
+        netResult,
+        drawdown: Math.min(
+          netResult,
+          this.math.round(Math.abs(maxDrawdown) * -100),
+        ),
+        runup: Math.max(netResult, this.math.round(Math.abs(maxRunup) * 100)),
+        deals: {
+          profit: yearlyDeals.filter((d) => d.profit.totalUsd > 0).length,
+          loss: yearlyDeals.filter((d) => d.profit.totalUsd <= 0).length,
+        },
+      })
+    }
+
     const quoteRate = lastPrice ?? 0
     const maxRealUsage = this.math.round(
       Math.max(maxDealUsage, maxBotUsage / maxNumberOfOpenDeals),
@@ -4173,8 +4338,8 @@ export abstract class Strategy implements StrategyInterface {
           avgDuration > 0
             ? friendlyTime(avgDuration)
             : { d: '', h: '', min: '', s: '' },
-        firstDataTime: Strategy.start || (firstDataItem?.time ?? +new Date()),
-        lastDataTime: lastDataItem?.time ?? +new Date(),
+        firstDataTime,
+        lastDataTime,
         loadingDataTime: this.math.round(loadingTime, 3),
         processingDataTime: this.math.round(
           processingTime +
@@ -4261,6 +4426,7 @@ export abstract class Strategy implements StrategyInterface {
       multiPairs: Strategy.multi
         ? Array.from(this.symbols.keys()).length
         : undefined,
+      periodicStats,
     }
     Strategy.resetData()
     return result

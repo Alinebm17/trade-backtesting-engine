@@ -968,6 +968,18 @@ export type SymbolStats = {
   avgDealDuration: SplitTime
 }
 
+export type PeriodicStats = {
+  period: string
+  startTime: number
+  netResult: number
+  drawdown: number
+  runup: number
+  deals: {
+    profit: number
+    loss: number
+  }
+}
+
 export type DCABacktestingResult = {
   // pair: string
   buyAndHoldEquity?: BuyAndHoldEquity[]
@@ -1076,6 +1088,7 @@ export type DCABacktestingResult = {
   multi?: boolean
   multiPairs?: number
   symbolStats?: SymbolStats[]
+  periodicStats?: PeriodicStats[]
 }
 
 export enum FuturesStrategyEnum {
