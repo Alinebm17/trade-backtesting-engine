@@ -4064,7 +4064,7 @@ export abstract class Strategy implements StrategyInterface {
     let yearlyValue = Strategy.initialBalanceUsd
     for (
       let i = firstDataTime;
-      i < lastDataTime;
+      i < lastDataTime + 365 * 24 * 60 * 60 * 1000;
       i += 365 * 24 * 60 * 60 * 1000
     ) {
       const yearStart = new Date(i)
@@ -4075,6 +4075,13 @@ export abstract class Strategy implements StrategyInterface {
         (p) => p.startTime === +yearStart && p.period === 'year',
       )
       if (findYear) {
+        continue
+      }
+      if (
+        !Strategy.deals.filter(
+          (d) => d.closedTime && d.closedTime >= +yearStart,
+        ).length
+      ) {
         continue
       }
       const nextYear = new Date(yearStart)
