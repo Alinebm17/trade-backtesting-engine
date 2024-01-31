@@ -21,6 +21,7 @@ import {
   ECDTriggerEnum,
   DivTypeEnum,
   TrendFilterOperatorEnum,
+  STConditionEnum,
 } from '../../../types'
 
 import type {
@@ -32,7 +33,11 @@ import type {
   FullBar,
 } from '../../../types'
 import type { DataType, StrategyInput } from '../main'
-import { DIVResult, PercentileResult } from '../../../../indicators/src'
+import {
+  DIVResult,
+  PercentileResult,
+  SuperTrendResult,
+} from '../../../../indicators/src'
 
 type Status = {
   status: boolean
@@ -121,6 +126,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
           trendFilterType,
           trendFilterLookback,
           trendFilterValue,
+          factor,
+          atrLength,
         } = i
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
@@ -141,6 +148,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 checkLevel,
                 useAsEntryExitPoints:
                   condition === TradingviewAnalysisConditionEnum.entry,
+              }
+            : type === IndicatorEnum.st
+            ? {
+                type,
+                factor: factor ?? 3,
+                atrPeriod: atrLength ?? 10,
               }
             : type === IndicatorEnum.div
             ? {
@@ -656,10 +669,25 @@ class TIStrategy extends Strategy implements StrategyInterface {
             divType,
             trendFilter,
             trendFilterType,
+            stCondition,
           },
           data,
         } = i
-        if (type === IndicatorEnum.div) {
+        if (type === IndicatorEnum.st) {
+          const [ld, pd] = [...data].sort((a, b) => b.time - a.time)
+          const lastData = ld.value as SuperTrendResult
+          const prevData = pd.value as SuperTrendResult
+          action =
+            (stCondition === STConditionEnum.up && lastData.direction === -1) ||
+            (stCondition === STConditionEnum.down &&
+              lastData.direction === 1) ||
+            (stCondition === STConditionEnum.upToDown &&
+              prevData.direction === -1 &&
+              lastData.direction === 1) ||
+            (stCondition === STConditionEnum.downToUp &&
+              prevData.direction === 1 &&
+              lastData.direction === -1)
+        } else if (type === IndicatorEnum.div) {
           const [lastData] = [...data].sort((a, b) => b.time - a.time)
           const result = lastData.value as DIVResult
           const min = divMinCount ?? 2

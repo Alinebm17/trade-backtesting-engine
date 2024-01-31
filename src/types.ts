@@ -4,6 +4,7 @@ import type {
   FasterStochasticResult,
   PivotResult,
   DIVResult,
+  SuperTrendResult,
 } from '../indicators/src'
 
 export enum IndicatorEnum {
@@ -34,6 +35,7 @@ export enum IndicatorEnum {
   mar = 'MAR',
   bbpb = 'BBPB',
   div = 'DIV',
+  st = 'ST',
 }
 
 export enum ECDTriggerEnum {
@@ -183,6 +185,11 @@ type DivergenceOscillators =
 
 export type IndicatorConfigBackTesting =
   | {
+      type: IndicatorEnum.st
+      factor: number
+      atrPeriod: number
+    }
+  | {
       type: IndicatorEnum.div
       oscillators: DivergenceOscillators[]
       leftBars?: number
@@ -317,6 +324,7 @@ export type IndicatorHistory = { time: number } & (
       type: IndicatorEnum.xo | IndicatorEnum.bbwp | IndicatorEnum.ecd
       value: number
     }
+  | { type: IndicatorEnum.st; value: SuperTrendResult }
   | {
       type: IndicatorEnum.div
       value: DIVResult
@@ -422,6 +430,16 @@ export type SettingsIndicators = {
   trendFilterLookback?: number
   trendFilterType?: TrendFilterOperatorEnum
   trendFilterValue?: number
+  factor?: number
+  atrLength?: number
+  stCondition?: STConditionEnum
+}
+
+export enum STConditionEnum {
+  up = 'up',
+  down = 'down',
+  upToDown = 'upToDown',
+  downToUp = 'downToUp',
 }
 
 export enum TrendFilterOperatorEnum {

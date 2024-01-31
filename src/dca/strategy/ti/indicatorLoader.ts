@@ -31,6 +31,7 @@ import {
   FasterBBPB,
   FasterDIV,
   DIVUsableOscillators,
+  SuperTrend,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -72,6 +73,7 @@ export default class InternalIndicator {
     | FasterMAR
     | FasterBBPB
     | FasterDIV
+    | SuperTrend
   private data: IndicatorHistory[] = []
 
   private readonly type: IndicatorEnum
@@ -92,6 +94,13 @@ export default class InternalIndicator {
         indicatorConfig.max,
       )
       this.length = 100
+    }
+    if (indicatorConfig.type === IndicatorEnum.st) {
+      this.indicator = new SuperTrend(
+        indicatorConfig.factor,
+        indicatorConfig.atrPeriod,
+      )
+      this.length = indicatorConfig.atrPeriod + 1
     }
     if (indicatorConfig.type === IndicatorEnum.rsi) {
       this.indicator = new FasterRSI(
@@ -451,7 +460,8 @@ export default class InternalIndicator {
         this.indicator instanceof SupportResistance ||
         this.indicator instanceof QFL ||
         this.indicator instanceof FasterCCI ||
-        this.indicator instanceof FasterPSAR)
+        this.indicator instanceof FasterPSAR ||
+        this.indicator instanceof SuperTrend)
     ) {
       this.indicator?.update({
         high: +value.h,
