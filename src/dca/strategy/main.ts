@@ -2307,7 +2307,7 @@ export abstract class Strategy implements StrategyInterface {
           (this.long
             ? d.currentBalance.base
             : d.initialBalance.base - d.currentBalance.base) +
-            (this.coinm ? d.profit.total * (this.long ? 1 : -1) : 0),
+            (this.profitBase ? d.profit.total * (this.long ? 1 : -1) : 0),
           0,
         )
         const quote =
@@ -3751,7 +3751,8 @@ export abstract class Strategy implements StrategyInterface {
           const quote = this.combo
             ? (this.long
                 ? od.initialBalance.quote - od.currentBalance.quote
-                : od.currentBalance.quote) + od.profit.total
+                : od.currentBalance.quote) +
+              (this.profitBase ? od.profit.total * (this.long ? 1 : -1) : 0)
             : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
           const base = this.combo
@@ -3760,27 +3761,34 @@ export abstract class Strategy implements StrategyInterface {
               : od.initialBalance.base - od.currentBalance.base
             : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
-          const commission = od.filledOrders.reduce(
-            (acc, v) =>
-              (acc += this.combo
-                ? v.qty * v.price * this.userFee
-                : this.profitBase
-                ? v.qty * this.userFee
-                : v.qty * v.price * this.userFee),
-            0,
-          )
+          const comboBase = quote / tpPrice
+          const quoteTp = qty * tpPrice
+          const commission = this.combo
+            ? this.long
+              ? (this.profitBase ? comboBase : base) * this.userFee
+              : (this.profitBase ? comboBase : base) *
+                (this.profitBase ? 1 : tpPrice) *
+                this.userFee
+            : od.filledOrders.reduce(
+                (acc, v) =>
+                  (acc += this.profitBase
+                    ? v.qty * this.userFee
+                    : v.qty * v.price * this.userFee),
+                0,
+              )
           const unPnl =
             od.profit.total +
-            (this.profitBase
-              ? base -
-                qty +
-                ((qty * tpPrice - quote) / tpPrice) * (this.long ? 1 : -1)
-              : this.combo
-              ? qty * tpPrice - quote
-              : qty * tpPrice -
-                quote +
-                (qty - base) * tpPrice * (this.long ? 1 : -1)) *
-              (this.long ? 1 : -1) -
+            (this.combo
+              ? (this.profitBase ? base - comboBase : quoteTp - quote) *
+                (this.long ? 1 : -1)
+              : (this.profitBase
+                  ? base -
+                    qty +
+                    ((qty * tpPrice - quote) / tpPrice) * (this.long ? 1 : -1)
+                  : qty * tpPrice -
+                    quote +
+                    (qty - base) * tpPrice * (this.long ? 1 : -1)) *
+                (this.long ? 1 : -1)) -
             commission
           const usdRateCurrent = this.usdRate.get(od.symbol.pair) ?? 1
           unrealizedPnL += unPnl
