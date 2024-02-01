@@ -1,7 +1,7 @@
 import { Strategy, StrategyInterface } from '../main'
 import InternalIndicator from './indicatorLoader'
 import {
-  IndicatorsEnum,
+  IndicatorEnum,
   TradingviewAnalysisConditionEnum,
   MAEnum,
   TradingviewAnalysisSignalEnum,
@@ -14,6 +14,14 @@ import {
   SRCrossingEnum,
   IndicatorAction,
   IndicatorSection,
+  StochRangeEnum,
+  DCAConditionEnum,
+  StrategyEnum,
+  BotOrderSideEnum,
+  ECDTriggerEnum,
+  DivTypeEnum,
+  TrendFilterOperatorEnum,
+  STConditionEnum,
 } from '../../../types'
 
 import type {
@@ -21,8 +29,22 @@ import type {
   IndicatorConfigBackTesting,
   MAResult,
   SettingsIndicators,
+  TradeResponse,
+  FullBar,
 } from '../../../types'
-import type { StrategyInput, Bar } from '../main'
+import type { DataType, StrategyInput } from '../main'
+import {
+  DIVResult,
+  PercentileResult,
+  SuperTrendResult,
+} from '../../../../indicators/src'
+
+type Status = {
+  status: boolean
+  statusSince: number
+  statusTo: number
+  numberOfSignals?: number
+}
 
 export type Indicator = {
   instance: InternalIndicator
@@ -30,176 +52,395 @@ export type Indicator = {
   id: string
   settings: SettingsIndicators
   interval: ExchangeIntervals
-  statuses: { status: boolean; statusSince: number; statusTo: number }[]
-  status: boolean
+  statuses: Status[]
+  status: Status
+  ignore: boolean
+  symbol: string
 }
 
 class TIStrategy extends Strategy implements StrategyInterface {
+  private lowestData: DataType[] = []
+  private firstBar: Map<string, number> = new Map()
+  private nextBarTime: Map<string, number> = new Map()
   constructor(input: StrategyInput) {
+    input.settings.indicators = input.settings.indicators.filter(
+      (i) => i.indicatorAction !== IndicatorAction.stopBot,
+    )
     super(input)
     this.processBar = this.processBar.bind(this)
     const { indicators } = input.settings
-    indicators.forEach((i) => {
-      const {
-        type,
-        indicatorLength,
-        checkLevel,
-        condition,
-        maType,
-        maUUID,
-        uuid,
-        maCrossingValue,
-        maCrossingInterval,
-        maCrossingLength,
-        indicatorInterval,
-        stochRSI,
-        stochSmoothD,
-        stochSmoothK,
-        leftBars,
-        rightBars,
-        basePeriods,
-        pumpPeriods,
-        pump,
-        baseCrack,
-        psarInc,
-        psarMax,
-        psarStart,
-      } = i
-      const ind = new InternalIndicator(
-        type === IndicatorsEnum.macd
-          ? {
-              type,
-              shortInterval: 12,
-              longInterval: 26,
-              signalInterval: indicatorLength,
-            }
-          : type === IndicatorsEnum.tv
-          ? {
-              type,
-              checkLevel,
-              useAsEntryExitPoints:
-                condition === TradingviewAnalysisConditionEnum.entry,
-            }
-          : type === IndicatorsEnum.ma
-          ? {
-              type,
-              interval: indicatorLength,
-              maType: maType || MAEnum.ema,
-            }
-          : type === IndicatorsEnum.stoch
-          ? {
-              type,
-              length: indicatorLength,
-              smoothD: stochSmoothD ?? 1,
-              smoothK: stochSmoothK ?? 3,
-            }
-          : type === IndicatorsEnum.stochRSI
-          ? {
-              type,
-              length: indicatorLength,
-              smoothD: stochSmoothD ?? 3,
-              smoothK: stochSmoothK ?? 3,
-              rsiLength: stochRSI ?? 14,
-            }
-          : type === IndicatorsEnum.sr
-          ? {
-              type,
-              leftBars: leftBars ?? 15,
-              rightBars: rightBars ?? 15,
-            }
-          : type === IndicatorsEnum.mfi
-          ? {
-              type,
-              interval: indicatorLength ?? 14,
-            }
-          : type === IndicatorsEnum.qfl
-          ? {
-              type,
-              basePeriods: basePeriods ?? 36,
-              pumpPeriods: pumpPeriods ?? 8,
-              pump: (pump ?? 3) / 100,
-              baseCrack: (baseCrack ?? 3) / 100,
-            }
-          : type === IndicatorsEnum.psar
-          ? {
-              type,
-              max: psarMax ?? 0.2,
-              inc: psarInc ?? 0.02,
-              start: psarStart ?? 0.02,
-            }
-          : ({
-              type,
-              interval: indicatorLength,
-            } as IndicatorConfigBackTesting),
-      )
-      Strategy.indicators.push({
-        instance: ind,
-        data: [],
-        id: uuid,
-        settings: i,
-        interval: indicatorInterval,
-        statuses: [],
-        status: false,
-      })
-      if (
-        type === IndicatorsEnum.ma &&
-        maCrossingValue !== MAEnum.price &&
-        maCrossingInterval &&
-        maCrossingLength &&
-        maUUID &&
-        maCrossingValue
-      ) {
-        const indicatorChild = new InternalIndicator({
+    for (const s of input.symbols) {
+      for (const i of indicators) {
+        const {
           type,
-          maType: maCrossingValue,
-          interval: maCrossingLength,
-        })
+          indicatorLength,
+          checkLevel,
+          condition,
+          maType,
+          maUUID,
+          uuid,
+          maCrossingValue,
+          maCrossingInterval,
+          maCrossingLength,
+          indicatorInterval,
+          stochRSI,
+          stochSmoothD,
+          stochSmoothK,
+          leftBars,
+          rightBars,
+          basePeriods,
+          pumpPeriods,
+          pump,
+          baseCrack,
+          psarInc,
+          psarMax,
+          psarStart,
+          voLong,
+          voShort,
+          uoFast,
+          uoMiddle,
+          uoSlow,
+          momSource,
+          bbwpLookback,
+          xOscillator1,
+          xOscillator2,
+          xOscillator2Interval,
+          xOscillator2length,
+          xoUUID,
+          percentile,
+          percentileLookback,
+          percentilePercentage,
+          mar1type,
+          mar1length,
+          mar2type,
+          mar2length,
+          bbwMa,
+          bbwMaLength,
+          bbwMult,
+          macdFast,
+          macdSlow,
+          macdMaSignal,
+          macdMaSource,
+          divOscillators,
+          trendFilter,
+          trendFilterType,
+          trendFilterLookback,
+          trendFilterValue,
+          factor,
+          atrLength,
+        } = i
+        const ind = new InternalIndicator(
+          type === IndicatorEnum.macd
+            ? {
+                type,
+                shortInterval: macdFast ?? 12,
+                longInterval: macdSlow ?? 26,
+                signalInterval: indicatorLength,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+                maSignal: macdMaSignal ?? MAEnum.ema,
+                maSource: macdMaSource ?? MAEnum.ema,
+              }
+            : type === IndicatorEnum.tv
+            ? {
+                type,
+                checkLevel,
+                useAsEntryExitPoints:
+                  condition === TradingviewAnalysisConditionEnum.entry,
+              }
+            : type === IndicatorEnum.st
+            ? {
+                type,
+                factor: factor ?? 3,
+                atrPeriod: atrLength ?? 10,
+              }
+            : type === IndicatorEnum.div
+            ? {
+                type,
+                oscillators: divOscillators ?? [],
+              }
+            : type === IndicatorEnum.ma
+            ? {
+                type,
+                interval: indicatorLength,
+                maType: maType || MAEnum.ema,
+              }
+            : type === IndicatorEnum.bb
+            ? {
+                type,
+                interval: indicatorLength,
+                bbwMa: bbwMa || MAEnum.sma,
+                bbwMaLength: bbwMaLength || 20,
+                bbwMult: bbwMult || 2,
+              }
+            : type === IndicatorEnum.bbw
+            ? {
+                type,
+                interval: indicatorLength,
+                bbwMa: bbwMa || MAEnum.sma,
+                bbwMaLength: bbwMaLength || 20,
+                bbwMult: bbwMult || 2,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+              }
+            : type === IndicatorEnum.bbpb
+            ? {
+                type,
+                interval: indicatorLength,
+                bbwMa: bbwMa || MAEnum.sma,
+                bbwMaLength: bbwMaLength || 20,
+                bbwMult: bbwMult || 2,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+              }
+            : type === IndicatorEnum.xo
+            ? {
+                type: xOscillator1 || IndicatorEnum.rsi,
+                interval: indicatorLength,
+              }
+            : type === IndicatorEnum.stoch
+            ? {
+                type,
+                length: indicatorLength,
+                smoothD: stochSmoothD ?? 1,
+                smoothK: stochSmoothK ?? 3,
+              }
+            : type === IndicatorEnum.stochRSI
+            ? {
+                type,
+                length: indicatorLength,
+                smoothD: stochSmoothD ?? 3,
+                smoothK: stochSmoothK ?? 3,
+                rsiLength: stochRSI ?? 14,
+              }
+            : type === IndicatorEnum.uo
+            ? {
+                type,
+                fast: uoFast ?? 7,
+                middle: uoMiddle ?? 14,
+                slow: uoSlow ?? 28,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+              }
+            : type === IndicatorEnum.mom
+            ? {
+                type,
+                interval: indicatorLength,
+                source: momSource ?? 'close',
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+              }
+            : type === IndicatorEnum.mar
+            ? {
+                type,
+                mar1type: mar1type || MAEnum.ema,
+                mar1length: mar1length || 20,
+                mar2type: mar2type || MAEnum.price,
+                mar2length: mar2length || 20,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+                trendFilter,
+                trendFilterLookback,
+                trendFilterType,
+                trendFilterValue,
+              }
+            : type === IndicatorEnum.bbwp
+            ? {
+                type,
+                interval: indicatorLength,
+                source: momSource ?? 'close',
+                lookback: bbwpLookback ?? 252,
+              }
+            : type === IndicatorEnum.sr
+            ? {
+                type,
+                leftBars: leftBars ?? 15,
+                rightBars: rightBars ?? 15,
+              }
+            : type === IndicatorEnum.mfi
+            ? {
+                type,
+                interval: indicatorLength ?? 14,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+              }
+            : type === IndicatorEnum.qfl
+            ? {
+                type,
+                basePeriods: basePeriods ?? 36,
+                pumpPeriods: pumpPeriods ?? 8,
+                pump: (pump ?? 3) / 100,
+                baseCrack: (baseCrack ?? 3) / 100,
+              }
+            : type === IndicatorEnum.psar
+            ? {
+                type,
+                max: psarMax ?? 0.2,
+                inc: psarInc ?? 0.02,
+                start: psarStart ?? 0.02,
+              }
+            : type === IndicatorEnum.vo
+            ? {
+                type,
+                voLong: voLong ?? 10,
+                voShort: voShort ?? 5,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+              }
+            : type === IndicatorEnum.ecd
+            ? { type }
+            : ({
+                type,
+                interval: indicatorLength,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
+              } as IndicatorConfigBackTesting),
+        )
         Strategy.indicators.push({
-          instance: indicatorChild,
+          instance: ind,
           data: [],
-          id: maUUID,
+          id: `${uuid}@${s.pair}`,
           settings: i,
-          interval: maCrossingInterval,
+          interval: indicatorInterval,
           statuses: [],
-          status: false,
+          status: { status: false, statusSince: 0, statusTo: 0 },
+          ignore: false,
+          symbol: s.pair,
         })
+        if (
+          type === IndicatorEnum.ma &&
+          maCrossingValue !== MAEnum.price &&
+          maCrossingInterval &&
+          maCrossingLength &&
+          maUUID &&
+          maCrossingValue
+        ) {
+          const indicatorChild = new InternalIndicator({
+            type,
+            maType: maCrossingValue,
+            interval: maCrossingLength,
+          })
+          Strategy.indicators.push({
+            instance: indicatorChild,
+            data: [],
+            id: `${maUUID}@${s.pair}`,
+            settings: i,
+            interval: maCrossingInterval,
+            statuses: [],
+            status: { status: false, statusSince: 0, statusTo: 0 },
+            ignore: true,
+            symbol: s.pair,
+          })
+        }
+        if (
+          type === IndicatorEnum.xo &&
+          xOscillator2 &&
+          xOscillator2Interval &&
+          xOscillator2length
+        ) {
+          const indicatorChild = new InternalIndicator({
+            type: xOscillator2 || IndicatorEnum.mfi,
+            interval: xOscillator2length || indicatorLength,
+          })
+          Strategy.indicators.push({
+            instance: indicatorChild,
+            data: [],
+            id: `${xoUUID}@${s.pair}`,
+            settings: i,
+            interval: xOscillator2Interval || indicatorInterval,
+            statuses: [],
+            status: { status: false, statusSince: 0, statusTo: 0 },
+            ignore: true,
+            symbol: s.pair,
+          })
+        }
       }
-    })
+    }
     this.updateIndicatorData = this.updateIndicatorData.bind(this)
     this.checkIndicators = this.checkIndicators.bind(this)
     Strategy.lowestInterval = Strategy.interval
+    Strategy.highestInterval = input.settings.indicators
+      .filter((i) => i.indicatorAction === IndicatorAction.startDeal)
+      .map((i) => i.indicatorInterval)
+      .sort((a, b) => timeIntervalMap[b] - timeIntervalMap[a])?.[0]
   }
 
-  public override getOtherIntervals(): ExchangeIntervals[] {
-    return Strategy.indicators
-      .flatMap((i) => {
-        const int = [i.settings.indicatorInterval]
-        if (
-          i.settings.type === IndicatorsEnum.ma &&
-          i.settings.maCrossingValue !== MAEnum.price &&
-          i.settings.maCrossingInterval
-        ) {
-          int.push(i.settings.maCrossingInterval)
-        }
-        return int
-      })
-      .filter((i) => i !== Strategy.interval)
+  public override getOtherIntervals(): {
+    interval: ExchangeIntervals
+    countBack: number
+  }[] {
+    const intervals = Strategy.indicators.flatMap((i) => {
+      const int = [
+        {
+          interval: i.settings.indicatorInterval,
+          countBack: i.instance.length,
+        },
+      ]
+      if (
+        i.settings.type === IndicatorEnum.ma &&
+        i.settings.maCrossingValue !== MAEnum.price &&
+        i.settings.maCrossingInterval
+      ) {
+        int.push({
+          interval: i.settings.maCrossingInterval,
+          countBack: i.instance.length,
+        })
+      }
+      if (
+        i.settings.type === IndicatorEnum.xo &&
+        i.settings.xOscillator2Interval &&
+        i.settings.indicatorInterval !== i.settings.xOscillator2Interval
+      ) {
+        int.push({
+          interval: i.settings.xOscillator2Interval,
+          countBack: i.instance.length,
+        })
+      }
+      return int
+    })
+
+    if (
+      Strategy.lowestInterval &&
+      !intervals.map((i) => i.interval).includes(Strategy.lowestInterval)
+    ) {
+      intervals.push({ interval: Strategy.lowestInterval, countBack: 0 })
+    }
+    return intervals
   }
 
-  public test(): void {
+  public async test(): Promise<void> {
     const data = [...Strategy.data].sort(
       (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
     )
     const [lowest] = data
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
-    lowest.bar.forEach((b, i) => this.processBar(b, lowest.bar[i + 1]))
+    for (const b of lowest.bar) {
+      await this.processBar(b)
+    }
   }
 
-  private checkStatuses(bar: Bar) {
+  public async preTest(): Promise<void> {
+    if (this.lowestData.length === 0) {
+      this.lowestData = [...Strategy.data].sort(
+        (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
+      )
+    }
+  }
+
+  private checkStatuses(time: number) {
     Strategy.indicators = Strategy.indicators.map((i) => {
       const findStatus = i.statuses.find(
-        (s) => bar.time >= s.statusSince && bar.time < s.statusTo,
+        (s) => time >= s.statusSince && time < s.statusTo,
       )
       if (findStatus) {
         i.statuses = i.statuses.filter(
@@ -207,26 +448,88 @@ class TIStrategy extends Strategy implements StrategyInterface {
             s.statusSince !== findStatus.statusSince &&
             s.statusTo !== findStatus.statusTo,
         )
-        i.status = findStatus.status
+        i.status = findStatus
+      } else {
+        i.statuses = i.statuses.filter((s) => s.statusTo > time)
+        if (i.status.statusTo < time) {
+          i.status = { status: false, statusSince: 0, statusTo: 0 }
+        }
       }
 
       return i
     })
   }
 
-  public processBar(bar: Bar, _nextBar: Bar): void {
-    if (Strategy.workingShift.length === 0) {
+  public processTrade(
+    trade: TradeResponse,
+    candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
+  ): void {
+    if (
+      Strategy.workingShift.length === 0 &&
+      ((Strategy.start && trade.timestamp >= Strategy.start) || !Strategy.start)
+    ) {
+      this.startWorkingShift(trade.timestamp)
+    }
+    this.checkStatuses(trade.timestamp)
+    this.checkInRange(+trade.price, trade.timestamp)
+    if (candles.length) {
+      for (const c of candles) {
+        if (!c.candle) {
+          continue
+        }
+
+        const indicator = Strategy.indicators.find(
+          (i) =>
+            i.interval === c.interval && i.symbol === c.candle?.[0]?.symbol,
+        )
+        for (const _c of c.candle) {
+          if (indicator) {
+            indicator.instance.updateValue(
+              {
+                o: _c.open,
+                h: _c.high,
+                l: _c.low,
+                c: _c.close,
+                v: _c.volume ?? 0,
+              },
+              _c.time,
+              this.updateIndicatorData(indicator),
+            )
+          }
+          const isProcess = _c.time >= Strategy.start
+          if (!isProcess) {
+            continue
+          }
+          this.checkIndicators(_c)
+        }
+      }
+    }
+    this.checkDeals({
+      open: +trade.price,
+      high: +trade.price,
+      low: +trade.price,
+      close: +trade.price,
+      time: trade.timestamp,
+      symbol: trade.symbol,
+    })
+  }
+
+  public async processBar(bar: FullBar): Promise<void> {
+    if (
+      Strategy.workingShift.length === 0 &&
+      ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start)
+    ) {
       this.startWorkingShift(bar.time)
     }
-    this.checkStatuses(bar)
+    this.checkStatuses(bar.time)
     this.checkInRange(bar.close, bar.time)
     const lowestIndicators = Strategy.indicators.filter(
-      (i) => i.interval === Strategy.lowestInterval,
+      (i) => i.interval === Strategy.lowestInterval && i.symbol === bar.symbol,
     )
     const restIndicators = Strategy.indicators.filter(
-      (i) => i.interval !== Strategy.lowestInterval,
+      (i) => i.interval !== Strategy.lowestInterval && i.symbol === bar.symbol,
     )
-    lowestIndicators.forEach((i) => {
+    for (const i of lowestIndicators) {
       i.instance.updateValue(
         {
           o: bar.open,
@@ -238,7 +541,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         bar.time,
         this.updateIndicatorData(i),
       )
-    })
+    }
     const range = [
       bar.time + 1,
       bar.time + timeIntervalMap[Strategy.lowestInterval ?? Strategy.interval],
@@ -246,13 +549,36 @@ class TIStrategy extends Strategy implements StrategyInterface {
     /*  if (restIndicators.length === 0) {
       this.checkDeals(bar)
     } */
-    restIndicators.forEach((i) => {
+    for (const i of restIndicators) {
+      const nextBarTime = this.nextBarTime.get(i.id)
+      if (
+        nextBarTime &&
+        !(nextBarTime >= range[0] && nextBarTime <= range[1])
+      ) {
+        continue
+      }
       const [data] = Strategy.data.filter((d) => d.interval === i.interval)
       if (data) {
-        const bars = data.bar.filter(
-          (b) => b.time >= range[0] && b.time <= range[1],
+        let bars: FullBar[] = []
+        if ((this.firstBar.get(bar.symbol) ?? 0) < restIndicators.length) {
+          this.firstBar.set(
+            bar.symbol,
+            (this.firstBar.get(bar.symbol) ?? 0) + 1,
+          )
+          bars = data.bar.filter(
+            (b) => b.time < range[0] && b.symbol === bar.symbol,
+          )
+        }
+
+        bars = bars.concat(
+          data.bar.filter(
+            (b) =>
+              b.time >= range[0] &&
+              b.time <= range[1] &&
+              b.symbol === bar.symbol,
+          ),
         )
-        bars.forEach((b) => {
+        for (const b of bars) {
           i.instance.updateValue(
             {
               o: b.open,
@@ -264,13 +590,19 @@ class TIStrategy extends Strategy implements StrategyInterface {
             b.time,
             this.updateIndicatorData(i),
           )
+          this.nextBarTime.set(i.id, b.time + timeIntervalMap[i.interval])
           //this.checkDeals(b)
-        })
+        }
       }
-    })
+    }
+    const isProcess = bar.time >= Strategy.start
+    if (!isProcess) {
+      return
+    }
 
     this.checkIndicators(bar)
-    this.checkDeals(bar)
+
+    await this.checkDeals(bar)
   }
 
   private updateIndicatorData(i: Indicator) {
@@ -283,24 +615,33 @@ class TIStrategy extends Strategy implements StrategyInterface {
     }
   }
 
-  private checkIndicators(nextBar: Bar) {
+  private checkIndicators(nextBar: FullBar) {
     const startIndicators = Strategy.indicators.filter(
       (si) => si.settings.indicatorAction === IndicatorAction.startDeal,
     )
     const closeIndicators = Strategy.indicators.filter(
       (ci) => ci.settings.indicatorAction === IndicatorAction.closeDeal,
     )
+    const dcaIndicators = Strategy.indicators.filter(
+      (ci) => ci.settings.indicatorAction === IndicatorAction.startDca,
+    )
     if (
       (startIndicators.filter((i) => i.data.length > 0).length ||
-        closeIndicators.filter((i) => i.data.length > 0).length) &&
+        closeIndicators.filter((i) => i.data.length > 0).length ||
+        dcaIndicators.filter((i) => i.data.length > 0).length) &&
       nextBar
     ) {
       const currentState = [...Strategy.indicators].filter(
-        (i) => i.id !== i.settings.maUUID && i.data.length > 0,
+        (i) =>
+          i.id !== `${i.settings.maUUID}@${nextBar.symbol}` &&
+          `${i.settings.xoUUID}@${nextBar.symbol}` &&
+          i.data.length > 0 &&
+          i.symbol === nextBar.symbol,
       )
       //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
-      currentState.forEach((i) => {
+      for (const i of currentState) {
         let action = false
+        let trendFilterAction = false
         const {
           settings: {
             indicatorValue,
@@ -318,13 +659,51 @@ class TIStrategy extends Strategy implements StrategyInterface {
             rsiValue2,
             valueInsteadof,
             srCrossingValue,
+            stochRange,
+            keepConditionBars,
+            ecdTrigger,
+            xoUUID,
+            xOscillator1,
+            percentile,
+            divMinCount,
+            divType,
+            trendFilter,
+            trendFilterType,
+            stCondition,
           },
           data,
         } = i
-        if (type === IndicatorsEnum.qfl) {
+        if (type === IndicatorEnum.st) {
+          const [ld, pd] = [...data].sort((a, b) => b.time - a.time)
+          const lastData = ld.value as SuperTrendResult
+          const prevData = pd.value as SuperTrendResult
+          action =
+            (stCondition === STConditionEnum.up && lastData.direction === -1) ||
+            (stCondition === STConditionEnum.down &&
+              lastData.direction === 1) ||
+            (stCondition === STConditionEnum.upToDown &&
+              prevData.direction === -1 &&
+              lastData.direction === 1) ||
+            (stCondition === STConditionEnum.downToUp &&
+              prevData.direction === 1 &&
+              lastData.direction === -1)
+        } else if (type === IndicatorEnum.div) {
+          const [lastData] = [...data].sort((a, b) => b.time - a.time)
+          const result = lastData.value as DIVResult
+          const min = divMinCount ?? 2
+          action =
+            ((divType === DivTypeEnum.bear || divType === DivTypeEnum.abear) &&
+              result.negdivergence >= min) ||
+            ((divType === DivTypeEnum.hbear || divType === DivTypeEnum.abear) &&
+              result.negdivergencehidden >= min) ||
+            ((divType === DivTypeEnum.bull || divType === DivTypeEnum.abull) &&
+              result.posdivergence >= min) ||
+            ((divType === DivTypeEnum.hbull || divType === DivTypeEnum.abull) &&
+              result.posdivergencehidden >= min)
+        } else if (type === IndicatorEnum.qfl) {
           const [lastData] = [...data].sort((a, b) => b.time - a.time)
           action = lastData.value as boolean
-        } else if (type === IndicatorsEnum.tv && checkLevel && signal) {
+        } else if (type === IndicatorEnum.tv && checkLevel && signal) {
           /**
            * TradingViews Technical Analysis
            *
@@ -371,8 +750,33 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ) {
             action = true
           }
+        } else if (type === IndicatorEnum.ecd && ecdTrigger) {
+          /**
+           * Engulfing candle detector
+           *
+           * Result:
+           *  - 0 - na
+           *
+           *  - 1 - Bearish
+           *
+           *  - 2 - Bullish
+           *
+           */
+          const [lastData] = [...data].sort((a, b) => b.time - a.time)
+          const ecd = lastData.value as number
+          if (
+            ecd === 1 &&
+            [ECDTriggerEnum.bearish, ECDTriggerEnum.both].includes(ecdTrigger)
+          ) {
+            action = true
+          } else if (
+            ecd === 2 &&
+            [ECDTriggerEnum.bullish, ECDTriggerEnum.both].includes(ecdTrigger)
+          ) {
+            action = true
+          }
         } else if (
-          (indicatorValue !== undefined || type === IndicatorsEnum.ma) &&
+          (indicatorValue !== undefined || type === IndicatorEnum.ma) &&
           indicatorCondition
         ) {
           let value = indicatorValue !== undefined ? +indicatorValue : 0
@@ -380,30 +784,78 @@ class TIStrategy extends Strategy implements StrategyInterface {
           const [lastData, prevData] = [...data].sort((a, b) => b.time - a.time)
           let last = 0
           let prev = 0
-          let checkValue = false
+          let checkValue = true
           if (
-            (lastData.type === IndicatorsEnum.rsi ||
-              lastData.type === IndicatorsEnum.mfi ||
-              lastData.type === IndicatorsEnum.adx ||
-              lastData.type === IndicatorsEnum.bbw) &&
-            (prevData.type === IndicatorsEnum.rsi ||
-              prevData.type === IndicatorsEnum.mfi ||
-              prevData.type === IndicatorsEnum.adx ||
-              prevData.type === IndicatorsEnum.bbw)
+            (lastData.type === IndicatorEnum.rsi ||
+              lastData.type === IndicatorEnum.ao ||
+              lastData.type === IndicatorEnum.wr ||
+              lastData.type === IndicatorEnum.cci ||
+              lastData.type === IndicatorEnum.uo ||
+              lastData.type === IndicatorEnum.mom ||
+              lastData.type === IndicatorEnum.mfi ||
+              lastData.type === IndicatorEnum.adx ||
+              lastData.type === IndicatorEnum.bbw ||
+              lastData.type === IndicatorEnum.bbpb ||
+              lastData.type === IndicatorEnum.vo ||
+              lastData.type === IndicatorEnum.mar) &&
+            (prevData.type === IndicatorEnum.rsi ||
+              prevData.type === IndicatorEnum.ao ||
+              prevData.type === IndicatorEnum.cci ||
+              prevData.type === IndicatorEnum.uo ||
+              prevData.type === IndicatorEnum.mom ||
+              prevData.type === IndicatorEnum.wr ||
+              prevData.type === IndicatorEnum.mfi ||
+              prevData.type === IndicatorEnum.adx ||
+              prevData.type === IndicatorEnum.bbw ||
+              prevData.type === IndicatorEnum.bbpb ||
+              prevData.type === IndicatorEnum.vo ||
+              prevData.type === IndicatorEnum.mar)
+          ) {
+            last = lastData.value.value
+            prev = prevData.value.value
+            if (percentile) {
+              const tmpValue = lastData.value.percentile
+              const tmpPrevValue = prevData.value.percentile
+              if (
+                typeof tmpValue === 'undefined' ||
+                typeof tmpPrevValue === 'undefined'
+              ) {
+                last = 0
+                prev = 0
+                value = 0
+                prevValue = 0
+              } else {
+                value = tmpValue
+                prevValue = tmpPrevValue
+              }
+            }
+            if (trendFilter) {
+              trendFilterAction =
+                (trendFilterType === TrendFilterOperatorEnum.lower &&
+                  lastData.value.trend === 1) ||
+                (trendFilterType === TrendFilterOperatorEnum.higher &&
+                  lastData.value.trend === 2) ||
+                (trendFilterType === TrendFilterOperatorEnum.between &&
+                  lastData.value.trend === 3)
+            }
+          }
+          if (
+            lastData.type === IndicatorEnum.bbwp &&
+            prevData.type === IndicatorEnum.bbwp
           ) {
             last = lastData.value
             prev = prevData.value
           }
           if (
-            lastData.type === IndicatorsEnum.macd &&
-            prevData.type === IndicatorsEnum.macd
+            lastData.type === IndicatorEnum.macd &&
+            prevData.type === IndicatorEnum.macd
           ) {
             last = lastData.value.histogram
             prev = prevData.value.histogram
           }
           if (
-            lastData.type === IndicatorsEnum.ma &&
-            prevData.type === IndicatorsEnum.ma
+            lastData.type === IndicatorEnum.ma &&
+            prevData.type === IndicatorEnum.ma
           ) {
             last = lastData.value.ma
             prev = prevData.value.ma
@@ -411,7 +863,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
               value = lastData.value.price
               prevValue = prevData.value.price
             } else if (lastData.value.maType === maType) {
-              const findMA = Strategy.indicators.find((ii) => ii.id === maUUID)
+              const findMA = Strategy.indicators.find(
+                (ii) => ii.id === `${maUUID}@${nextBar.symbol}`,
+              )
               if (findMA) {
                 const [dataMA, prevMAData] = [
                   ...findMA.instance.currentData,
@@ -434,8 +888,34 @@ class TIStrategy extends Strategy implements StrategyInterface {
             }
           }
           if (
-            lastData.type === IndicatorsEnum.psar &&
-            prevData.type === IndicatorsEnum.psar
+            i.settings.type === IndicatorEnum.xo &&
+            lastData.type === xOscillator1 &&
+            prevData.type === xOscillator1
+          ) {
+            last = lastData.value.value
+            prev = prevData.value.value
+
+            const findXO = Strategy.indicators.find(
+              (ii) => ii.id === `${xoUUID}@${nextBar.symbol}`,
+            )
+            if (findXO) {
+              const [dataXO, prevXOData] = [
+                ...findXO.instance.currentData,
+              ].sort((a, b) => b.time - a.time)
+              prevValue = prevXOData
+                ? (prevXOData.value as PercentileResult).value
+                : 0
+              value = dataXO ? (dataXO.value as PercentileResult).value : 0
+            } else {
+              last = 0
+              prev = 0
+              value = 0
+              prevValue = 0
+            }
+          }
+          if (
+            lastData.type === IndicatorEnum.psar &&
+            prevData.type === IndicatorEnum.psar
           ) {
             last = lastData.value.price
             prev = prevData.value.price
@@ -443,8 +923,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
             prevValue = prevData.value.psar
           }
           if (
-            lastData.type === IndicatorsEnum.bb &&
-            prevData.type === IndicatorsEnum.bb
+            lastData.type === IndicatorEnum.bb &&
+            prevData.type === IndicatorEnum.bb
           ) {
             last = lastData.value.price
             prev = prevData.value.price
@@ -462,8 +942,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : prevData.value.result.upper
           }
           if (
-            lastData.type === IndicatorsEnum.sr &&
-            prevData.type === IndicatorsEnum.sr
+            lastData.type === IndicatorEnum.sr &&
+            prevData.type === IndicatorEnum.sr
           ) {
             last = lastData.value.price
             prev = prevData.value.price
@@ -477,8 +957,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : lastData.value.low
           }
           if (
-            lastData.type === IndicatorsEnum.bb &&
-            prevData.type === IndicatorsEnum.bb
+            lastData.type === IndicatorEnum.bb &&
+            prevData.type === IndicatorEnum.bb
           ) {
             last = lastData.value.price
             prev = prevData.value.price
@@ -496,10 +976,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : prevData.value.result.upper
           }
           if (
-            (lastData.type === IndicatorsEnum.stoch &&
-              prevData.type === IndicatorsEnum.stoch) ||
-            (lastData.type === IndicatorsEnum.stochRSI &&
-              prevData.type === IndicatorsEnum.stochRSI)
+            (lastData.type === IndicatorEnum.stoch &&
+              prevData.type === IndicatorEnum.stoch) ||
+            (lastData.type === IndicatorEnum.stochRSI &&
+              prevData.type === IndicatorEnum.stochRSI)
           ) {
             if (rsiValue === rsiValueEnum.k) {
               last = lastData.value.stochK
@@ -520,6 +1000,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               checkValue = false
             }
           }
+
           if (
             (indicatorCondition === IndicatorStartConditionEnum.cu ||
               indicatorCondition === IndicatorStartConditionEnum.cd) &&
@@ -528,11 +1009,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
             if (indicatorCondition === IndicatorStartConditionEnum.cd) {
               action =
                 this.math.gt(value, last) && this.math.lt(prevValue, prev)
-              /* if (startNewDeal) {
-                console.log(
-                  `val - ${value}, last - ${last}, prevVal - ${prevValue}, prev - ${prev}`,
-                )
-              } */
             }
             if (indicatorCondition === IndicatorStartConditionEnum.cu) {
               action =
@@ -545,110 +1021,290 @@ class TIStrategy extends Strategy implements StrategyInterface {
           if (indicatorCondition === IndicatorStartConditionEnum.lt) {
             action = this.math.lt(last, value)
           }
+
           if (
-            ((lastData.type === IndicatorsEnum.stoch &&
-              prevData.type === IndicatorsEnum.stoch) ||
-              (lastData.type === IndicatorsEnum.stochRSI &&
-                prevData.type === IndicatorsEnum.stochRSI)) &&
+            ((lastData.type === IndicatorEnum.stoch &&
+              prevData.type === IndicatorEnum.stoch) ||
+              (lastData.type === IndicatorEnum.stochRSI &&
+                prevData.type === IndicatorEnum.stochRSI)) &&
             action &&
-            checkValue
+            checkValue &&
+            stochRange !== StochRangeEnum.none
           ) {
-            const upper = +(stochUpper ?? '')
-            const lower = +(stochLower ?? '')
+            const upper =
+              stochRange === StochRangeEnum.lower
+                ? 100
+                : stochRange === StochRangeEnum.upper
+                ? +(stochLower ?? '')
+                : +(stochUpper ?? '')
+            const lower =
+              stochRange === StochRangeEnum.upper
+                ? 0
+                : stochRange === StochRangeEnum.lower
+                ? +(stochUpper ?? '')
+                : +(stochLower ?? '')
+
             action =
-              (!isNaN(upper) &&
-                !isNaN(lower) &&
-                last > upper &&
-                value > upper) ||
-              (last < lower && value < lower)
+              !isNaN(upper) &&
+              !isNaN(lower) &&
+              ((last > upper &&
+                value > upper &&
+                prev > upper &&
+                prevValue > upper) ||
+                (last < lower &&
+                  value < lower &&
+                  prev < lower &&
+                  prevValue < lower))
           }
+        }
+        if (trendFilter) {
+          action = trendFilterAction && action
         }
         const [last] = [...data].sort((a, b) => b.time - a.time)
         const step = timeIntervalMap[i.interval]
+        const toMultiplier = keepConditionBars
+          ? isNaN(+keepConditionBars)
+            ? 0
+            : +keepConditionBars < 0
+            ? 0
+            : +keepConditionBars
+          : 0
+
         const status = {
           status: action,
           statusSince: last.time + step,
           statusTo: last.time + step * 2 - 1,
         }
+
         i.statuses.push(status)
+        if (toMultiplier > 0 && action) {
+          let ind = 0
+          for (const _v of [...Array(toMultiplier)]) {
+            i.statuses.push({
+              status: action,
+              statusSince: last.time + step * (ind + 2),
+              statusTo: last.time + step * (ind + 3) - 1,
+            })
+            ind++
+          }
+        }
+
         Strategy.indicators = [
           ...Strategy.indicators.filter((si) => si.id !== i.id),
           { ...i, data: [] },
         ]
-      })
+      }
     }
     if (nextBar) {
-      const data = [...Strategy.data].sort(
-        (a, b) => timeIntervalMap[b.interval] - timeIntervalMap[a.interval],
-      )
+      /* const data = this.lowestData
       const lowest = data[data.length - 1]
-      const lowestBar = lowest.bar.find((l) => l.time === nextBar.time)
+      const lowestBar = lowest?.bar?.find(
+        (l) => l.time === nextBar.time && l.symbol === nextBar.symbol,
+      ) */
       const closeDealSl = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.closeDeal &&
-          i.settings.section === IndicatorSection.sl,
+          i.settings.section === IndicatorSection.sl &&
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
       )
       const closeDealTp = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.closeDeal &&
-          i.settings.section !== IndicatorSection.sl,
+          i.settings.section !== IndicatorSection.sl &&
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
       )
       const startDeal = [...Strategy.indicators].filter(
-        (i) => i.settings.indicatorAction === IndicatorAction.startDeal,
+        (i) =>
+          i.settings.indicatorAction === IndicatorAction.startDeal &&
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
       )
-      const closeDealSlStatus = closeDealSl.filter((i) => i.status)
-      const closeDealTpStatus = closeDealTp.filter((i) => i.status)
-      const startDealStatus = startDeal.filter((i) => i.status)
-
+      const startDca = [...Strategy.indicators].filter(
+        (i) =>
+          i.settings.indicatorAction === IndicatorAction.startDca &&
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
+      )
+      const filterFn = (i: Indicator) =>
+        i.status.status &&
+        i.status.statusSince <= nextBar.time &&
+        i.status.statusTo >= nextBar.time
+      const closeDealSlStatus = closeDealSl.filter(filterFn)
+      const closeDealTpStatus = closeDealTp.filter(filterFn)
+      const startDealStatus = startDeal.filter(filterFn)
+      const startDcaStatus = startDca.filter(filterFn)
       if (
         closeDealSl.length === closeDealSlStatus.length &&
         closeDealSl.length
       ) {
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.closeDeal,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.sell
+              : BotOrderSideEnum.buy,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? /* lowestBar?.high ?? */ nextBar.high
+              : /* lowestBar?.low ?? */ nextBar.low,
+          symbol: nextBar.symbol,
+        })
+        this.closeAllDeals(
+          {
+            open: /* lowestBar?.open ?? */ nextBar.open,
+            time: nextBar.time,
+            high: /* lowestBar?.open ?? */ nextBar.high,
+            low: /* lowestBar?.low ?? */ nextBar.low,
+            close: /* lowestBar?.close ?? */ nextBar.close,
+            symbol: nextBar.symbol,
+          },
+          true,
+        )
+
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealSlStatus.map((ai) => ai.id).includes(i.id)) {
-            return { ...i, status: false, statusSince: 0, statusTo: 0 }
+            return {
+              ...i,
+              status: {
+                ...i.status,
+                status: i.status.statusTo ? i.status.status : false,
+              },
+            }
           }
           return i
-        })
-        this.closeAllDeals({
-          open: lowestBar?.open ?? nextBar.open,
-          time: nextBar.time,
-          high: lowestBar?.open ?? nextBar.high,
-          low: lowestBar?.low ?? nextBar.low,
-          close: lowestBar?.close ?? nextBar.close,
         })
       }
       if (
         closeDealTp.length === closeDealTpStatus.length &&
         closeDealTp.length
       ) {
-        Strategy.indicators = Strategy.indicators.map((i) => {
-          if (closeDealTpStatus.map((ai) => ai.id).includes(i.id)) {
-            return { ...i, status: false, statusSince: 0, statusTo: 0 }
-          }
-          return i
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.closeDeal,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.sell
+              : BotOrderSideEnum.buy,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? /* lowestBar?.high ?? */ nextBar.high
+              : /*  lowestBar?.low ?? */ nextBar.low,
+          symbol: nextBar.symbol,
         })
         this.closeAllDeals({
-          open: lowestBar?.open ?? nextBar.open,
+          open: /* lowestBar?.open ?? */ nextBar.open,
           time: nextBar.time,
-          high: lowestBar?.open ?? nextBar.high,
-          low: lowestBar?.low ?? nextBar.low,
-          close: lowestBar?.close ?? nextBar.close,
+          high: /*  lowestBar?.open ??  */ nextBar.high,
+          low: /*  lowestBar?.low ?? */ nextBar.low,
+          close: /* lowestBar?.close ??  */ nextBar.close,
+          symbol: nextBar.symbol,
+        })
+
+        Strategy.indicators = Strategy.indicators.map((i) => {
+          if (closeDealTpStatus.map((ai) => ai.id).includes(i.id)) {
+            return {
+              ...i,
+              status: {
+                ...i.status,
+                status: i.status.statusTo ? i.status.status : false,
+              },
+            }
+          }
+          return i
         })
       }
       if (startDeal.length === startDealStatus.length && startDeal.length) {
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.startDeal,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.buy
+              : BotOrderSideEnum.sell,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? /* lowestBar?.low ?? */ nextBar.low
+              : /* lowestBar?.high ??  */ nextBar.high,
+          symbol: nextBar.symbol,
+        })
+        this.openDeal(
+          /* lowestBar?.open ??  */ nextBar.open,
+          nextBar.time,
+          /* lowestBar?.high ??  */ nextBar.high,
+          /* lowestBar?.low ?? */ nextBar.low,
+          nextBar.symbol,
+        )
+        const useMaxDealsPerSignal =
+          this.settings.indicators
+            .filter((i) => i.indicatorAction === IndicatorAction.startDeal)
+            .reduce(
+              (acc, v) => acc.add(v.indicatorInterval),
+              new Set<ExchangeIntervals>(),
+            ).size > 1
+            ? typeof this.settings.useMaxDealsPerHigherTimeframe !== 'undefined'
+              ? !!this.settings.useMaxDealsPerHigherTimeframe
+              : true
+            : false
+        const maxDealsPerSignal =
+          typeof this.settings.useMaxDealsPerHigherTimeframe !== 'undefined'
+            ? +(this.settings.maxDealsPerHigherTimeframe ?? '1')
+            : 1
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
-            return { ...i, status: false, statusSince: 0, statusTo: 0 }
+            const maxNumberExceed =
+              i.interval === Strategy.highestInterval &&
+              useMaxDealsPerSignal &&
+              (i.status.numberOfSignals ?? 0) + 1 >= maxDealsPerSignal
+            return {
+              ...i,
+              status: maxNumberExceed
+                ? {
+                    status: false,
+                    statusSince: 0,
+                    statusTo: 0,
+                    numberOfSignals: 0,
+                  }
+                : {
+                    ...i.status,
+                    status: i.status.statusTo ? i.status.status : false,
+                    numberOfSignals:
+                      i.interval === Strategy.highestInterval
+                        ? (i.status?.numberOfSignals ?? 0) + 1
+                        : i.status.numberOfSignals,
+                  },
+            }
           }
           return i
         })
-        this.openDeal(
-          lowestBar?.open ?? nextBar.open,
-          nextBar.time,
-          lowestBar?.high ?? nextBar.high,
-          lowestBar?.low ?? nextBar.low,
-        )
+      }
+      if (
+        startDcaStatus.length &&
+        this.settings.dcaCondition === DCAConditionEnum.indicators
+      ) {
+        for (const i of startDcaStatus) {
+          Strategy.indicators = Strategy.indicators.map((is) => {
+            if (i.id === is.id) {
+              return {
+                ...i,
+                status: {
+                  ...i.status,
+                  status: i.status.statusTo ? i.status.status : false,
+                },
+              }
+            }
+            return is
+          })
+          const index = startDca.findIndex((si) => si.id === i.id)
+          this.addDCAOrder(
+            index,
+            /* lowestBar?.close ?? */ nextBar.close,
+            nextBar.time,
+            nextBar.symbol,
+          )
+        }
       }
     }
   }

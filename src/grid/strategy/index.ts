@@ -17,10 +17,14 @@ import type {
   Symbols,
   GridBacktestingResult,
   Prices,
-  Grid,
   BacktestingTransaction,
   Precision,
   Bar as BarTV,
+  TradeResponse,
+  FullGrid,
+  FullGridWithTime,
+  ValueChangeHistory,
+  BuyAndHoldEquity,
 } from '../../types'
 
 export type Bar = BarTV
@@ -31,13 +35,18 @@ export type GRIDStrategyInput = {
   userFee: number
   prices: Prices
   interval?: ExchangeIntervals
+  trades?: boolean
 }
 
 export interface StrategyInterface {
   loadData(data: BarTV[]): void
-  test(): void
+  test(updateProgress?: (value: number, text: string) => void): Promise<void>
   startWorkingShift(start: number): void
-  processBar(bar: Bar): void
+  processBar(bar: Bar): Promise<void>
+  passTradeCandleData?: (
+    trade: TradeResponse,
+    candles: { candle: Bar[] | null; interval: ExchangeIntervals }[],
+  ) => void
   checkInRange(price: number, time: number): boolean
   returnResult(
     firstData: Bar,
@@ -45,9 +54,8 @@ export interface StrategyInterface {
     loadingTime: number,
     processingTime: number,
   ): GridBacktestingResult
+  stop: boolean
 }
-
-type GridWithTime = Grid & { updateTime: number }
 
 /**
  * Enum for tpsl function
@@ -70,9 +78,13 @@ export class Strategy implements StrategyInterface {
 
   protected transactions: BacktestingTransaction[] = []
 
+  protected values: ValueChangeHistory[] = []
+
   private totalProfit = 0
 
   private totalProfitUsd = 0
+
+  private freeTotalProfit = 0
 
   protected math = new MathHelper()
 
@@ -96,15 +108,15 @@ export class Strategy implements StrategyInterface {
 
   protected data: BarTV[] = []
 
-  private grids: Grid[] = []
+  private grids: FullGrid[] = []
 
-  private smartGrids: Grid[] = []
+  private smartGrids: FullGrid[] = []
 
   private initialGrids: { buy: number; sell: number }[] = []
 
   private usedOrderId: Set<string> = new Set()
 
-  private filledOrders: GridWithTime[] = []
+  private filledOrders: FullGridWithTime[] = []
 
   private initialBalancesByAsset = {
     base: 0,
@@ -153,10 +165,29 @@ export class Strategy implements StrategyInterface {
 
   private historyLines: NonNullable<GridBacktestingResult['ordersHistory']> = []
 
+  private cummulativeProfit = {
+    base: 0,
+    quote: 0,
+    usd: 0,
+  }
+
+  private lastBarPrice = 0
+
+  private firstBarPrice = 0
+
+  public _stop = false
+
   constructor(input: GRIDStrategyInput) {
-    const { settings, userFee, symbol, prices, interval } = input
+    const { settings, userFee, symbol, prices, interval, trades } = input
     this.settings = settings
-    this.botFunctions = new BotFunctions(settings, userFee, symbol, 0, 0)
+    this.botFunctions = new BotFunctions(
+      settings,
+      userFee,
+      symbol,
+      0,
+      0,
+      trades,
+    )
     this.botFunctions.forceLocal = true
     this.symbol = symbol
     this.userFee = userFee
@@ -175,32 +206,86 @@ export class Strategy implements StrategyInterface {
     this.prices = prices
   }
 
+  public set stop(value: boolean) {
+    this._stop = value
+  }
+
   public loadData(data: BarTV[]): void {
     this.data = data
-    this.botFunctions.initPrice = this.data[0]?.close ?? 0
-    if (this.profitBase) {
+    /* this.botFunctions.initPrice = this.data[0]?.close ?? 0 */
+    /*     if (this.profitBase) {
       this.firstUsdRate =
         findUSDRate(this.symbol.quoteAsset.name, this.prices) *
         (this.data[0]?.close ?? 0)
       this.lastUsdRate =
         findUSDRate(this.symbol.quoteAsset.name, this.prices) *
         (this.data[this.data.length - 1]?.close ?? 0)
-    }
+    } */
   }
 
   public getOtherIntervals(): ExchangeIntervals[] {
     return []
   }
 
-  public test() {
+  public async test(updateProgress?: (value: number, text: string) => void) {
+    const size = this.data?.length ?? 0
+    let step = 0
+    let total = 0
+    let i = 0
+    if (updateProgress) {
+      if (step === 0 && total === 0) {
+        updateProgress(
+          0,
+          `Processing candle on ${new Date(this.data?.[0].time).toUTCString()}`,
+        )
+      }
+      if (size !== 0) {
+        if (step === 0) {
+          step = Math.floor(size * 0.03)
+        }
+        if (total === 0) {
+          total = size
+        }
+      }
+    }
     for (const d of this.data) {
+      if (this._stop) {
+        break
+      }
+      i++
+      if (size !== 0 && updateProgress) {
+        if (this.math.remainder(i, step) === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 0.0000000001))
+          updateProgress(
+            i / total,
+            `Processing candle on ${new Date(d.time).toUTCString()}`,
+          )
+        }
+      }
       this.openPosition(d)
       this.checkPosition(d)
       if (this.botClosed) {
         break
       }
-      this.processBar(d)
+      await this.processBar(d)
     }
+  }
+
+  public passTradeCandleData(trade: TradeResponse) {
+    if (this.botClosed) {
+      return
+    }
+    const bar: Bar = {
+      open: +trade.price,
+      high: +trade.price,
+      low: +trade.price,
+      close: +trade.price,
+      time: trade.timestamp,
+    }
+    this.openPosition(bar)
+    this.checkPosition(bar)
+
+    this.processBar(bar)
   }
 
   private openPosition(d: BarTV) {
@@ -215,7 +300,13 @@ export class Strategy implements StrategyInterface {
     }
     this.initialOpen = true
     this.botFunctions.lastPrice = d.close
-    const grids = this.botFunctions.createOrders(true, false)
+    const grids = this.botFunctions.createOrders(
+      true,
+      false,
+      this.futuresStrategy === FuturesStrategyEnum.long
+        ? BotOrderSideEnum.sell
+        : BotOrderSideEnum.buy,
+    )
     const amount = grids
       .filter(
         (g) =>
@@ -241,13 +332,13 @@ export class Strategy implements StrategyInterface {
     this.workingShift.push({ start })
   }
 
-  private createGrids(price: number) {
+  private createGrids(price: number, side: BotOrderSideEnum) {
     this.botFunctions.lastPrice = price
-    const grids = [...this.botFunctions.createOrders(true, false)]
+    const grids = [...this.botFunctions.createOrders(true, false, side)]
     this.grids = grids
     this.smartGrids = grids
     if (this.settings.useOrderInAdvance) {
-      this.smartGrids = this.botFunctions.createOrders(false, false)
+      this.smartGrids = this.botFunctions.createOrders(false, false, side)
     }
     if (this.initialGrids.length === 0) {
       this.initialGrids = this.botFunctions.getPrices()
@@ -278,7 +369,7 @@ export class Strategy implements StrategyInterface {
         ? this.initialBalancesByAsset.base + this.totalProfit
         : this.initialBalancesByAsset.quote + this.totalProfit
       : (this.profitBase ? quote / price + base : base * price + quote) +
-        this.totalProfit
+        this.freeTotalProfit
     this.currentBalancesUsd =
       this.currentBalances * (this.lastUsdRate || this.usdRate)
     this.currentBalancesByAsset = {
@@ -286,12 +377,12 @@ export class Strategy implements StrategyInterface {
         ? this.coinm
           ? base + this.totalProfit
           : 0
-        : base + (this.profitBase ? this.totalProfit : 0),
+        : base + (this.profitBase ? this.freeTotalProfit : 0),
       quote: this.futures
         ? this.coinm
           ? 0
           : quote + this.totalProfit
-        : quote + (this.profitBase ? 0 : this.totalProfit),
+        : quote + (this.profitBase ? 0 : this.freeTotalProfit),
     }
   }
 
@@ -299,7 +390,7 @@ export class Strategy implements StrategyInterface {
     return this.settings.strategy === StrategyEnum.short
   }
 
-  private createTransaction(order: GridWithTime) {
+  private createTransaction(order: FullGridWithTime) {
     this.filledOrders.push(order)
     const prices = this.initialGrids
     prices[prices.length - 1].buy = this.math.round(
@@ -307,10 +398,12 @@ export class Strategy implements StrategyInterface {
       this.symbol.priceAssetPrecision,
     )
     const botFunctionsPrice = this.botFunctions.lastPrice
-    this.botFunctions.lastPrice = +this.settings.topPrice * 2
-    const grids = [...this.botFunctions.createOrders(true, true)]
+    this.botFunctions.lastPrice = this.isShort
+      ? +this.settings.lowPrice / 2
+      : +this.settings.topPrice * 2
+    const grids = [...this.botFunctions.createOrders(true, true, order.side)]
     this.botFunctions.lastPrice = botFunctionsPrice
-    const { qty, price, side, id, updateTime } = order
+    const { qty, price, side, id, filledTime } = order
     let comBase = side === BotOrderSideEnum.buy ? qty * (this.userFee ?? 0) : 0
     let comQuote =
       side === BotOrderSideEnum.sell ? qty * price * (this.userFee ?? 0) : 0
@@ -318,13 +411,20 @@ export class Strategy implements StrategyInterface {
     let matchedPrice = 0
     let matchQty = 0
     let profitBase = 0
+    let profitFreeBase = 0
+    let profitFreeQuote = 0
     let matchedId = ''
     let profitUsd = 0
+    let freeProfitUsd = 0
     let amountBaseBuy = side === BotOrderSideEnum.sell ? 0 : qty
+    let amountFreeBaseBuy = amountBaseBuy
     let amountQuoteBuy = side === BotOrderSideEnum.sell ? 0 : qty * price
+    let amountFreeQuoteBuy = amountQuoteBuy
     let amountBaseSell = side === BotOrderSideEnum.buy ? 0 : qty
+    let amountFreeBaseSell = amountBaseSell
     let amountQuoteSell = side === BotOrderSideEnum.buy ? 0 : qty * price
-    const initialPriceStart = this.data[0]?.close ?? 0
+    let amountFreeQuoteSell = amountQuoteSell
+    const initialPriceStart = this.firstBarPrice
     if (this.settings.newProfit && !this.futures) {
       if (side === BotOrderSideEnum.sell && this.profitBase) {
         comBase = comQuote / price
@@ -347,7 +447,7 @@ export class Strategy implements StrategyInterface {
               ? prices[index - 1]?.buy || 0
               : prices[index + 1]?.sell || 0) &&
           g.side !== side &&
-          g.updateTime < updateTime &&
+          g.filledTime < filledTime &&
           !this.usedOrderId.has(g.id),
       )
       const needMatch = !this.isShort
@@ -359,13 +459,48 @@ export class Strategy implements StrategyInterface {
           (initialPriceStart &&
             side === BotOrderSideEnum.buy &&
             price >= initialPriceStart)
+      let matchedFreeQty = 0
+      let matchedFreePrice = 0
       if (!needMatch && !match) {
         this.usedOrderId.add(id)
         matchedId = 'initial price'
-        matchQty = this.profitBase
-          ? (price * qty) / (initialPriceStart ?? price)
-          : qty
+        matchQty = !this.isShort
+          ? qty
+          : (qty * price) / (initialPriceStart ?? price)
         matchedPrice = initialPriceStart ?? price
+        let selfFind = prices.findIndex((p) =>
+          this.isShort ? p.buy === price : p.sell === price,
+        )
+        if (selfFind === -1) {
+          selfFind = prices.findIndex((p) =>
+            this.isShort ? p.sell === price : p.buy === price,
+          )
+        }
+        const correspondingOrder = grids.find(
+          (g) =>
+            g.price ===
+              (selfFind === -1 ||
+              (this.isShort ? selfFind === prices.length - 1 : selfFind === 0)
+                ? prices.find((p) =>
+                    this.isShort ? p.buy === price : p.sell === price,
+                  )?.[this.isShort ? 'sell' : 'buy']
+                : prices[this.isShort ? selfFind + 1 : selfFind - 1]?.[
+                    this.isShort ? 'sell' : 'buy'
+                  ]) && g.side !== side,
+        )
+        if (correspondingOrder) {
+          matchedFreeQty = correspondingOrder.qty
+          matchedFreePrice = correspondingOrder.price
+          if (
+            (this.profitBase && !this.isShort) ||
+            (!this.profitBase && this.isShort)
+          ) {
+            matchQty = correspondingOrder.qty
+            matchedPrice = correspondingOrder.price
+            matchedFreeQty = 0
+            matchedFreePrice = 0
+          }
+        }
       } else if (match) {
         matchedId = match.id
         matchQty = match.qty
@@ -380,19 +515,48 @@ export class Strategy implements StrategyInterface {
           side === BotOrderSideEnum.sell
             ? qty * price - matchQty * matchedPrice
             : matchQty * matchedPrice - qty * price
+        const pnlFreeBase =
+          side === BotOrderSideEnum.sell
+            ? (matchedFreeQty || matchQty) - qty
+            : qty - (matchedFreeQty || matchQty)
+        const pnlFreeQuote =
+          side === BotOrderSideEnum.sell
+            ? qty * price -
+              (matchedFreeQty || matchQty) * (matchedFreePrice || matchedPrice)
+            : (matchedFreeQty || matchQty) *
+                (matchedFreePrice || matchedPrice) -
+              qty * price
         profitBase +=
           pnlBase +
           pnlQuote / (side === BotOrderSideEnum.buy ? price : matchedPrice)
         profitQuote +=
           pnlQuote +
           pnlBase * (side === BotOrderSideEnum.buy ? price : matchedPrice)
+        profitFreeBase +=
+          (pnlFreeBase || pnlBase) +
+          (pnlFreeQuote || pnlQuote) /
+            (side === BotOrderSideEnum.buy
+              ? price
+              : matchedFreePrice || matchedPrice)
+        profitFreeQuote +=
+          (pnlFreeQuote || pnlQuote) +
+          (pnlFreeBase || pnlBase) *
+            (side === BotOrderSideEnum.buy
+              ? price
+              : matchedFreePrice || matchedPrice)
         if (side === 'BUY') {
           amountBaseSell = matchQty
           amountQuoteSell = matchQty * matchedPrice
+          amountFreeBaseSell = matchedFreeQty || matchQty
+          amountFreeQuoteSell =
+            (matchedFreeQty || matchQty) * (matchedFreePrice || matchedPrice)
         }
         if (side === 'SELL') {
           amountBaseBuy = matchQty
           amountQuoteBuy = matchQty * matchedPrice
+          amountFreeBaseBuy = matchedFreeQty || matchQty
+          amountFreeQuoteBuy =
+            (matchedFreeQty || matchQty) * (matchedFreePrice || matchedPrice)
         }
       }
     } else {
@@ -482,7 +646,7 @@ export class Strategy implements StrategyInterface {
                     ? prices[index - 1]?.buy || 0
                     : prices[index + 1]?.sell || 0) &&
                 g.side !== side &&
-                g.updateTime < updateTime &&
+                g.filledTime < filledTime &&
                 !this.usedOrderId.has(g.id),
             )
             if (match) {
@@ -520,27 +684,44 @@ export class Strategy implements StrategyInterface {
     const profit =
       (this.profitBase ? profitBase : profitQuote) -
       (this.profitBase ? comBase : comQuote)
+    const freeProfit =
+      (this.profitBase && !this.isShort) || (!this.profitBase && this.isShort)
+        ? profit
+        : (this.profitBase
+            ? profitFreeBase || profitBase
+            : profitFreeQuote || profitQuote) -
+          (this.profitBase ? comBase : comQuote)
     profitUsd = profit * this.usdRate
+    freeProfitUsd = (freeProfit || profit) * this.usdRate
+    this.cummulativeProfit = {
+      base: this.profitBase ? this.cummulativeProfit.base + profit : 0,
+      quote: this.profitBase ? 0 : this.cummulativeProfit.quote + profit,
+      usd: this.cummulativeProfit.usd + profitUsd,
+    }
     const transaction: BacktestingTransaction = {
       _id: v4(),
-      updateTime,
+      updateTime: filledTime,
       side,
       amountBaseBuy: this.math.convertFromExponential(
         this.math.round(amountBaseBuy, this.allPrecision.base),
         this.allPrecision.base,
       ),
+      amountFreeBaseBuy,
       amountQuoteBuy: this.math.convertFromExponential(
         this.math.round(amountQuoteBuy, this.allPrecision.quote),
         this.allPrecision.quote,
       ),
+      amountFreeQuoteBuy,
       amountBaseSell: this.math.convertFromExponential(
         this.math.round(amountBaseSell, this.allPrecision.base),
         this.allPrecision.base,
       ),
+      amountFreeBaseSell,
       amountQuoteSell: this.math.convertFromExponential(
         this.math.round(amountQuoteSell, this.allPrecision.quote),
         this.allPrecision.quote,
       ),
+      amountFreeQuoteSell,
       priceSell: this.math.convertFromExponential(
         this.math.round(
           side === BotOrderSideEnum.sell ? price : matchedPrice,
@@ -560,6 +741,8 @@ export class Strategy implements StrategyInterface {
         this.precision + 3,
       ),
       profitUsd: this.math.round(profitUsd, 2),
+      freeProfit,
+      freeProfitUsd,
       baseAsset: this.symbol.baseAsset.name,
       quoteAsset: this.symbol.quoteAsset.name,
       profitAsset: this.futures
@@ -570,8 +753,15 @@ export class Strategy implements StrategyInterface {
         ? this.symbol.baseAsset.name
         : this.symbol.quoteAsset.name,
       index: this.transactionIndex,
+      idBuy: order.side === BotOrderSideEnum.buy ? order.id : matchedId,
+      idSell: order.side === BotOrderSideEnum.buy ? matchedId : order.id,
+      executor: order.id,
+      cummulativeProfitBase: this.cummulativeProfit.base,
+      cummulativeProfitQuote: this.cummulativeProfit.quote,
+      cummulativeProfitUsdt: this.cummulativeProfit.usd,
     }
     this.transactionIndex++
+    this.freeTotalProfit += freeProfit
     this.totalProfit += profit
     this.totalProfitUsd += profitUsd
     this.transactions.push(transaction)
@@ -628,7 +818,30 @@ export class Strategy implements StrategyInterface {
     })
   }
 
-  public processBar(bar: Bar) {
+  private updatePriceWithOldPrice(price: number) {
+    return this.prices.map((p) => {
+      if (p.symbol === this.symbol.pair) {
+        p.price = price
+      }
+      return p
+    })
+  }
+
+  public async processBar(bar: Bar) {
+    if (!this.firstBarPrice) {
+      this.firstBarPrice = bar.close
+    }
+    if (!this.botFunctions.initPrice) {
+      this.botFunctions.initPrice = bar.close
+    }
+    if (!this.firstUsdRate) {
+      this.firstUsdRate =
+        findUSDRate(
+          this.symbol.quoteAsset.name,
+          this.updatePriceWithOldPrice(bar.close),
+        ) * (this.profitBase ? bar.close : 1)
+    }
+    this.lastBarPrice = bar.close
     if (this.grids.length !== 0) {
       for (const p of [bar.close, bar.low, bar.high]) {
         const tpSl = this.tpSl(p)
@@ -640,34 +853,39 @@ export class Strategy implements StrategyInterface {
     this.checkInRange(bar.close, bar.time)
     if (this.workingShift.length === 0) {
       this.startWorkingShift(bar.time)
-      this.createGrids(bar.close)
+      this.createGrids(bar.close, BotOrderSideEnum.buy)
     }
     const filledBuy = this.grids
       .filter((g) => g.side === BotOrderSideEnum.buy && g.price >= bar.low)
       .sort((a, b) => a.price - b.price)
-    filledBuy.forEach((o) => {
-      this.createTransaction({ ...o, updateTime: bar.time })
+    for (const o of filledBuy) {
+      this.createTransaction({ ...o, filledTime: bar.time })
       this.updatePositionWithOrder(o)
-    })
+    }
     const [lastFilledBuy] = filledBuy
     if (lastFilledBuy) {
       const lastPrice = lastFilledBuy.price
-      this.createGrids(lastPrice)
+      this.createGrids(lastPrice, lastFilledBuy.side)
       this.addAvgHistoryLine(bar.time)
     }
     const filledSell = this.grids
       .filter((g) => g.side === BotOrderSideEnum.sell && g.price <= bar.high)
       .sort((a, b) => b.price - a.price)
-    filledSell.forEach((o) => {
-      this.createTransaction({ ...o, updateTime: bar.time })
+    for (const o of filledSell) {
+      this.createTransaction({ ...o, filledTime: bar.time })
       this.updatePositionWithOrder(o)
-    })
+    }
     const [lastFilledSell] = filledSell
     if (lastFilledSell) {
       const lastPrice = lastFilledSell.price
-      this.createGrids(lastPrice)
+      this.createGrids(lastPrice, lastFilledSell.side)
       this.addAvgHistoryLine(bar.time)
     }
+
+    this.values.push({
+      value: this.currentBalances - this.initialBalances,
+      time: bar.time,
+    })
   }
 
   private closeWorkingShift(time: number) {
@@ -709,7 +927,7 @@ export class Strategy implements StrategyInterface {
     )
   }
 
-  private updatePositionWithOrder(order: Grid) {
+  private updatePositionWithOrder(order: FullGrid) {
     if (this.futures) {
       const margin = order.qty
       const sameDirection =
@@ -785,18 +1003,20 @@ export class Strategy implements StrategyInterface {
     if (this.botClosedAndSell) {
       return 0
     }
-    const firstPrice = this.data[0]?.close || 0
+    const firstPrice = this.firstBarPrice
     const botFunctionsPrice = this.botFunctions.lastPrice
     this.botFunctions.lastPrice = firstPrice
-    const currentGrids = [...this.botFunctions.createOrders(true, false)]
+    const currentGrids = [
+      ...this.botFunctions.createOrders(true, false, BotOrderSideEnum.buy),
+    ]
     this.botFunctions.lastPrice = botFunctionsPrice
     let currentBase = this.initialBalancesByAsset.base
     let currentQuote = this.initialBalancesByAsset.quote
     if (this.profitBase) {
-      currentBase += this.totalProfit
+      currentBase += this.freeTotalProfit
     }
     if (!this.profitBase) {
-      currentQuote += this.totalProfit
+      currentQuote += this.freeTotalProfit
     }
     const currentValue = currentBase * firstPrice + currentQuote
     const initialValue =
@@ -816,19 +1036,19 @@ export class Strategy implements StrategyInterface {
       this.botFunctions.lastPrice = g.price
 
       const currentGridsOnPrice = [
-        ...this.botFunctions.createOrders(true, false),
+        ...this.botFunctions.createOrders(true, false, g.side),
       ]
       this.botFunctions.lastPrice = bPrice
       const newBase =
         currentGridsOnPrice
           .filter((gr) => gr.side === BotOrderSideEnum.sell)
           .reduce((acc, v) => acc + v.qty, 0) +
-        (this.profitBase ? this.totalProfit : 0)
+        (this.profitBase ? this.freeTotalProfit : 0)
       const newQuote =
         currentGridsOnPrice
           .filter((gr) => gr.side === BotOrderSideEnum.buy)
           .reduce((acc, v) => acc + v.qty * v.price, 0) +
-        (!this.profitBase ? this.totalProfit : 0)
+        (!this.profitBase ? this.freeTotalProfit : 0)
       if (
         (currentValue > initialValue &&
           newBase * g.price + newQuote > initialValue) ||
@@ -867,7 +1087,7 @@ export class Strategy implements StrategyInterface {
         sl,
       } = this.settings
       const { initialBalancesByAsset, currentBalancesByAsset } = this
-      const initialPriceStart = this.data[0]?.close ?? 0
+      const initialPriceStart = this.firstBarPrice
       if (tpSlCondition === 'priceReached' && tpTopPrice && tpSl) {
         if (lastPrice >= +tpTopPrice) {
           return TpSlReturn.tp
@@ -1009,6 +1229,51 @@ export class Strategy implements StrategyInterface {
     this.currentBalancesUsd = this.currentBalances * this.usdRate
   }
 
+  private getBuyAndHold(firstData: Bar, lastData: Bar) {
+    const firstPrice = firstData?.close
+    const lastPrice = lastData?.close
+    const buyAndHoldUsage = +this.settings.budget
+    const buyAndHoldUsageEquity =
+      +this.settings.budget *
+      (this.profitBase && !this.coinm ? 1 / firstPrice : 1)
+    const buyAndHold =
+      firstPrice && lastPrice
+        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
+        : 0
+    const buyAndHoldEquity: BuyAndHoldEquity[] = []
+    /*     buyAndHoldEquity.push({ value: buyAndHoldUsage, time: firstData.time })
+    buyAndHoldEquity.push({ value: buyAndHoldLastEquity, time: lastData.time }) */
+    if (this.values.length > 2) {
+      const data: Bar[] = []
+      for (const i of this.values) {
+        const d = this.data.find((b) => b.time === i.time)
+        if (
+          d &&
+          buyAndHoldEquity.filter((bh) => bh.time === d.time).length === 0
+        ) {
+          data.push(d)
+        }
+      }
+      buyAndHoldEquity.push({
+        value: this.math.round(buyAndHoldUsageEquity, 4),
+        time: firstData.time,
+      })
+      for (const d of data) {
+        const lp = d.close
+        const bh = this.math.round(
+          firstPrice && lp ? (buyAndHoldUsageEquity / firstPrice) * lp : 0,
+          3,
+        )
+        buyAndHoldEquity.push({ value: bh, time: d.time })
+      }
+    }
+    return {
+      buyAndHold,
+      buyAndHoldUsage,
+      buyAndHoldEquity: buyAndHoldEquity.sort((a, b) => a.time - b.time),
+    }
+  }
+
   public returnResult(
     firstData: Bar,
     lastData: Bar,
@@ -1062,11 +1327,7 @@ export class Strategy implements StrategyInterface {
     }
     const firstPrice = firstData?.close
     const lastPrice = lastData?.close
-    const buyAndHoldUsage = +this.settings.budget
-    const buyAndHold =
-      firstPrice && lastPrice
-        ? (buyAndHoldUsage / firstPrice) * lastPrice - buyAndHoldUsage
-        : 0
+
     const positionPnL = {
       perc: 0,
       value: 0,
@@ -1086,7 +1347,29 @@ export class Strategy implements StrategyInterface {
       )
       positionPnL.perc = this.math.round(positionPnL.perc * 100, 2)
     }
+    this.lastUsdRate =
+      findUSDRate(
+        this.symbol.quoteAsset.name,
+        this.updatePriceWithOldPrice(this.lastBarPrice),
+      ) * (this.profitBase ? this.lastBarPrice : 1)
+    const buyAndHold = this.getBuyAndHold(firstData, lastData)
+    const budgetUsd =
+      (this.usdRateQuote *
+        +this.settings.budget *
+        (this.coinm ? firstPrice : 1)) /
+      this.leverage
+    const sharpe = this.math.sharpeRatio(profitByPeriod, budgetUsd, periodRatio)
+    const sortino = this.math.santinoRatio(
+      profitByPeriod,
+      budgetUsd,
+      periodRatio,
+    )
     return {
+      buyAndHoldEquity: buyAndHold.buyAndHoldEquity,
+      values: this.values.sort((a, b) => a.time - b.time),
+      firstUsdRate: this.firstUsdRate,
+      lastUsdRate: this.lastUsdRate,
+      filledOrders: this.filledOrders,
       transaction: this.transactions.sort((a, b) => b.index - a.index),
       noData: !firstData && !lastData,
       ordersHistory: this.historyLines,
@@ -1109,6 +1392,8 @@ export class Strategy implements StrategyInterface {
           .map((g) => ({ ...g, side: 'GREY' })),
       ],
       financial: {
+        freeProfitTotal: this.freeTotalProfit,
+        freeProfitTotalUsd: this.freeTotalProfit * this.usdRate,
         profitTotal: this.math.convertFromExponential(
           totalProfit,
           this.precision,
@@ -1118,11 +1403,7 @@ export class Strategy implements StrategyInterface {
           (totalProfit / this.initialBalances) * 100,
           2,
         ),
-        budgetUsd:
-          (this.usdRateQuote *
-            +this.settings.budget *
-            (this.coinm ? firstPrice : 1)) /
-          this.leverage,
+        budgetUsd,
         avgNetDaily:
           workingDays > 0
             ? this.math.convertFromExponential(
@@ -1257,6 +1538,7 @@ export class Strategy implements StrategyInterface {
           workingTime > 0
             ? friendlyTime(workingTime)
             : { d: '', h: '', min: '', s: '' },
+        botWorkingTimeNumber: workingTime,
       },
       numerical: {
         all: this.transactions.length,
@@ -1272,14 +1554,19 @@ export class Strategy implements StrategyInterface {
       ratios: {
         profitByPeriod,
         buyAndHold: {
-          value: this.math.round(buyAndHold, this.precisionQuote),
-          valueUsd: this.math.round(buyAndHold * this.usdRateQuote, 2),
+          value: this.math.round(buyAndHold.buyAndHold, this.precisionQuote),
+          valueUsd: this.math.round(
+            buyAndHold.buyAndHold * this.usdRateQuote,
+            2,
+          ),
           perc: this.math.round(
-            (buyAndHold / buyAndHoldUsage) * 100 * this.leverage,
+            (buyAndHold.buyAndHold / buyAndHold.buyAndHoldUsage) * 100,
             1,
           ),
         },
         periodRatio,
+        sharpe: isNaN(sharpe) || !isFinite(sharpe) ? 0 : sharpe,
+        sortino: isNaN(sortino) || !isFinite(sharpe) ? 0 : sortino,
       },
       interval: this.interval ?? ExchangeIntervals.fiveM,
       quoteRate: lastPrice ?? 0,

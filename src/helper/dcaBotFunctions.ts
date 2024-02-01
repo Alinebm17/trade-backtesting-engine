@@ -6,6 +6,9 @@ import {
   GridBreakpoint,
   CloseConditionEnum,
   TerminalDealTypeEnum,
+  DCAConditionEnum,
+  IndicatorAction,
+  BotMarginTypeEnum,
 } from '../types'
 import BotUtils from './botUtils'
 import { checkNumber } from './utils'
@@ -23,10 +26,15 @@ class DCABotFunctions {
 
   userFee: number
 
-  constructor(settings: DCABotSettings, symbol: Symbols, userFee: number) {
+  constructor(
+    settings: DCABotSettings,
+    symbol: Symbols,
+    userFee: number,
+    tradesBacktest?: boolean,
+  ) {
     this.settings = settings
     this.symbol = symbol
-    this.utils = new BotUtils()
+    this.utils = new BotUtils(tradesBacktest)
     this.math = this.utils.math
     this.userFee = userFee
   }
@@ -74,7 +82,7 @@ class DCABotFunctions {
   ): DCAGrid[] {
     const { settings, symbol } = this
     const baseOrderSize = parseFloat(settings.baseOrderSize)
-    const orderSize = parseFloat(settings.orderSize)
+    const _orderSize = parseFloat(settings.orderSize)
     const tpPerc = parseFloat(settings.tpPerc) / 100
     const slPerc = parseFloat(settings.slPerc) / 100
     const precision = this.utils.getBaseAssetPrecision(symbol)
@@ -149,6 +157,12 @@ class DCABotFunctions {
           ? +findBalance.free
           : +findBalance.locked + +findBalance.free
         : 0
+      if (settings.futures) {
+        qtyToUse *=
+          settings.marginType !== BotMarginTypeEnum.inherit
+            ? settings.leverage ?? 1
+            : 1
+      }
       baseQty = this.math.round(
         Math.max(
           symbol.quoteAsset.minAmount
@@ -249,7 +263,10 @@ class DCABotFunctions {
           : BotOrderSideEnum.buy,
       id: this.utils.id(20),
     }
-    if (tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount) {
+    if (
+      tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount &&
+      !settings.futures
+    ) {
       tpOrder.qty = this.math.round(
         symbol.quoteAsset.minAmount / tpOrder.price,
         precision,
@@ -294,7 +311,7 @@ class DCABotFunctions {
           if (qty < symbol.baseAsset.minAmount) {
             qty = this.math.round(symbol.baseAsset.minAmount, precision, true)
           }
-          if (price * qty < symbol.quoteAsset.minAmount) {
+          if (price * qty < symbol.quoteAsset.minAmount && !settings.futures) {
             qty = this.math.round(
               symbol.quoteAsset.minAmount / price,
               precision,
@@ -341,102 +358,7 @@ class DCABotFunctions {
           }
         })
     }
-    const slOrder: DCAGrid = {
-      ...tpOrder,
-      price: this.math.round(
-        latestPrice *
-          (1 + (settings.strategy === StrategyEnum.long ? 1 : -1) * slPerc),
-        symbol.priceAssetPrecision,
-      ),
-      type: DCAOrderTypeEnum.sl,
-      id: this.utils.id(20),
-    }
-    let slOrders = [slOrder]
-    if (settings.useMultiSl) {
-      let restQty = slOrder.qty
-      let end = false
-      slOrders = []
-      ;[...(settings.multiSl ?? [])]
-        .sort((a, b) => +b.target - +a.target)
-        .filter((tp) => !(tpSlTargetFilled ?? []).includes(tp.uuid))
-        .map((tp) => {
-          if (end) {
-            return null
-          }
-          let price = this.math.round(
-            latestPrice *
-              (1 +
-                (settings.strategy === StrategyEnum.long ? 1 : -1) *
-                  (+tp.target / 100)),
-            symbol.priceAssetPrecision,
-          )
-          if (price === latestPrice) {
-            price = this.math.round(
-              latestPrice +
-                (settings.strategy === StrategyEnum.long ? 1 : -1) *
-                  Number(`${1}e-${symbol.priceAssetPrecision}`),
-              symbol.priceAssetPrecision,
-            )
-          }
-          let qty = this.math.round(
-            baseOrder.qty * (+tp.amount / 100),
-            precision,
-            true,
-          )
-          if (qty > restQty) {
-            qty = this.math.round(restQty, precision, true)
-          }
-          if (qty < symbol.baseAsset.minAmount) {
-            qty = this.math.round(symbol.baseAsset.minAmount, precision, true)
-          }
-          if (price * qty < symbol.quoteAsset.minAmount) {
-            qty = this.math.round(
-              symbol.quoteAsset.minAmount / price,
-              precision,
-              true,
-            )
-          }
 
-          const modQty = this.math.remainder(qty, symbol.baseAsset.step)
-          if (modQty !== 0) {
-            qty = this.math.round(
-              qty - modQty + symbol.baseAsset.step,
-              precision,
-              true,
-            )
-          }
-          restQty -= qty
-
-          if (
-            restQty < symbol.baseAsset.minAmount ||
-            restQty * price < symbol.quoteAsset.minAmount ||
-            restQty < 0
-          ) {
-            end = true
-            qty =
-              restQty > 0 && restQty > symbol.baseAsset.step
-                ? this.math.round(qty + restQty, precision, true)
-                : qty
-          }
-
-          return {
-            ...slOrder,
-            qty,
-            price,
-            id: this.utils.id(20),
-            label: `SL order ${
-              (settings.multiSl ?? []).findIndex((fi) => tp.uuid === fi.uuid) +
-              1
-            }`,
-            tpSlTarget: tp.uuid,
-          }
-        })
-        .forEach((o) => {
-          if (o) {
-            slOrders.push(o)
-          }
-        })
-    }
     if (settings.profitCurrency === 'base') {
       const qty = this.math.round(
         (baseOrder.qty * latestPrice) / tpOrder.price,
@@ -450,9 +372,25 @@ class DCABotFunctions {
     const gridStep = latestPrice * step
     let orders: DCAGrid[] = []
     if (settings.useDca) {
-      for (let i = 1; i <= parseInt(settings.ordersCount); i++) {
-        const stepVal = stepScale ** (i - 1)
-        const volumeVal = volumeScale ** (i - 1)
+      const ordersCount =
+        settings.dcaCondition === DCAConditionEnum.indicators
+          ? settings.indicators.filter(
+              (i) => i.indicatorAction === IndicatorAction.startDca,
+            ).length
+          : settings.dcaCondition === DCAConditionEnum.custom
+          ? (settings.dcaCustom ?? []).length
+          : parseInt(`${settings.ordersCount}`)
+      for (let i = 1; i <= ordersCount; i++) {
+        const stepVal =
+          settings.dcaCondition === DCAConditionEnum.indicators ||
+          settings.dcaCondition === DCAConditionEnum.custom
+            ? 1
+            : stepScale ** (i - 1)
+        const volumeVal =
+          settings.dcaCondition === DCAConditionEnum.indicators ||
+          settings.dcaCondition === DCAConditionEnum.custom
+            ? 1
+            : volumeScale ** (i - 1)
         let price = this.math.round(
           (i === 1 ? latestPrice : orders[orders.length - 1].price) -
             (settings.strategy === StrategyEnum.long ? 1 : -1) *
@@ -460,6 +398,34 @@ class DCABotFunctions {
               stepVal,
           symbol.priceAssetPrecision,
         )
+        if (settings.dcaCondition === DCAConditionEnum.indicators) {
+          const indicatorValue =
+            +(
+              settings.indicators.filter(
+                (ind) => ind.indicatorAction === IndicatorAction.startDca,
+              )[i - 1]?.minPercFromLast ?? '100'
+            ) / 100
+          price = this.math.round(
+            (i === 1 ? latestPrice : orders[orders.length - 1].price) *
+              (settings.strategy === StrategyEnum.long
+                ? 1 - indicatorValue
+                : 1 + indicatorValue),
+
+            symbol.priceAssetPrecision,
+          )
+        }
+        if (settings.dcaCondition === DCAConditionEnum.custom) {
+          const dcaCustomValue =
+            +((settings.dcaCustom ?? [])[i - 1]?.step ?? '1') / 100
+          price = this.math.round(
+            (i === 1 ? latestPrice : orders[orders.length - 1].price) *
+              (settings.strategy === StrategyEnum.long
+                ? 1 - dcaCustomValue
+                : 1 + dcaCustomValue),
+
+            symbol.priceAssetPrecision,
+          )
+        }
         if (i === 1) {
           if (price === baseOrder.price) {
             price = this.math.round(
@@ -491,6 +457,19 @@ class DCABotFunctions {
             findBreakpoint.displacedPrice,
             symbol.priceAssetPrecision,
           )
+        }
+        let orderSize = _orderSize
+        if (settings.dcaCondition === DCAConditionEnum.indicators) {
+          orderSize =
+            +(
+              settings.indicators.filter(
+                (ind) => ind.indicatorAction === IndicatorAction.startDca,
+              )[i - 1]?.orderSize ?? '0'
+            ) || _orderSize
+        }
+        if (settings.dcaCondition === DCAConditionEnum.custom) {
+          orderSize =
+            +((settings.dcaCustom ?? [])[i - 1]?.size ?? '0') || _orderSize
         }
         let qty =
           orderSizeType === OrderSizeTypeEnum.quote
@@ -616,9 +595,167 @@ class DCABotFunctions {
                 ? b.price - a.price
                 : a.price - b.price,
             )
-            .slice(0, parseInt(activeOrdersCount)),
+            .slice(0, parseInt(`${activeOrdersCount}`)),
         ]
       }
+    }
+    const useOutsideSl =
+      this.settings.useSl &&
+      !this.settings.moveSL &&
+      this.settings.dealCloseConditionSL === CloseConditionEnum.tp &&
+      !this.settings.useMultiSl &&
+      !this.settings.trailingSl
+    let finalBreakeven = orders.length
+      ? orders[orders.length - 1].avgPrice ?? latestPrice
+      : latestPrice
+
+    const slOrder: DCAGrid = {
+      ...tpOrder,
+      price: this.math.round(
+        finalBreakeven *
+          (1 +
+            (settings.strategy === StrategyEnum.long ? 1 : -1) * slPerc +
+            this.userFee * 2),
+        symbol?.priceAssetPrecision ?? 8,
+      ),
+      type: DCAOrderTypeEnum.sl,
+      id: this.utils.id(20),
+    }
+    if (orders.length && useOutsideSl && outsideSl) {
+      /*  const tempOrders = [...orders] */
+      let i = 0
+      for (const o of orders) {
+        const order = orders[i]
+        finalBreakeven = order.avgPrice ?? latestPrice
+        slOrder.price = this.math.round(
+          finalBreakeven *
+            (1 +
+              (settings.strategy === StrategyEnum.long ? 1 : -1) * slPerc +
+              this.userFee * 2),
+          symbol?.priceAssetPrecision ?? 8,
+        )
+        const leftOrders = orders.filter(
+          (_o) =>
+            _o.id !== o.id &&
+            o.type === DCAOrderTypeEnum.dca &&
+            (long
+              ? o.price > _o.price && _o.price > slOrder.price
+              : o.price < _o.price && _o.price < slOrder.price),
+        )
+        if (leftOrders.length === 0) {
+          break
+        }
+        i++
+      }
+      /*   do {
+          const order = tempOrders[i]
+          finalBreakeven = order.avgPrice ?? latestPrice
+          tempOrders = tempOrders.filter((o) =>
+            long ? o.price > slOrder.price : o.price < slOrder.price,
+          )
+          finalBreakeven = tempOrders[tempOrders.length - 1]
+            ? tempOrders?.[tempOrders.length - 1].avgPrice ?? latestPrice
+            : latestPrice
+          slOrder.price = this.math.round(
+            finalBreakeven *
+              (1 +
+                (settings.strategy === StrategyEnum.long ? 1 : -1) * slPerc +
+                (useFixedSLPrices ? 0 : this.userFee * 2)),
+            symbol?.priceAssetPrecision ?? 8,
+          )
+        } while (
+          tempOrders.filter(
+            (o) =>
+              o.type === DCAOrderTypeEnum.dca &&
+              (long ? o.price <= slOrder.price : o.price >= slOrder.price),
+          ).length
+        ) */
+    }
+    let slOrders = [slOrder]
+    if (settings.useMultiSl) {
+      let restQty = slOrder.qty
+      let end = false
+      slOrders = []
+      ;[...(settings.multiSl ?? [])]
+        .sort((a, b) => +b.target - +a.target)
+        .filter((tp) => !(tpSlTargetFilled ?? []).includes(tp.uuid))
+        .map((tp) => {
+          if (end) {
+            return null
+          }
+          let price = this.math.round(
+            latestPrice *
+              (1 +
+                (settings.strategy === StrategyEnum.long ? 1 : -1) *
+                  (+tp.target / 100)),
+            symbol.priceAssetPrecision,
+          )
+          if (price === latestPrice) {
+            price = this.math.round(
+              latestPrice +
+                (settings.strategy === StrategyEnum.long ? 1 : -1) *
+                  Number(`${1}e-${symbol.priceAssetPrecision}`),
+              symbol.priceAssetPrecision,
+            )
+          }
+          let qty = this.math.round(
+            baseOrder.qty * (+tp.amount / 100),
+            precision,
+            true,
+          )
+          if (qty > restQty) {
+            qty = this.math.round(restQty, precision, true)
+          }
+          if (qty < symbol.baseAsset.minAmount) {
+            qty = this.math.round(symbol.baseAsset.minAmount, precision, true)
+          }
+          if (price * qty < symbol.quoteAsset.minAmount && !settings.futures) {
+            qty = this.math.round(
+              symbol.quoteAsset.minAmount / price,
+              precision,
+              true,
+            )
+          }
+
+          const modQty = this.math.remainder(qty, symbol.baseAsset.step)
+          if (modQty !== 0) {
+            qty = this.math.round(
+              qty - modQty + symbol.baseAsset.step,
+              precision,
+              true,
+            )
+          }
+          restQty -= qty
+
+          if (
+            restQty < symbol.baseAsset.minAmount ||
+            restQty * price < symbol.quoteAsset.minAmount ||
+            restQty < 0
+          ) {
+            end = true
+            qty =
+              restQty > 0 && restQty > symbol.baseAsset.step
+                ? this.math.round(qty + restQty, precision, true)
+                : qty
+          }
+
+          return {
+            ...slOrder,
+            qty,
+            price,
+            id: this.utils.id(20),
+            label: `SL order ${
+              (settings.multiSl ?? []).findIndex((fi) => tp.uuid === fi.uuid) +
+              1
+            }`,
+            tpSlTarget: tp.uuid,
+          }
+        })
+        .forEach((o) => {
+          if (o) {
+            slOrders.push(o)
+          }
+        })
     }
     const result = [...orders, baseOrder, ...tpOrders, ...slOrders]
       .filter(
@@ -632,7 +769,6 @@ class DCABotFunctions {
           ? b.price - a.price
           : a.price - b.price,
       )
-    const useOutsideSl = this.settings.useSl && !this.settings.moveSL
     if (useOutsideSl && outsideSl) {
       const slLevel = result
         .filter((o) => o.type === DCAOrderTypeEnum.sl)

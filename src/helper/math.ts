@@ -13,6 +13,10 @@ export class MathHelper {
     if (`${_num}`.indexOf('e') !== -1) {
       num = this.convertFromExponential(_num, precision + 2)
     }
+    const intPart = num.split('.')[0]
+    if ((intPart?.length ?? 0) + precision > 20) {
+      precision = 20 - intPart.length
+    }
     if (down) {
       const res = Number(
         `${Math.floor(Number(`${num}e${precision}`))}e-${precision}`,
@@ -108,6 +112,15 @@ export class MathHelper {
     return Math.sqrt(
       array.map((x) => (x - mean) ** 2).reduce((a, b) => a + b, 0) / n,
     )
+  }
+
+  downsideStDev(array: number[], MAR = 2) {
+    const mar = MAR / 100
+    const DD = Math.sqrt(
+      array.reduce((acc, v) => (acc += Math.min(0, v - mar) ** 2), 0) /
+        array.length,
+    )
+    return DD
   }
 
   isZero(a: number) {

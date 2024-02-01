@@ -1,102 +1,236 @@
 import Backtesting from '..'
 
-import { Bar, ExchangeIntervals, timeIntervalMap } from '../types'
+import {
+  CloseConditionEnum,
+  DCAConditionEnum,
+  ExchangeIntervals,
+  FullBar,
+  StartConditionEnum,
+  timeIntervalMap,
+} from '../types'
 
 import getStrategyBySettings, { StrategyInterface } from './strategy'
 
 import CombinedStrategy from './strategy/combined'
 
-import type { DCABacktestingInput } from '../types'
+import {
+  DCABacktestingInput,
+  DCABotSettings,
+  EdgeBacktestEnum,
+  TradeResponse,
+} from '../types'
 
 class DCABacktesting extends Backtesting {
   private strategy?: StrategyInterface
 
+  private settings: DCABotSettings
+
+  private edge?: EdgeBacktestEnum
+
   constructor({
     settings,
     userFee,
-    symbol,
+    symbols,
     prices,
     interval,
     balances,
     slippage,
     combo,
+    trades,
+    edge,
+    previousData,
+    multi,
+    timezone,
     ...rest
   }: DCABacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
     super({
       ...rest,
       interval: candleInterval,
-      symbol,
+      symbols,
       userFee,
       prices,
       settings,
+      trades,
+      timezone,
     })
-    const strategy = getStrategyBySettings(settings)
+    this.edge = edge
+    this.settings = settings
+    const strategy = getStrategyBySettings(settings, edge)
     if (strategy) {
       this.strategy = new CombinedStrategy(
         {
           settings,
-          symbol,
+          symbols,
           userFee,
           prices,
           interval: candleInterval,
           balances,
           slippage,
           combo,
+          trades,
+          edge,
+          previousData,
+          multi,
+          timezone,
         },
         ...strategy,
       )
     }
   }
 
-  public async test(bars?: { bar: Bar[]; interval: ExchangeIntervals }[]) {
+  set _from(value: number) {
+    this.from = value
+  }
+
+  set _to(value: number) {
+    this.to = value
+  }
+
+  override set stop(value: boolean) {
+    this._stop = value
+    if (this.strategy) {
+      this.strategy.stop = value
+    }
+  }
+
+  public getOtherIntervals() {
+    if (this.strategy) {
+      return this.strategy.getOtherIntervals()
+    }
+  }
+
+  public async test(
+    bars?: { bar: FullBar[]; interval: ExchangeIntervals }[],
+    updateProgress?: (value: number, text: string) => void,
+  ) {
     if (!this.strategy) {
       return
     }
     const startLoading = new Date().getTime()
-    const intervals = this.strategy.getOtherIntervals()
+    const otherIntervals = this.strategy.getOtherIntervals()
+    const intervals = otherIntervals.map((oi) => oi.interval)
     intervals.push(this.interval)
     const [lowestInterval] = intervals.sort(
       (a, b) => timeIntervalMap[a] - timeIntervalMap[b],
     )
     this.interval = lowestInterval
     this.period = this.calculatePeriod(lowestInterval)
-    let testData: { bar: Bar[]; interval: ExchangeIntervals }[] = []
+    if (this.trades) {
+      if (this.strategy) {
+        this.strategy._start = this.period.from
+      }
+      return
+    }
+    let testData: {
+      bar: FullBar[]
+      interval: ExchangeIntervals
+    }[] = []
     if (bars) {
       testData = bars
     } else {
-      const data = await this._loadData()
-      testData = [{ bar: data, interval: this.interval }]
-      const otherIntervals = intervals.filter((i) => i !== this.interval)
-      const queries: Promise<void>[] = []
-      otherIntervals.forEach((oi) =>
-        queries.push(
-          this._loadData(oi, this.period.from).then((res) => {
-            testData.push({ bar: res, interval: oi })
-          }),
-        ),
-      )
-      await Promise.all(queries)
+      const isIndicators =
+        (this.settings.startCondition === StartConditionEnum.ti ||
+          (this.settings.dealCloseCondition === CloseConditionEnum.techInd &&
+            this.settings.useTp) ||
+          (this.settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
+            this.settings.useSl) ||
+          (this.settings.dcaCondition === DCAConditionEnum.indicators &&
+            this.settings.useDca)) &&
+        this.edge !== EdgeBacktestEnum.random
+      if (!isIndicators) {
+        const data = await this._loadData()
+        testData = [{ bar: data, interval: this.interval }]
+      } else {
+        let i = 1
+        for (const oi of otherIntervals) {
+          await this._loadData(
+            oi.interval,
+            undefined,
+            {
+              from:
+                (this.period.from * 1000 -
+                  oi.countBack * timeIntervalMap[oi.interval]) /
+                1000,
+              to: this.period.to,
+              firstDataRequest: false,
+              countBack: oi.countBack,
+            },
+            i,
+            otherIntervals.length,
+          ).then((res) => {
+            testData.push({ bar: res, interval: oi.interval })
+            i++
+          })
+        }
+      }
     }
     const loadingTime = (new Date().getTime() - startLoading) / 1000
     const start = new Date().getTime()
-    this.strategy.loadData(testData)
-    this.strategy.test()
-    const processingTime = (new Date().getTime() - start) / 1000
-    const [lowest] = testData.filter((d) => d.interval === lowestInterval)
-    return this.strategy.returnResult(
-      lowest.bar[0],
-      lowest.bar[lowest.bar.length - 1],
-      loadingTime,
-      processingTime,
+    const startTime = /* bars
+      ?  */ Math.max(
+      testData[0]?.bar?.[0]?.time ?? this.period.from * 1000,
+      this.period.from * 1000,
     )
+    /*  : this.period.from * 1000 */
+    this.strategy.loadData(testData, startTime)
+    return this.strategy.test(updateProgress).then(() => {
+      if (this._stop) {
+        return
+      }
+      const processingTime = (new Date().getTime() - start) / 1000
+      const [lowest] = testData.filter((d) => d.interval === lowestInterval)
+      if (this.strategy && lowest) {
+        const startBar: Map<string, FullBar> = new Map()
+        const lastBar: Map<string, FullBar> = new Map()
+        for (const s of this.symbols.keys()) {
+          const barsBySymbol = lowest.bar.filter(
+            (b) => b.time > startTime && b.symbol === s,
+          )
+          if (barsBySymbol.length) {
+            startBar.set(s, barsBySymbol[0])
+            lastBar.set(s, barsBySymbol[barsBySymbol.length - 1])
+          }
+        }
+        const result = this.strategy.returnResult(
+          startBar,
+          lastBar,
+          loadingTime,
+          processingTime,
+        )
+        if (result.noData) {
+          result.duration.firstDataTime = this.period.from * 1000
+          result.duration.lastDataTime = this.period.to * 1000
+        }
+        return result
+      }
+    })
+  }
+
+  public returnResult(
+    firstData: Map<string, FullBar>,
+    lastData: Map<string, FullBar>,
+  ) {
+    if (this.strategy) {
+      return this.strategy.returnResult(firstData, lastData, 0, 0)
+    }
+  }
+
+  public passTradeCandleData(
+    trade: TradeResponse,
+    candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
+  ) {
+    if (this.strategy?.passTradeCandleData) {
+      this.strategy.passTradeCandleData(trade, candles)
+    }
   }
 
   public getTestingPeriod() {
     if (!this.strategy) {
       return
     }
-    const intervals = this.strategy.getOtherIntervals()
+    const otherIntervals = this.strategy.getOtherIntervals()
+    const intervals = otherIntervals.map((oi) => oi.interval)
 
     intervals.push(this.interval)
     const [lowestInterval] = intervals.sort(

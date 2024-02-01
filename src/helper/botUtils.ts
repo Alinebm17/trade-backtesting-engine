@@ -5,7 +5,7 @@ import type { Symbols, GridType, Grid, Currency } from '../types'
 class BotUtils {
   public math: MathHelper
 
-  constructor() {
+  constructor(private tradesBacktest?: boolean) {
     this.math = new MathHelper()
   }
 
@@ -59,23 +59,31 @@ class BotUtils {
     sellDisplacement,
     gridType,
   }: {
-    lowPrice: string
-    topPrice: string
-    levels: string
+    lowPrice: string | number
+    topPrice: string | number
+    levels: string | number
     symbol: Symbols
-    sellDisplacement: string
+    sellDisplacement: string | number
     gridType: GridType
   }) {
-    const low = parseFloat(lowPrice)
-    const top = parseFloat(topPrice)
-    const newGS = (top / low) ** (1 / parseFloat(levels)) - 1
+    const low = parseFloat(`${lowPrice}`)
+    const top = parseFloat(`${topPrice}`)
+    const newGS = (top / low) ** (1 / parseFloat(`${levels}`)) - 1
     const prices: { buy: number; sell: number }[] = []
-    let sellD = parseFloat(sellDisplacement)
+    let sellD = parseFloat(`${sellDisplacement}`)
     sellD = isNaN(sellD) ? 0 : sellD / 100
     if (gridType === 'arithmetic') {
-      const step = (top - low) / parseFloat(levels)
-      for (let i = 0; i <= parseFloat(levels); i++) {
-        const p = this.math.round(low + step * i, symbol.priceAssetPrecision)
+      const step = (top - low) / parseFloat(`${levels}`)
+      for (let i = 0; i <= parseFloat(`${levels}`); i++) {
+        const p = this.math.round(
+          Math.max(
+            low + step * i,
+            symbol.priceAssetPrecision === 0
+              ? 1
+              : +`0.${'0'.repeat(symbol.priceAssetPrecision - 1)}1`,
+          ),
+          symbol.priceAssetPrecision,
+        )
         prices.push({
           buy: this.math.round(p, symbol.priceAssetPrecision),
           sell: this.math.round(p * (1 + sellD), symbol.priceAssetPrecision),
@@ -83,7 +91,15 @@ class BotUtils {
       }
     } else if (gridType === 'geometric') {
       for (
-        let i = this.math.round(low, symbol.priceAssetPrecision);
+        let i = this.math.round(
+          Math.max(
+            low,
+            symbol.priceAssetPrecision === 0
+              ? 1
+              : +`0.${'0'.repeat(symbol.priceAssetPrecision - 1)}1`,
+          ),
+          symbol.priceAssetPrecision,
+        );
         i <= top * (1 + newGS / 2);
         i *= 1 + newGS
       ) {
@@ -156,13 +172,13 @@ class BotUtils {
       _ordersInAdvance,
       useOrderInAdvance,
     }: {
-      _ordersInAdvance?: string
+      _ordersInAdvance?: string | number
       useOrderInAdvance: boolean
-      lowPrice: string
-      topPrice: string
-      levels: string
+      lowPrice: string | number
+      topPrice: string | number
+      levels: string | number
       symbol: Symbols
-      sellDisplacement: string
+      sellDisplacement: string | number
       gridType: GridType
     },
     grids: Grid[],
@@ -173,7 +189,7 @@ class BotUtils {
       let arrayResult: Grid[] = []
       let copyArray = [...grids].sort((a, b) => a.price - b.price)
       const ordersInAdvance =
-        n || (_ordersInAdvance ? parseInt(_ordersInAdvance) : 0)
+        n || (_ordersInAdvance ? parseInt(`${_ordersInAdvance}`) : 0)
       const maxNumber =
         ordersInAdvance > copyArray.length ? copyArray.length : ordersInAdvance
 
@@ -248,7 +264,7 @@ class BotUtils {
       updatedBudget,
       forceLocal,
       symbol,
-      _latestPrice,
+      _lastPrice,
       userFee,
       sellDisplacement,
       gridType,
@@ -261,19 +277,20 @@ class BotUtils {
       _ordersInAdvance,
       useOrderInAdvance,
       combo,
+      _side,
     }: {
-      lowPrice: string
-      topPrice: string
-      budget: string
-      levels: string
+      lowPrice: string | number
+      topPrice: string | number
+      budget: string | number
+      levels: string | number
       useStartPrice?: boolean
       startPrice?: string
       updatedBudget?: boolean
       forceLocal: boolean
       symbol: Symbols
-      _latestPrice: number
+      _lastPrice: number
       userFee: number
-      sellDisplacement: string
+      sellDisplacement: string | number
       gridType: GridType
       initialPrice: number
       futures: boolean
@@ -281,9 +298,10 @@ class BotUtils {
       orderFixedIn: Currency
       coinm: boolean
       futuresStrategy?: FuturesStrategyEnum
-      _ordersInAdvance?: string
+      _ordersInAdvance?: string | number
       useOrderInAdvance: boolean
       combo?: boolean
+      _side: BotOrderSideEnum
     },
     all = false,
     nosplice = false,
@@ -295,10 +313,12 @@ class BotUtils {
       startPrice &&
       startPrice !== '' &&
       startPrice !== '0'
-    const latestPrice = useStart ? +startPrice : _latestPrice
-    const low = parseFloat(lowPrice)
-    const top = parseFloat(topPrice)
-    const B = updatedBudget ? +budget : parseFloat(budget) / (1 + userFee * 100)
+    const latestPrice = useStart ? +startPrice : _lastPrice
+    const low = parseFloat(`${lowPrice}`)
+    const top = parseFloat(`${topPrice}`)
+    const B = updatedBudget
+      ? +budget
+      : parseFloat(`${budget}`) / (1 + userFee * 100)
     const f = 1 + userFee
     let grids: Grid[] = []
     const quotedAssetPrecision = this.getBaseAssetPrecision(symbol)
@@ -307,6 +327,7 @@ class BotUtils {
     let sellQty = 0
     let quoteAmount = 0
     let baseAmount = 0
+    let lastPrice = _lastPrice
     const prices = this.getPrices({
       lowPrice,
       topPrice,
@@ -315,7 +336,7 @@ class BotUtils {
       sellDisplacement,
       gridType,
     })
-    const gs = (top / low) ** (1 / parseFloat(levels)) - 1
+    const gs = (top / low) ** (1 / parseFloat(`${levels}`)) - 1
     const { sellCount, buyCount, buys, sells } = this.getSellBuyCount(prices, {
       useStartPrice,
       startPrice,
@@ -396,9 +417,17 @@ class BotUtils {
     if (coinm) {
       baseAmount = B / +levels
     }
+    const basicInitialGrid = _side
+      ? prices.find((p) =>
+          _side === BotOrderSideEnum.buy
+            ? lastPrice === p.buy
+            : lastPrice === p.sell,
+        )
+      : undefined
+    lastPrice = basicInitialGrid?.buy ?? _lastPrice
     prices.map((pr, i) => {
       const side =
-        pr.buy > latestPrice ? BotOrderSideEnum.sell : BotOrderSideEnum.buy
+        pr.buy > lastPrice ? BotOrderSideEnum.sell : BotOrderSideEnum.buy
       const p = side === BotOrderSideEnum.buy ? pr.buy : pr.sell
       const same =
         profitCurrency === orderFixedIn ||
@@ -514,7 +543,9 @@ class BotUtils {
         qty = this.math.round(qty * f, quotedAssetPrecision, false, !futures)
       }
       let gridQty = same ? (side === 'SELL' ? sellQty : buyQty) : qty
-      const mod = this.math.remainder(gridQty, symbol.baseAsset.step)
+      const mod = this.tradesBacktest
+        ? gridQty % symbol.baseAsset.step
+        : this.math.remainder(gridQty, symbol.baseAsset.step)
       if (mod > Number.EPSILON) {
         gridQty = this.math.round(
           gridQty - mod + symbol.baseAsset.step,
@@ -566,8 +597,8 @@ class BotUtils {
       let diff = Infinity
       let gridIndex = -1
       grids.map((grid, index) => {
-        if (Math.abs(grid.price - latestPrice) < diff) {
-          diff = Math.abs(grid.price - latestPrice)
+        if (Math.abs(grid.price - lastPrice) < diff) {
+          diff = Math.abs(grid.price - lastPrice)
           gridIndex = index
         }
       })

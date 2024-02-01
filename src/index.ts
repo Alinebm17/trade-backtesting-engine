@@ -11,6 +11,7 @@ import type {
   PeriodParams,
   ResolutionString,
   LoadDataFn,
+  Bar,
 } from './types'
 
 class Backtesting {
@@ -18,7 +19,7 @@ class Backtesting {
 
   public period: PeriodParams
 
-  protected readonly symbol: Symbols
+  protected readonly symbols: Map<string, Symbols> = new Map()
 
   public interval: ExchangeIntervals
 
@@ -26,25 +27,37 @@ class Backtesting {
 
   protected readonly math: MathHelper = new MathHelper()
 
-  private readonly from?: number
+  public from?: number
 
-  private readonly to?: number
+  public to?: number
 
   private loadFn?: LoadDataFn
 
+  public trades?: boolean
+
+  public _stop = false
+
   constructor({
     exchange,
-    symbol,
+    symbols,
     interval,
     from,
     to,
+    trades,
   }: BacktestingInput<unknown>) {
     this.exchange = exchange
     this.interval = interval ?? ExchangeIntervals.fiveM
-    this.symbol = symbol
+    symbols.forEach((s) => {
+      this.symbols.set(s.pair, s)
+    })
     this.from = from
     this.to = to
     this.period = this.calculatePeriod(this.interval)
+    this.trades = trades
+  }
+
+  public set stop(value: boolean) {
+    this._stop = value
   }
 
   public calculatePeriod(
@@ -91,31 +104,43 @@ class Backtesting {
     this.loadFn = loadFn
   }
 
-  public async _loadData(int?: ExchangeIntervals, from?: number) {
-    const {
-      symbol: { pair },
-      interval,
-      period,
-    } = this
-    const local = localStorage.getItem(pair)
-    if (local) {
-      return JSON.parse(local)
-    }
+  public async _loadData(
+    int?: ExchangeIntervals,
+    from?: number,
+    periodParam?: PeriodParams,
+    index?: number,
+    total?: number,
+  ): Promise<(Bar & { symbol: string })[]> {
+    const { symbols, interval, period } = this
     const resolution = tvIntervalMap[int ?? interval] as ResolutionString
-    let periodToUse = period
-    if (int && int !== interval) {
+    let periodToUse = periodParam || period
+    if (int && int !== interval && !periodParam) {
       periodToUse = this.calculatePeriod(int, from)
     }
     if (this.loadFn) {
-      const result = await this.loadFn(
-        pair,
-        resolution,
-        periodToUse,
-        this.exchange,
-      )
-      localStorage.setItem(pair, JSON.stringify(result))
+      let data: (Bar & { symbol: string })[] = []
+      let si = 0
+      for (const s of symbols.values()) {
+        const result = await this.loadFn(
+          s.pair,
+          s.baseAsset.name,
+          s.quoteAsset.name,
+          resolution,
+          periodToUse,
+          this.exchange,
+          (index ?? 1) * (symbols.size === 1 ? 1 : index ?? 1) + si,
+          (total ?? 1) * symbols.size,
+        )
+        si++
 
-      return result
+        data = data.concat(result.map((r) => ({ ...r, symbol: s.pair })))
+      }
+      return data.sort((a, b) => {
+        if (a.time === b.time) {
+          return `${a.symbol}`.localeCompare(`${b.symbol}`)
+        }
+        return a.time - b.time
+      })
     }
     return []
   }

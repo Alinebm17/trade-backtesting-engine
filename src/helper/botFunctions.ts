@@ -1,4 +1,4 @@
-import { BotMarginTypeEnum, StrategyEnum } from '../types'
+import { BotMarginTypeEnum, StrategyEnum, BotOrderSideEnum } from '../types'
 import BotUtils from './botUtils'
 
 import type { Settings, Symbols, Grid, OrderData } from '../types'
@@ -26,13 +26,14 @@ class BotFunctions {
     symbol: Symbols,
     latestPrice: number,
     initialPrice: number,
+    tradesBacktest?: boolean,
   ) {
     this.settings = settings
     this.userFee = userFee
     this.symbol = symbol
     this.latestPrice = latestPrice
     this.initialPrice = initialPrice
-    this.utils = new BotUtils()
+    this.utils = new BotUtils(tradesBacktest)
     this.math = this.utils.math
   }
 
@@ -69,6 +70,10 @@ class BotFunctions {
     this.initialPrice = initialPrice
   }
 
+  get initPrice() {
+    return this.initialPrice
+  }
+
   findClosestGrids(grids: Grid[], latestPrice: number, n?: number) {
     if (
       (this.settings.ordersInAdvance && this.settings.useOrderInAdvance) ||
@@ -79,7 +84,7 @@ class BotFunctions {
       const ordersInAdvance =
         n ||
         (this.settings.ordersInAdvance
-          ? parseInt(this.settings.ordersInAdvance)
+          ? parseInt(`${this.settings.ordersInAdvance}`)
           : 0)
       const maxNumber =
         ordersInAdvance > copyArray.length ? copyArray.length : ordersInAdvance
@@ -142,15 +147,15 @@ class BotFunctions {
       settings: { lowPrice, topPrice, levels, sellDisplacement, gridType },
       symbol,
     } = this
-    const low = parseFloat(lowPrice)
-    const top = parseFloat(topPrice)
-    const newGS = (top / low) ** (1 / parseFloat(levels)) - 1
+    const low = parseFloat(`${lowPrice}`)
+    const top = parseFloat(`${topPrice}`)
+    const newGS = (top / low) ** (1 / parseFloat(`${levels}`)) - 1
     const prices: { buy: number; sell: number }[] = []
-    let sellD = parseFloat(sellDisplacement)
+    let sellD = parseFloat(`${sellDisplacement}`)
     sellD = isNaN(sellD) ? 0 : sellD / 100
     if (gridType === 'arithmetic') {
-      const step = (top - low) / parseFloat(levels)
-      for (let i = 0; i <= parseFloat(levels); i++) {
+      const step = (top - low) / parseFloat(`${levels}`)
+      for (let i = 0; i <= parseFloat(`${levels}`); i++) {
         const p = this.math.round(low + step * i, symbol.priceAssetPrecision)
         prices.push({
           buy: this.math.round(p, symbol.priceAssetPrecision),
@@ -172,7 +177,7 @@ class BotFunctions {
     return prices
   }
 
-  createOrders(all = false, nosplice = false): Grid[] {
+  createOrders(all = false, nosplice = false, side: BotOrderSideEnum): Grid[] {
     const { settings, symbol, forceLocal, latestPrice, userFee, initialPrice } =
       this
     const {
@@ -204,7 +209,7 @@ class BotFunctions {
         updatedBudget,
         forceLocal,
         symbol,
-        _latestPrice: latestPrice,
+        _lastPrice: latestPrice,
         userFee,
         sellDisplacement,
         gridType,
@@ -216,6 +221,7 @@ class BotFunctions {
         futuresStrategy,
         _ordersInAdvance: ordersInAdvance,
         useOrderInAdvance,
+        _side: side,
       },
       all,
       nosplice,
@@ -278,6 +284,13 @@ class BotFunctions {
             : 1
       }
     } else {
+      const useMaxGrids =
+        (this.settings.strategy === StrategyEnum.long &&
+          this.settings.profitCurrency === 'base' &&
+          grids.filter((g) => g.side === BotOrderSideEnum.sell).length) ||
+        (this.settings.strategy === StrategyEnum.short &&
+          this.settings.profitCurrency === 'quote' &&
+          grids.filter((g) => g.side === BotOrderSideEnum.buy).length)
       res = grids.reduce(
         (acc, grid) => {
           if (grid.side && grid.side === 'SELL' && grid.qty) {
@@ -305,6 +318,58 @@ class BotFunctions {
           buy: { qty: number; qtyBase: number }
         },
       ) || { sell: { qty: 0, qtyQuote: 0 }, buy: { qty: 0, qtyBase: 0 } }
+
+      if (useMaxGrids) {
+        const tempPrice = this.latestPrice
+        this.lastPrice =
+          this.settings.strategy !== StrategyEnum.short
+            ? +this.settings.topPrice * 1.1
+            : +this.settings.lowPrice * 0.9
+        const maxGrids = this.createOrders(true, false, BotOrderSideEnum.buy)
+        this.lastPrice = tempPrice
+        if (this.settings.strategy !== StrategyEnum.short) {
+          const quote = this.math.round(
+            res.buy.qty,
+            this.symbol.priceAssetPrecision,
+            false,
+            true,
+          )
+          const base = this.math.round(
+            maxGrids
+              .sort((a, b) => b.price - a.price)
+              .slice(
+                0,
+                grids.filter((g) => g.side === BotOrderSideEnum.sell).length,
+              )
+              .reduce((acc, v) => acc + v.qty, 0),
+            this.utils.getBaseAssetPrecision(this.symbol),
+            false,
+            true,
+          )
+          return { base, quote }
+        }
+        if (this.settings.strategy === StrategyEnum.short) {
+          const base = this.math.round(
+            res.sell.qty,
+            this.utils.getBaseAssetPrecision(this.symbol),
+            false,
+            true,
+          )
+          const quote = this.math.round(
+            maxGrids
+              .sort((a, b) => a.price - b.price)
+              .slice(
+                0,
+                grids.filter((g) => g.side === BotOrderSideEnum.buy).length,
+              )
+              .reduce((acc, v) => acc + v.qty * v.price, 0),
+            this.symbol.priceAssetPrecision,
+            false,
+            true,
+          )
+          return { base, quote }
+        }
+      }
     }
     const base = this.math.round(
       res.sell.qty,
@@ -336,7 +401,7 @@ class BotFunctions {
         (b, a) =>
           (b.updateTime || b.transactTime) - (a.updateTime || a.transactTime),
       )
-    const top = parseFloat(this.settings.topPrice)
+    const top = parseFloat(`${this.settings.topPrice}`)
     const prices = this.getPrices()
     prices[prices.length - 1].buy = this.math.round(
       top,
@@ -354,7 +419,7 @@ class BotFunctions {
     }[] = []
 
     if (this.settings.profitCurrency === 'quote') {
-      const grids = this.createOrders(true, true)
+      const grids = this.createOrders(true, true, BotOrderSideEnum.buy)
       tempOrders.map((o) => {
         const qty = parseFloat(o.origQty)
         const price = parseFloat(o.price)
@@ -460,7 +525,7 @@ class BotFunctions {
     profBase = this.math.round(profBase, 8)
     profQuote = this.math.round(profQuote, 8)
     totalProfit = this.math.round(
-      (profQuote / parseFloat(this.settings.budget)) * 100,
+      (profQuote / parseFloat(`${this.settings.budget}`)) * 100,
       1,
     )
     return {
@@ -480,9 +545,9 @@ class BotFunctions {
               qty: parseFloat(o.origQty),
               price: parseFloat(o.price),
             }))
-          : this.createOrders(true, false)
+          : this.createOrders(true, false, BotOrderSideEnum.buy)
       if (inputOrders && inputOrders.length > 0) {
-        const allGrids = this.createOrders(true, false)
+        const allGrids = this.createOrders(true, false, BotOrderSideEnum.buy)
         orders = orders.sort((a, b) => a.price - b.price)
         orders = [
           ...orders,

@@ -3,22 +3,45 @@ import type {
   FasterBandsResult,
   FasterStochasticResult,
   PivotResult,
+  DIVResult,
+  SuperTrendResult,
 } from '../indicators/src'
 
-export enum IndicatorsEnum {
+export enum IndicatorEnum {
   rsi = 'RSI',
   adx = 'ADX',
   bbw = 'BBW',
+  bb = 'BB',
   macd = 'MACD',
+  stoch = 'Stoch',
+  cci = 'CCI',
+  ao = 'AO',
+  stochRSI = 'StochRSI',
+  wr = 'WR',
+  bullBear = 'BullBear',
+  uo = 'UO',
+  ic = 'IC',
   tv = 'TV',
   ma = 'MA',
-  bb = 'BB',
-  stoch = 'Stoch',
-  stochRSI = 'StochRSI',
   sr = 'SR',
   qfl = 'QFL',
   mfi = 'MFI',
   psar = 'PSAR',
+  vo = 'VO',
+  mom = 'MOM',
+  bbwp = 'BBWP',
+  ecd = 'ECD',
+  xo = 'XO',
+  mar = 'MAR',
+  bbpb = 'BBPB',
+  div = 'DIV',
+  st = 'ST',
+}
+
+export enum ECDTriggerEnum {
+  bearish = 'bearish',
+  bullish = 'bullish',
+  both = 'both',
 }
 
 export enum TradingviewAnalysisConditionEnum {
@@ -84,6 +107,16 @@ export enum ExchangeIntervals {
   oneW = '1w',
 }
 
+export type TradeResponse = {
+  aggId: string
+  symbol: string
+  price: string
+  quantity: string
+  firstId: number
+  lastId: number
+  timestamp: number
+}
+
 export const timeIntervalMap = {
   [ExchangeIntervals.oneM]: 60 * 1000,
   [ExchangeIntervals.threeM]: 3 * 60 * 1000,
@@ -112,6 +145,8 @@ export enum SRCrossingEnum {
 export enum IndicatorAction {
   startDeal = 'startDeal',
   closeDeal = 'closeDeal',
+  startDca = 'startDca',
+  stopBot = 'stopBot',
 }
 
 export type MAResult = {
@@ -120,104 +155,207 @@ export type MAResult = {
   price: number
 }
 
+type Percentile = {
+  percentile?: boolean
+  percentileLookback?: number
+  percentilePercentage?: number
+}
+
+type TrendFilter = {
+  trendFilter?: boolean
+  trendFilterLookback?: number
+  trendFilterType?: TrendFilterOperatorEnum
+  trendFilterValue?: number
+}
+
+type DivergenceOscillators =
+  | IndicatorEnum.adx
+  | IndicatorEnum.cci
+  | IndicatorEnum.mfi
+  | IndicatorEnum.rsi
+  | IndicatorEnum.wr
+  | IndicatorEnum.macd
+  | IndicatorEnum.uo
+  | IndicatorEnum.ao
+  | IndicatorEnum.mom
+  | IndicatorEnum.bbw
+  | IndicatorEnum.vo
+  | IndicatorEnum.bbpb
+  | IndicatorEnum.stoch
+
 export type IndicatorConfigBackTesting =
   | {
-      type: IndicatorsEnum.tv
+      type: IndicatorEnum.st
+      factor: number
+      atrPeriod: number
+    }
+  | {
+      type: IndicatorEnum.div
+      oscillators: DivergenceOscillators[]
+      leftBars?: number
+      rightBars?: number
+      rangeLower?: number
+      rangeUpper?: number
+    }
+  | { type: IndicatorEnum.ecd }
+  | {
+      type: IndicatorEnum.tv
       checkLevel?: number
       useAsEntryExitPoints?: boolean
     }
-  | {
-      type: IndicatorsEnum.rsi | IndicatorsEnum.adx | IndicatorsEnum.mfi
+  | ({
+      type: IndicatorEnum.ao
+    } & Percentile)
+  | ({
+      type: IndicatorEnum.mom
       interval: number
-    }
+      source: string
+    } & Percentile)
   | {
-      type: IndicatorsEnum.bbw
+      type: IndicatorEnum.bbwp
       interval: number
-      deviationMultiplier?: number
+      lookback: number
+      source: string
     }
-  | {
-      type: IndicatorsEnum.bb
+  | ({
+      type:
+        | IndicatorEnum.rsi
+        | IndicatorEnum.adx
+        | IndicatorEnum.mfi
+        | IndicatorEnum.cci
+        | IndicatorEnum.wr
       interval: number
-    }
-  | {
-      type: IndicatorsEnum.macd
+    } & Percentile)
+  | ({
+      type: IndicatorEnum.bbw | IndicatorEnum.bb | IndicatorEnum.bbpb
+      interval: number
+      bbwMult?: number
+      bbwMa?: MAEnum
+      bbwMaLength?: number
+    } & Percentile)
+  | ({
+      type: IndicatorEnum.macd
       longInterval: number
       shortInterval: number
       signalInterval: number
-    }
+      maSource?: MAEnum
+      maSignal?: MAEnum
+    } & Percentile)
   | {
-      type: IndicatorsEnum.ma
+      type: IndicatorEnum.ma
       maType: MAEnum
       interval: number
     }
   | {
-      type: IndicatorsEnum.stoch
+      type: IndicatorEnum.stoch
       length: number
       smoothK: number
       smoothD: number
     }
   | {
-      type: IndicatorsEnum.stochRSI
+      type: IndicatorEnum.stochRSI
       length: number
       rsiLength: number
       smoothK: number
       smoothD: number
     }
   | {
-      type: IndicatorsEnum.sr
+      type: IndicatorEnum.sr
       leftBars: number
       rightBars: number
     }
   | {
-      type: IndicatorsEnum.qfl
+      type: IndicatorEnum.qfl
       basePeriods: number
       pumpPeriods: number
       pump: number
       baseCrack: number
     }
   | {
-      type: IndicatorsEnum.psar
+      type: IndicatorEnum.psar
       start: number
       inc: number
       max: number
     }
+  | ({
+      type: IndicatorEnum.vo
+      voLong: number
+      voShort: number
+    } & Percentile)
+  | ({
+      type: IndicatorEnum.mar
+      mar1type: MAEnum
+      mar1length: number
+      mar2type: MAEnum
+      mar2length: number
+    } & Percentile &
+      TrendFilter)
+  | ({
+      type: IndicatorEnum.uo
+      fast: number
+      middle: number
+      slow: number
+    } & Percentile)
+
+type PercentileResult = {
+  percentile?: number
+  value: number
+  trend?: number
+}
 
 export type IndicatorHistory = { time: number } & (
   | {
       type:
-        | IndicatorsEnum.rsi
-        | IndicatorsEnum.adx
-        | IndicatorsEnum.bbw
-        | IndicatorsEnum.mfi
-      value: number
+        | IndicatorEnum.rsi
+        | IndicatorEnum.cci
+        | IndicatorEnum.ao
+        | IndicatorEnum.uo
+        | IndicatorEnum.wr
+        | IndicatorEnum.adx
+        | IndicatorEnum.bbw
+        | IndicatorEnum.mfi
+        | IndicatorEnum.vo
+        | IndicatorEnum.mom
+        | IndicatorEnum.mar
+        | IndicatorEnum.bbpb
+      value: PercentileResult
     }
   | {
-      type: IndicatorsEnum.macd
+      type: IndicatorEnum.xo | IndicatorEnum.bbwp | IndicatorEnum.ecd
+      value: number
+    }
+  | { type: IndicatorEnum.st; value: SuperTrendResult }
+  | {
+      type: IndicatorEnum.div
+      value: DIVResult
+    }
+  | {
+      type: IndicatorEnum.macd
       value: FasterMACDResult
     }
   | {
-      type: IndicatorsEnum.ma
+      type: IndicatorEnum.ma
       value: MAResult
     }
-  | { type: IndicatorsEnum.tv; value: number }
+  | { type: IndicatorEnum.tv; value: number }
   | {
-      type: IndicatorsEnum.bb
+      type: IndicatorEnum.bb
       value: { result: FasterBandsResult; price: number }
     }
   | {
-      type: IndicatorsEnum.stoch | IndicatorsEnum.stochRSI
+      type: IndicatorEnum.stoch | IndicatorEnum.stochRSI
       value: FasterStochasticResult
     }
   | {
-      type: IndicatorsEnum.sr
+      type: IndicatorEnum.sr
       value: PivotResult
     }
-  | { type: IndicatorsEnum.qfl; value: boolean }
-  | { type: IndicatorsEnum.psar; value: { psar: number; price: number } }
+  | { type: IndicatorEnum.qfl; value: boolean }
+  | { type: IndicatorEnum.psar; value: { psar: number; price: number } }
 )
 
 export type SettingsIndicators = {
-  type: IndicatorsEnum
+  type: IndicatorEnum
   indicatorLength: number
   indicatorValue: string
   indicatorCondition: IndicatorStartConditionEnum
@@ -254,11 +392,83 @@ export type SettingsIndicators = {
   psarStart?: number
   psarInc?: number
   psarMax?: number
+  stochRange?: StochRangeEnum
+  minPercFromLast?: string
+  orderSize?: string
+  keepConditionBars?: string
+  voLong?: number
+  voShort?: number
+  uoFast?: number
+  uoMiddle?: number
+  uoSlow?: number
+  momSource?: string
+  bbwpLookback?: number
+  ecdTrigger?: ECDTriggerEnum
+  xOscillator1?: IndicatorEnum.rsi | IndicatorEnum.cci | IndicatorEnum.mfi
+  xOscillator2?: IndicatorEnum.rsi | IndicatorEnum.cci | IndicatorEnum.mfi
+  xOscillator2length?: number
+  xOscillator2Interval?: ExchangeIntervals
+  xoUUID?: string
+  percentile?: boolean
+  percentileLookback?: number
+  percentilePercentage?: number
+  mar1length?: number
+  mar1type?: MAEnum
+  mar2length?: number
+  mar2type?: MAEnum
+  bbwMult?: number
+  bbwMa?: MAEnum
+  bbwMaLength?: number
+  macdFast?: number
+  macdSlow?: number
+  macdMaSource?: MAEnum
+  macdMaSignal?: MAEnum
+  divOscillators?: DivergenceOscillators[]
+  divType?: DivTypeEnum
+  divMinCount?: number
+  trendFilter?: boolean
+  trendFilterLookback?: number
+  trendFilterType?: TrendFilterOperatorEnum
+  trendFilterValue?: number
+  factor?: number
+  atrLength?: number
+  stCondition?: STConditionEnum
+}
+
+export enum STConditionEnum {
+  up = 'up',
+  down = 'down',
+  upToDown = 'upToDown',
+  downToUp = 'downToUp',
+}
+
+export enum TrendFilterOperatorEnum {
+  lower = 'lower',
+  higher = 'higher',
+  between = 'between',
+}
+
+export enum DivTypeEnum {
+  bull = 'Bullish',
+  bear = 'Bearish',
+  hbull = 'Hidden Bullish',
+  hbear = 'Hidden Bearish',
+  abull = 'Any Bullish',
+  abear = 'Any Bearish',
+}
+
+export enum StochRangeEnum {
+  upper = 'upper',
+  lower = 'lower',
+  both = 'both',
+  none = 'none',
 }
 
 export enum IndicatorSection {
   tp = 'tp',
   sl = 'sl',
+  dca = 'dca',
+  controller = 'controller',
 }
 
 export enum CloseConditionEnum {
@@ -313,7 +523,21 @@ export enum CooldownUnits {
   days = 'days',
 }
 
+export enum DCAConditionEnum {
+  percentage = 'percentage',
+  indicators = 'indicators',
+  custom = 'custom',
+}
+
+export type DCACustom = {
+  step: string
+  size: string
+  uuid: string
+}
+
 export interface DCABotSettings extends BaseSettings {
+  dcaCondition?: DCAConditionEnum
+  dcaCustom?: DCACustom[]
   strategy: StrategyEnum
   baseOrderSize: string
   baseOrderPrice?: string
@@ -324,8 +548,8 @@ export interface DCABotSettings extends BaseSettings {
   slPerc: string
   orderSize: string
   step: string
-  ordersCount: string
-  activeOrdersCount: string
+  ordersCount: string | number
+  activeOrdersCount: string | number
   volumeScale: string
   stepScale: string
   useTp: boolean
@@ -336,6 +560,7 @@ export interface DCABotSettings extends BaseSettings {
   useDca: boolean
   hodlDay: string
   hodlAt: string
+  hodlHourly?: boolean
   hodlNextBuy: number
   maxNumberOfOpenDeals?: string
   indicators: SettingsIndicators[]
@@ -352,6 +577,7 @@ export interface DCABotSettings extends BaseSettings {
   moveSL?: boolean
   moveSLTrigger?: string
   moveSLValue?: string
+  moveSLForAll?: boolean
   trailingSl?: boolean
   trailingTp?: boolean
   trailingTpPerc?: string
@@ -380,11 +606,21 @@ export interface DCABotSettings extends BaseSettings {
   futures?: boolean
   coinm?: boolean
   gridLevel?: string
+  baseStep?: string
+  baseGridLevels?: string
+  useActiveMinigrids?: boolean
+  comboActiveMinigrids?: string
+  closeByTimer?: boolean
+  closeByTimerValue?: number
+  closeByTimerUnits?: CooldownUnits
+  maxDealsPerHigherTimeframe?: string
+  useMaxDealsPerHigherTimeframe?: boolean
 }
 
 export enum BotStartTypeEnum {
   manual = 'manual',
   webhook = 'webhook',
+  indicators = 'indicators',
 }
 
 export enum CloseDCATypeEnum {
@@ -482,6 +718,24 @@ export enum ExchangeEnum {
   binanceSpot = 'binanceSpot',
   paperBinanceAll = 'paperBinanceAll',
   paperBinanceSpot = 'paperBinanceSpot',
+  bybitCoinm = 'bybitInverse',
+  bybitUsdm = 'bybitLinear',
+  paperBybitCoinm = 'paperBybitInverse',
+  paperBybitUsdm = 'paperBybitLinear',
+  bybitAll = 'bybitAll',
+  bybitSpot = 'bybitSpot',
+  paperBybitAll = 'paperBybitAll',
+  paperBybitSpot = 'paperBybitSpot',
+  okx = 'okx',
+  okxLinear = 'okxLinear',
+  okxInverse = 'okxInverse',
+  paperOkx = 'paperOkx',
+  paperOkxLinear = 'paperOkxLinear',
+  paperOkxInverse = 'paperOkxInverse',
+  okxAll = 'okxAll',
+  okxSpot = 'okxSpot',
+  paperOkxAll = 'paperOkxAll',
+  paperOkxSpot = 'paperOkxSpot',
 }
 
 export type DCAGrid = {
@@ -502,6 +756,7 @@ export type DCAGrid = {
   minigridId?: string
   levelNumber?: number
   minigridBudget?: number
+  grey?: boolean
 }
 
 export type Asset = {
@@ -524,7 +779,11 @@ export const enum PositionSide {
   LONG = 'LONG',
 }
 
-export type FullGrid = DCAGrid & { filledTime?: number; startTime?: number }
+export type FullGrid = DCAGrid & {
+  filledTime?: number
+  startTime?: number
+  dealId?: string
+}
 
 export type SplitTime = {
   d: string
@@ -534,6 +793,7 @@ export type SplitTime = {
 }
 
 export type Minigrid = {
+  symbol: Symbols
   initialOrders: FullGrid[]
   filledOrders: FullGrid[]
   activeOrders: FullGrid[]
@@ -570,13 +830,18 @@ export type Minigrid = {
     buy: number
     sell: number
   }
+  lockClose: boolean
 }
 
 export type Deal = {
+  moveSlActivated?: boolean
+  symbol: Symbols
+  transactions: BacktestingTransaction[]
   mingrids: Minigrid[]
   initialOrders: FullGrid[]
   id: string
   filledOrders: (FullGrid & { dealId: string })[]
+  hiddenOrders: (FullGrid & { dealId: string })[]
   activeOrders: FullGrid[]
   ordersHistory: (FullGrid & {
     slLine?: boolean
@@ -606,7 +871,9 @@ export type Deal = {
   number?: number
   avgPrice: number
   startPrice: number
+  liquidationPrice?: number
   closePrice?: number
+  lastPrice: number
   currentBalance: Balance
   initialBalance: Balance
   slPerc?: number
@@ -617,6 +884,8 @@ export type Deal = {
   bestPriceSet?: boolean
   tpSlTargetFilled?: string[]
   lastFilled: number
+  volume: number
+  equity: number
 }
 
 type Balance = {
@@ -633,11 +902,19 @@ export interface Bar {
   volume?: number
 }
 
-export type DCABacktestingInput = BacktestingInput<DCABotSettings>
+export enum EdgeBacktestEnum {
+  random = 'random',
+  randomMulti = 'randomMulti',
+}
+
+export type DCABacktestingInput = BacktestingInput<DCABotSettings> & {
+  edge?: EdgeBacktestEnum
+  previousData?: DCABacktestingResult
+}
 
 export type BacktestingInput<T> = {
   exchange: ExchangeEnum
-  symbol: Symbols
+  symbols: Symbols[]
   interval?: ExchangeIntervals
   balances?: Asset[] | null
   from?: number
@@ -647,19 +924,88 @@ export type BacktestingInput<T> = {
   prices: Prices
   settings: T
   combo?: boolean
+  trades?: boolean
+  multi?: boolean
+  timezone?: string | null
 }
 
 export type LoadDataFn = (
   pair: string,
+  baseAsset: string,
+  quteAsset: string,
   resolution: ResolutionString,
   periodToUse: PeriodParams,
   exchange: ExchangeEnum,
+  index?: number,
+  total?: number,
 ) => Promise<Bar[]>
+
+export type Profit = {
+  total: number
+  totalUsd: number
+  time: number
+}
+
+export type ValueChangeHistory = {
+  value: number
+  time: number
+}
+
+export type IndicatorsEvents = {
+  type: IndicatorAction
+  time: number
+  side: BotOrderSideEnum
+  price: number
+  symbol: string
+}
+
+export type BuyAndHoldEquity = {
+  value: number
+  time: number
+}
+
+export type SymbolStatsProfit = {
+  total: number
+  totalUsd: number
+  perc: number
+}
+
+export type SymbolStats = {
+  pair: string
+  deals: {
+    profit: number
+    loss: number
+    open: number
+  }
+  netProfit: SymbolStatsProfit
+  dailyReturn: SymbolStatsProfit
+  profitAsset: string
+  winRate: number
+  profitFactor: string
+  maxDealDuration: SplitTime
+  avgDealDuration: SplitTime
+}
+
+export type PeriodicStats = {
+  period: string
+  startTime: number
+  netResult: number
+  drawdown: number
+  runup: number
+  deals: {
+    profit: number
+    loss: number
+  }
+}
 
 export type DCABacktestingResult = {
   // pair: string
+  buyAndHoldEquity?: BuyAndHoldEquity[]
+  indicatorsEvents?: IndicatorsEvents[]
   deals: Deal[]
+  profits?: Profit[]
   noData?: boolean
+  maxLeverage?: number
   financial: {
     netProfitTotal: number
     netProfitTotalUsd: number
@@ -697,6 +1043,10 @@ export type DCABacktestingResult = {
     maxDrawDown: number
     maxDrawDownUsd: number
     maxDrawDownPerc: number
+    initialBalanceUsd: number
+    stDevWinningTrade?: number
+    stDevLosingTrade?: number
+    stDownDevLosingTrade?: number
   }
   duration: {
     avgDealDuration: number
@@ -708,6 +1058,11 @@ export type DCABacktestingResult = {
     botWorkingTime: SplitTime
     maxDealDuration: SplitTime
     periodName?: string
+    botWorkingTimeNumber: number
+    avgWinningTrade?: number
+    maxWinningTrade?: number
+    avgLosingTrade?: number
+    maxLosingTrade?: number
   }
   usage: {
     maxTheoreticalUsage: number
@@ -727,6 +1082,9 @@ export type DCABacktestingResult = {
     dealsPerDay: number
     coveredPriceDeviation: number
     actualPriceDeviation: number
+    liquidationEvents?: number
+    confidenceGrade?: string
+    dealsForConfidenceGrade?: number
   }
   ratios: {
     profitFactor: number
@@ -737,12 +1095,18 @@ export type DCABacktestingResult = {
       perc: number
     }
     periodRatio: number
+    sharpe: number
+    sortino: number
   }
   interval: ExchangeIntervals
   quoteRate: number
   precision?: number
   _id?: string
   shared?: boolean
+  multi?: boolean
+  multiPairs?: number
+  symbolStats?: SymbolStats[]
+  periodicStats?: PeriodicStats[]
 }
 
 export enum FuturesStrategyEnum {
@@ -754,17 +1118,17 @@ export enum FuturesStrategyEnum {
 export type Settings = {
   pair: string
   name: string
-  topPrice: string
-  lowPrice: string
-  levels: string
-  gridStep: string
-  budget: string
-  ordersInAdvance?: string
+  topPrice: string | number
+  lowPrice: string | number
+  levels: string | number
+  gridStep: string | number
+  budget: string | number
+  ordersInAdvance?: string | number
   useOrderInAdvance: boolean
   prioritize: 'gridStep' | 'level'
   profitCurrency: Currency
   orderFixedIn: Currency
-  sellDisplacement: string
+  sellDisplacement: string | number
   gridType: GridType
   tpSl?: boolean
   tpSlCondition?: TpSlCondition
@@ -772,10 +1136,10 @@ export type Settings = {
   sl?: boolean
   slCondition?: TpSlCondition
   slAction?: TpSlAction
-  tpPerc?: string
-  slPerc?: string
-  tpTopPrice?: string
-  slLowPrice?: string
+  tpPerc?: string | number
+  slPerc?: string | number
+  tpTopPrice?: string | number
+  slLowPrice?: string | number
   updatedBudget?: boolean
   startPrice?: string
   useStartPrice?: boolean
@@ -802,14 +1166,26 @@ export type BacktestingTransaction = {
   amountQuoteBuy: string
   amountBaseSell: string
   amountQuoteSell: string
+  amountFreeBaseBuy: number
+  amountFreeQuoteBuy: number
+  amountFreeBaseSell: number
+  amountFreeQuoteSell: number
   priceBuy: string
   priceSell: string
   profit: string
   profitUsd: number
+  freeProfit: number
+  freeProfitUsd: number
   baseAsset: string
   quoteAsset: string
   profitAsset: string
   index: number
+  idBuy: string
+  idSell: string
+  cummulativeProfitBase: number
+  cummulativeProfitQuote: number
+  cummulativeProfitUsdt: number
+  executor: string
 }
 
 export type Grid = {
@@ -819,16 +1195,25 @@ export type Grid = {
   id: string
 }
 
+export type FullGridWithTime = FullGrid & { filledTime: number }
+
 export type GridBacktestingResult = {
+  buyAndHoldEquity?: BuyAndHoldEquity[]
+  values: ValueChangeHistory[]
+  firstUsdRate: number
+  lastUsdRate: number
   transaction: BacktestingTransaction[]
+  filledOrders: FullGridWithTime[]
   orders: Grid[]
   ordersHistory?: (Grid & {
     startTime: number
     filledTime?: number
     avgLine?: boolean
   })[]
-  noDate?: boolean
+  noData?: boolean
   financial: {
+    freeProfitTotal: number
+    freeProfitTotalUsd: number
     profitTotal: string
     profitTotalUsd: number
     profitTotalPerc: number
@@ -865,6 +1250,7 @@ export type GridBacktestingResult = {
     processingDataTime: number
     botWorkingTime: SplitTime
     periodName?: string
+    botWorkingTimeNumber: number
   }
   numerical: {
     all: number
@@ -880,6 +1266,8 @@ export type GridBacktestingResult = {
       perc: number
     }
     periodRatio: number
+    sharpe: number
+    sortino: number
   }
   interval?: ExchangeIntervals
   quoteRate: number
@@ -969,3 +1357,5 @@ export declare type Nominal<T, Name extends string> = T & {
   [Symbol.species]: Name
 }
 export declare type ResolutionString = Nominal<string, 'ResolutionString'>
+
+export type FullBar = Bar & { symbol: string }

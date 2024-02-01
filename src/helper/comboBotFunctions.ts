@@ -9,6 +9,7 @@ import {
   BotOrderSideEnum,
   DCAOrderTypeEnum,
   FuturesStrategyEnum,
+  BotMarginTypeEnum,
 } from '../types'
 import DcaBotFunctions from './dcaBotFunctions'
 
@@ -27,6 +28,7 @@ class ComboBotFunctions extends DcaBotFunctions {
     const orderSize = parseFloat(settings.orderSize)
     const precision = this.utils.getBaseAssetPrecision(symbol)
     const step = parseFloat(settings.step) / 100
+    const baseStep = parseFloat(settings.baseStep ?? settings.step) / 100
     const stepScale = parseFloat(settings.stepScale)
     const volumeScale = parseFloat(settings.volumeScale)
     const feeFactor = 1 + this.userFee
@@ -43,6 +45,8 @@ class ComboBotFunctions extends DcaBotFunctions {
       dealCloseConditionSL,
       orderSizeType,
       coinm,
+      comboActiveMinigrids,
+      useActiveMinigrids,
     } = settings
     const useTp = _useTp && dealCloseCondition === CloseConditionEnum.tp
     const useSl = _useSl && dealCloseConditionSL === CloseConditionEnum.tp
@@ -98,6 +102,12 @@ class ComboBotFunctions extends DcaBotFunctions {
           ? +findBalance.free
           : +findBalance.locked + +findBalance.free
         : 0
+      if (settings.futures) {
+        qtyToUse *=
+          settings.marginType !== BotMarginTypeEnum.inherit
+            ? settings.leverage ?? 1
+            : 1
+      }
       baseQty = this.math.round(
         Math.max(
           symbol.quoteAsset.minAmount
@@ -178,6 +188,7 @@ class ComboBotFunctions extends DcaBotFunctions {
     baseOrder.minigridBudget =
       +(coinm ? baseOrder.base : baseOrder.quote ?? '0') *
       (settings.futures ? 1 : !long ? 2 - feeFactor : 1)
+
     const gridSettings = {
       lowPrice: long ? `${baseOrder.price}` : `${baseOrder.price * (1 - step)}`,
       topPrice: long ? `${baseOrder.price * (1 + step)}` : `${baseOrder.price}`,
@@ -188,7 +199,7 @@ class ComboBotFunctions extends DcaBotFunctions {
       updatedBudget: true,
       forceLocal: false,
       symbol,
-      _latestPrice: baseOrder.price,
+      _lastPrice: baseOrder.price,
       userFee: this.userFee,
       sellDisplacement: `${this.userFee * 2 * 100}`,
       gridType: 'arithmetic' as const,
@@ -210,6 +221,7 @@ class ComboBotFunctions extends DcaBotFunctions {
         : FuturesStrategyEnum.short,
       useOrderInAdvance: false,
       combo: true,
+      _side: BotOrderSideEnum.buy,
     }
     /* console.log('-----------------------')
     console.log(
@@ -218,8 +230,18 @@ class ComboBotFunctions extends DcaBotFunctions {
       baseOrder.qty * baseOrder.price,
     )
     console.log('base order budget', gridSettings.budget) */
+    const baseGridSettings = {
+      ...gridSettings,
+      lowPrice: long
+        ? `${baseOrder.price}`
+        : `${baseOrder.price * (1 - baseStep)}`,
+      topPrice: long
+        ? `${baseOrder.price * (1 + baseStep)}`
+        : `${baseOrder.price}`,
+      levels: `${+(settings.baseGridLevels ?? '1')}`,
+    }
     let grids: DCAGrid[] = this.utils
-      .createGridOrders(gridSettings, true)
+      .createGridOrders(baseGridSettings, true)
       .map((g) => ({
         ...g,
         type: DCAOrderTypeEnum.grid,
@@ -285,7 +307,7 @@ class ComboBotFunctions extends DcaBotFunctions {
             : this.utils
                 .createGridOrders(
                   {
-                    ...gridSettings,
+                    ...baseGridSettings,
                     budget: `${
                       coinm ? qtyByGrids : baseOrder.price * qtyByGrids
                     }`,
@@ -320,7 +342,7 @@ class ComboBotFunctions extends DcaBotFunctions {
     )
     console.log('-----------------------') */
     if (settings.useDca) {
-      for (let i = 1; i <= parseInt(settings.ordersCount); i++) {
+      for (let i = 1; i <= parseInt(`${settings.ordersCount}`); i++) {
         const stepVal = stepScale ** (i - 1)
         const volumeVal = volumeScale ** (i - 1)
         let price = this.math.round(
@@ -454,14 +476,19 @@ class ComboBotFunctions extends DcaBotFunctions {
         const minigridBudget =
           (coinm ? qty : qty * price) *
           (settings.futures ? 1 : !long ? 2 - feeFactor : 1)
+        const isActiveMinigrid = !!(
+          useActiveMinigrids &&
+          typeof comboActiveMinigrids !== 'undefined' &&
+          i <= +comboActiveMinigrids
+        )
         let dcaMinigridOrders: DCAGrid[] = this.utils
           .createGridOrders(
             {
               ...gridSettings,
-              lowPrice: long ? `${price}` : `${price - gridStep}`,
-              topPrice: long ? `${price + gridStep}` : `${price}`,
-              _latestPrice: price,
-              initialPrice: price,
+              lowPrice: long ? `${price}` : `${price - gridStep * stepVal}`,
+              topPrice: long ? `${price + gridStep * stepVal}` : `${price}`,
+              _lastPrice: isActiveMinigrid ? baseOrder.price : price,
+              initialPrice: isActiveMinigrid ? baseOrder.price : price,
               budget: `${minigridBudget}`,
             },
             true,
@@ -532,10 +559,16 @@ class ComboBotFunctions extends DcaBotFunctions {
                     .createGridOrders(
                       {
                         ...gridSettings,
-                        lowPrice: long ? `${price}` : `${price - gridStep}`,
-                        topPrice: long ? `${price + gridStep}` : `${price}`,
-                        _latestPrice: price,
-                        initialPrice: price,
+                        lowPrice: long
+                          ? `${price}`
+                          : `${price - gridStep * stepVal}`,
+                        topPrice: long
+                          ? `${price + gridStep * stepVal}`
+                          : `${price}`,
+                        _lastPrice: isActiveMinigrid ? baseOrder.price : price,
+                        initialPrice: isActiveMinigrid
+                          ? baseOrder.price
+                          : price,
                         budget: `${
                           coinm ? dcaQtyByGrids : dcaQtyByGrids * price
                         }`,
@@ -545,9 +578,9 @@ class ComboBotFunctions extends DcaBotFunctions {
                     .map((g) => ({
                       ...g,
                       type: DCAOrderTypeEnum.grid,
-                      grey: true,
+                      grey: !isActiveMinigrid,
                       greyLabel: 'Grid',
-                      noLabel: true,
+                      noLabel: !isActiveMinigrid,
                     }))
             qty =
               useBase || settings.futures
@@ -589,6 +622,7 @@ class ComboBotFunctions extends DcaBotFunctions {
           quote: this.math.round(quote, symbol.priceAssetPrecision),
           levelNumber: i,
           minigridBudget,
+          grey: isActiveMinigrid,
         })
         for (const o of dcaMinigridOrders) {
           grids.push(o)
@@ -602,7 +636,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                 ? b.price - a.price
                 : a.price - b.price,
             )
-            .slice(0, parseInt(activeOrdersCount)),
+            .slice(0, parseInt(`${activeOrdersCount}`)),
         ]
       }
     }
