@@ -2314,14 +2314,12 @@ export abstract class Strategy implements StrategyInterface {
           (this.long
             ? d.initialBalance.quote - d.currentBalance.quote
             : d.currentBalance.quote) +
-          d.profit.total * (this.long ? 1 : -1)
+          (this.profitBase ? 0 : d.profit.total * (this.long ? 1 : -1))
         const quoteTp = qty * price
         const base = quote / price
-        const commission = this.long
-          ? (this.profitBase ? base : qty) * this.userFee
-          : (this.profitBase ? base : qty) *
-            (this.profitBase ? 1 : price) *
-            this.userFee
+        const commission = this.profitBase
+          ? qty * this.userFee
+          : qty * price * this.userFee
         const total =
           d.profit.total +
           (this.profitBase ? qty - base : quoteTp - quote) *
@@ -2335,8 +2333,8 @@ export abstract class Strategy implements StrategyInterface {
               : d.usage.max.quote
             : this.long
             ? d.usage.max.quote * (this.profitBase ? 1 / d.startPrice : 1)
-            : d.usage.max.base * (this.profitBase ? 1 : d.startPrice)) *
-          (this.combo ? this.leverage : 1)
+            : d.usage.max.base * (this.profitBase ? 1 : d.startPrice)) /
+          this.leverage
         const perc = total / denominator
         if (
           isFinite(Math.abs(perc)) &&
@@ -3298,9 +3296,7 @@ export abstract class Strategy implements StrategyInterface {
       .filter((o) => (this.combo ? o.type === DCAOrderTypeEnum.tp : true))
       .reduce(
         (acc, v) =>
-          (acc += this.combo
-            ? v.qty * v.price * userFee
-            : this.profitBase
+          (acc += this.profitBase
             ? v.qty * userFee
             : v.qty * v.price * userFee),
         0,
@@ -3382,6 +3378,7 @@ export abstract class Strategy implements StrategyInterface {
       'deno',
       commission,
       'fee',
+      { ...d },
     )
     return {
       total: this.math.round(total, precision, false, true),
