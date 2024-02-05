@@ -2304,24 +2304,20 @@ export abstract class Strategy implements StrategyInterface {
           this.settings.dealCloseConditionSL === CloseConditionEnum.tp
         const price = b.close
         const qty = Math.max(
-          (this.long
+          this.long
             ? d.currentBalance.base
-            : d.initialBalance.base - d.currentBalance.base) +
-            (this.profitBase ? d.profit.total * (this.long ? 1 : -1) : 0),
+            : d.initialBalance.base - d.currentBalance.base,
           0,
         )
-        const quote =
-          (this.long
-            ? d.initialBalance.quote - d.currentBalance.quote
-            : d.currentBalance.quote) +
-          (this.profitBase ? 0 : d.profit.total * (this.long ? 1 : -1))
+        const quote = this.long
+          ? d.initialBalance.quote - d.currentBalance.quote
+          : d.currentBalance.quote
         const quoteTp = qty * price
         const base = quote / price
         const commission = this.profitBase
           ? qty * this.userFee
           : qty * price * this.userFee
         const total =
-          d.profit.total +
           (this.profitBase ? qty - base : quoteTp - quote) *
             (this.long ? 1 : -1) -
           commission
@@ -2329,7 +2325,7 @@ export abstract class Strategy implements StrategyInterface {
         const denominator =
           (this.futures
             ? this.coinm
-              ? d.usage.max.base * d.startPrice
+              ? d.usage.max.base
               : d.usage.max.quote
             : this.long
             ? d.usage.max.quote * (this.profitBase ? 1 / d.startPrice : 1)
@@ -2347,11 +2343,9 @@ export abstract class Strategy implements StrategyInterface {
           const requiredPrice = this.profitBase
             ? -(quote * (this.long ? 1 : -1)) /
               (denominator * (slPerc / 100) -
-                d.profit.total +
                 commission -
                 qty * (this.long ? 1 : -1))
             : (denominator * (slPerc / 100) -
-                d.profit.total +
                 commission +
                 quote * (this.long ? 1 : -1)) /
               (qty * (this.long ? 1 : -1))
@@ -2368,23 +2362,26 @@ export abstract class Strategy implements StrategyInterface {
           const requiredPrice = this.profitBase
             ? -(quote * (this.long ? 1 : -1)) /
               (denominator * (tpPerc / 100) -
-                d.profit.total +
                 commission -
                 qty * (this.long ? 1 : -1))
             : (denominator * (tpPerc / 100) -
-                d.profit.total +
                 commission +
                 quote * (this.long ? 1 : -1)) /
               (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
-        if (close) {
+        /* if (close) {
           console.log(
+            b,
             'sl order',
             qty,
             'base',
             base,
             'qty',
+            quoteTp,
+            'qtp',
+            quote,
+            'q',
             d.profit.total,
             'deal',
             perc,
@@ -2398,11 +2395,16 @@ export abstract class Strategy implements StrategyInterface {
             closePrice,
             'close price',
           )
-        }
+        } */
       }
     }
     if (close) {
-      const slOrder = this.getTP(d, undefined, false, true)[0]
+      let slOrder = this.getTP(
+        d,
+        this.combo && this.profitBase ? b.close : undefined,
+        false,
+        true,
+      )[0]
       slOrder.price =
         closePrice *
         (this.combo || (d.trailingLevel && d.trailingMode)
@@ -2420,6 +2422,9 @@ export abstract class Strategy implements StrategyInterface {
           : slOrder.price <= min
           ? min
           : min
+      if (this.combo && this.profitBase) {
+        slOrder = this.getTP(d, slOrder.price, false, true)[0]
+      }
       this.updatePositionWithOrder(slOrder, b.symbol)
       return { deal: d, order: slOrder }
     }
@@ -3025,8 +3030,10 @@ export abstract class Strategy implements StrategyInterface {
       ? this.long
         ? this.profitBase
           ? (deal.initialBalance.quote - deal.currentBalance.quote) /
-            deal.startPrice
+            (_price || deal.avgPrice)
           : deal.currentBalance.base
+        : this.profitBase
+        ? deal.currentBalance.quote / (_price || deal.avgPrice)
         : deal.initialBalance.base - deal.currentBalance.base
       : filledRegular.reduce((acc, g) => acc + g.qty, 0) -
         filledTP.reduce((acc, g) => acc + g.qty, 0)
@@ -3258,24 +3265,26 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private getUsage(d: Deal) {
+    const _b = this.combo ? (this.profitBase ? d.profit.total : 0) : 0
+    const _q = this.combo ? (!this.profitBase ? d.profit.total : 0) : 0
     const base = this.futures
       ? this.coinm
         ? this.long
           ? d.currentBalance.base
-          : d.initialBalance.base - d.currentBalance.base
+          : d.initialBalance.base - (d.currentBalance.base - _b)
         : 0
       : this.long
       ? 0
-      : d.initialBalance.base - d.currentBalance.base
+      : d.initialBalance.base - (d.currentBalance.base - _b)
 
     const quote = this.futures
       ? this.coinm
         ? 0
         : !this.long
         ? d.currentBalance.quote
-        : d.initialBalance.quote - d.currentBalance.quote
+        : d.initialBalance.quote - (d.currentBalance.quote - _q)
       : this.long
-      ? d.initialBalance.quote - d.currentBalance.quote
+      ? d.initialBalance.quote - (d.currentBalance.quote - _q)
       : 0
 
     const usage = {
@@ -3308,10 +3317,9 @@ export abstract class Strategy implements StrategyInterface {
     )
 
     const quote = this.combo
-      ? (this.long
-          ? d.initialBalance.quote - d.currentBalance.quote
-          : d.currentBalance.quote) +
-        d.profit.total * (this.long ? 1 : -1)
+      ? this.long
+        ? d.initialBalance.quote - d.currentBalance.quote
+        : d.currentBalance.quote
       : regularOrders.reduce((acc, ro) => (acc += ro.qty * ro.price), 0)
     const base = this.combo
       ? Math.max(
@@ -3342,7 +3350,7 @@ export abstract class Strategy implements StrategyInterface {
         time,
       })
     }
-    const total = d.profit.total + pureProfit
+    const total = pureProfit
 
     const totalUsd = total * usdRate
     const denominator = this.combo
@@ -3362,12 +3370,16 @@ export abstract class Strategy implements StrategyInterface {
       false,
       true,
     )
-    console.log(
+    /* console.log(
       'profit',
       base,
       'base',
       qty,
       'qty',
+      quoteTp,
+      'qtp',
+      quote,
+      'q',
       d.profit.total,
       'deal',
       perc,
@@ -3379,7 +3391,7 @@ export abstract class Strategy implements StrategyInterface {
       commission,
       'fee',
       { ...d },
-    )
+    ) */
     return {
       total: this.math.round(total, precision, false, true),
       totalUsd: this.math.round(totalUsd, 2),
@@ -3749,7 +3761,7 @@ export abstract class Strategy implements StrategyInterface {
             ? (this.long
                 ? od.initialBalance.quote - od.currentBalance.quote
                 : od.currentBalance.quote) +
-              (this.profitBase ? od.profit.total * (this.long ? 1 : -1) : 0)
+              (this.profitBase ? 0 : od.profit.total * (this.long ? 1 : -1))
             : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
           const base = this.combo
@@ -3758,14 +3770,14 @@ export abstract class Strategy implements StrategyInterface {
               : od.initialBalance.base - od.currentBalance.base
             : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
-          const comboBase = quote / tpPrice
+          const comboBase =
+            quote / tpPrice +
+            (this.profitBase ? od.profit.total * (this.long ? 1 : -1) : 0)
           const quoteTp = qty * tpPrice
           const commission = this.combo
-            ? this.long
-              ? (this.profitBase ? comboBase : base) * this.userFee
-              : (this.profitBase ? comboBase : base) *
-                (this.profitBase ? 1 : tpPrice) *
-                this.userFee
+            ? this.profitBase
+              ? qty * this.userFee
+              : qty * tpPrice * this.userFee
             : od.filledOrders.reduce(
                 (acc, v) =>
                   (acc += this.profitBase
