@@ -1101,6 +1101,7 @@ export type DCABacktestingResult = {
     periodRatio: number
     sharpe: number
     sortino: number
+    cwr: number
   }
   interval: ExchangeIntervals
   quoteRate: number

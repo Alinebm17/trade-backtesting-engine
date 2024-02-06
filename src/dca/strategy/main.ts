@@ -3625,6 +3625,71 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
+  private calculateCwr(deals: Deal[], lastDataItem: FullBar): number {
+    const dealsByStart = deals.sort((a, b) => a.startTime - b.startTime)
+    const [first] = dealsByStart
+    const startDate = new Date(first.startTime)
+    startDate.setHours(0, 0, 0, 0)
+    const x: number[] = []
+    const y: number[] = []
+    let cwr = 0
+    for (
+      let i = startDate.getTime(), prev = 0, day = 1;
+      prev <= (lastDataItem?.time ?? -1);
+      i = startDate.getTime(), day++
+    ) {
+      const deals = Strategy.deals.filter(
+        (d) => d.closedTime && d.closedTime >= prev && d.closedTime < i,
+      )
+
+      const profit = deals.reduce((acc, v) => (acc += v.profit.total), 0)
+      const usage = deals.reduce(
+        (acc, v) =>
+          (acc += this.futures
+            ? this.coinm
+              ? this.combo
+                ? v.usage.max.base
+                : v.usage.current.base
+              : this.combo
+              ? v.usage.max.quote
+              : v.usage.current.quote
+            : this.long
+            ? (this.combo ? v.usage.max.quote : v.usage.current.quote) *
+              (this.profitBase ? 1 / v.startPrice : 1)
+            : (this.combo ? v.usage.max.base : v.usage.current.base) *
+              (this.profitBase ? 1 : v.startPrice)),
+        0,
+      )
+      x.push(day)
+      y.push((y[y.length - 1] ?? 0) + (usage === 0 ? 0 : profit / usage))
+
+      startDate.setHours(24)
+
+      prev = i
+    }
+    const beta =
+      x.reduce((acc, v, i) => acc + v * y[i], 0) /
+      x.reduce((acc, v) => acc + v ** 2, 0)
+
+    const yPredict = x.map((v) => v * beta)
+
+    const ssTot = y.reduce((acc, v) => acc + v ** 2, 0)
+
+    const ssRes = y.reduce((acc, v, i) => acc + (v - yPredict[i]) ** 2, 0)
+
+    const rSq = 1 - ssRes / ssTot
+
+    const durationInPeriod = x.length
+
+    const annualizedReturn = y[y.length - 1] * (durationInPeriod / 365)
+
+    cwr = this.math.round(annualizedReturn * rSq, 4)
+
+    console.log(x, y, beta)
+
+    return cwr
+  }
+
   public returnResult(
     firstData: Map<string, FullBar>,
     lastData: Map<string, FullBar>,
@@ -4487,6 +4552,7 @@ export abstract class Strategy implements StrategyInterface {
           .length,
       },
       ratios: {
+        cwr: this.calculateCwr(closedDeals, lastDataItem),
         profitFactor:
           allLoss !== 0
             ? this.math.round(Math.abs(allProfit / allLoss), 3)
