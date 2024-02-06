@@ -3681,7 +3681,7 @@ export abstract class Strategy implements StrategyInterface {
 
     const durationInPeriod = x.length
 
-    const annualizedReturn = y[y.length - 1] * (durationInPeriod / 365)
+    const annualizedReturn = y[y.length - 1] * (365 / durationInPeriod)
 
     cwr = this.math.round(annualizedReturn * rSq, 4)
 
