@@ -886,6 +886,10 @@ export type Deal = {
   lastFilled: number
   volume: number
   equity: number
+  equityInAsset: {
+    base: number
+    quote: number
+  }
 }
 
 type Balance = {

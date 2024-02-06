@@ -296,6 +296,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.balance = 0
     Strategy.balanceUsd = 0
     Strategy.initialBalance = 0
+    Strategy.startRate = 0
     Strategy.initialBalanceUsd = 0
     Strategy.position = new Map()
     Strategy.edge = undefined
@@ -319,6 +320,8 @@ export abstract class Strategy implements StrategyInterface {
   static balanceUsd = 0
 
   static initialBalance = 0
+
+  static startRate = 0
 
   static initialBalanceSymbol = ''
 
@@ -1036,6 +1039,10 @@ export abstract class Strategy implements StrategyInterface {
       lastPrice: orderPrice,
       volume: 0,
       equity: 0,
+      equityInAsset: {
+        base: 0,
+        quote: 0,
+      },
     }
 
     if (
@@ -1219,6 +1226,7 @@ export abstract class Strategy implements StrategyInterface {
         (this.profitBase ? deal.startPrice : 1) *
         (this.profitBase ? usdRateQuote : usdRate)
       Strategy.initialBalance = Strategy.balance
+      Strategy.startRate = deal.startPrice
       Strategy.initialBalanceUsd = Strategy.balanceUsd
       Strategy.initialBalanceSymbol = s
     }
@@ -1281,10 +1289,54 @@ export abstract class Strategy implements StrategyInterface {
           deal.id !== d.id,
       )
       .reduce((acc, v) => acc + v.profit.totalUsd, 0)
+    const separatePerSymbol =
+      !this.futures &&
+      ((this.long && this.profitBase) || (!this.long && !this.profitBase))
+    const previousValuesInAssetBase = Strategy.deals
+      .filter(
+        (d) =>
+          (separatePerSymbol
+            ? d.symbol.baseAsset.name === deal.symbol.baseAsset.name
+            : true) &&
+          d.closedTime &&
+          d.closedTime <= (deal.closedTime ?? deal.startTime) &&
+          deal.id !== d.id,
+      )
+      .reduce((acc, v) => acc + v.profit.total, 0)
+    const previousValuesInAssetQuote = Strategy.deals
+      .filter(
+        (d) =>
+          (separatePerSymbol
+            ? d.symbol.quoteAsset.name === deal.symbol.quoteAsset.name
+            : true) &&
+          d.closedTime &&
+          d.closedTime <= (deal.closedTime ?? deal.startTime) &&
+          deal.id !== d.id,
+      )
+      .reduce((acc, v) => acc + v.profit.total, 0)
     deal.equity = this.math.round(
       deal.profit.totalUsd + previousValues + Strategy.initialBalanceUsd,
       3,
     )
+    const base = this.math.round(
+      (this.profitBase ? deal.profit.total + previousValuesInAssetBase : 0) +
+        (this.long || (this.futures && !this.coinm)
+          ? 0
+          : Strategy.initialBalance /
+            (!this.profitBase ? Strategy.startRate : 1)),
+      this.precisionBase.get(deal.symbol.pair),
+    )
+    const quote = this.math.round(
+      (this.profitBase ? 0 : deal.profit.total + previousValuesInAssetQuote) +
+        (this.long || (this.futures && !this.coinm)
+          ? Strategy.initialBalance * (this.profitBase ? Strategy.startRate : 1)
+          : 0),
+      this.precisionQuote.get(deal.symbol.pair),
+    )
+    deal.equityInAsset = {
+      base,
+      quote,
+    }
     return deal
   }
 
