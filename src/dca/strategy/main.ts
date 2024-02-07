@@ -3628,6 +3628,9 @@ export abstract class Strategy implements StrategyInterface {
   private calculateCwr(deals: Deal[], lastDataItem: FullBar): number {
     const dealsByStart = deals.sort((a, b) => a.startTime - b.startTime)
     const [first] = dealsByStart
+    if (!first) {
+      return 0
+    }
     const startDate = new Date(first.startTime)
     startDate.setHours(0, 0, 0, 0)
     const x: number[] = []
