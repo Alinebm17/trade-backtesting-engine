@@ -191,6 +191,8 @@ export abstract class Strategy implements StrategyInterface {
 
   static totalProfitUsd = 0
 
+  static lastIndex = 0
+
   protected math = new MathHelper()
 
   private readonly userFee: number
@@ -303,6 +305,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.previousResult = undefined
     Strategy.multi = false
     Strategy.initialBalanceSymbol = ''
+    Strategy.lastIndex = 0
   }
 
   static position: Map<string, typeof Strategy.emptyPositon> = new Map()
@@ -985,6 +988,7 @@ export abstract class Strategy implements StrategyInterface {
 
     const step = baseOrder.price * (+this.settings.step / 100)
     let deal: Deal = {
+      lastIndex: 0,
       symbol,
       transactions: [],
       step,
@@ -997,6 +1001,7 @@ export abstract class Strategy implements StrategyInterface {
       ordersHistory: [],
       status: 'open',
       startTime,
+      lastTime: startTime,
       profit: {
         total: 0,
         totalUsd: 0,
@@ -1040,6 +1045,10 @@ export abstract class Strategy implements StrategyInterface {
       volume: 0,
       equity: 0,
       equityInAsset: {
+        base: 0,
+        quote: 0,
+      },
+      portfolio: {
         base: 0,
         quote: 0,
       },
@@ -1232,7 +1241,7 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  /* private getUsdRate(symbol: string, price: number, type?: 'base' | 'quote') {
+  private getUsdRate(symbol: string, price: number, type?: 'base' | 'quote') {
     const s = this.symbols.get(symbol)
     if (!s) {
       return 1
@@ -1247,7 +1256,7 @@ export abstract class Strategy implements StrategyInterface {
         : s.quoteAsset.name,
       [...this.prices.filter((p) => p.symbol !== symbol), { symbol, price }],
     )
-  } */
+  }
 
   private updateDealVolume(deal: Deal /* , bar: FullBar */) {
     const usdRateQuote =
@@ -1320,7 +1329,7 @@ export abstract class Strategy implements StrategyInterface {
     )
     const base = this.math.round(
       (this.profitBase ? deal.profit.total + previousValuesInAssetBase : 0) +
-        (this.long || (this.futures && !this.coinm)
+        (this.long && ((this.futures && !this.coinm) || !this.futures)
           ? 0
           : Strategy.initialBalance /
             (!this.profitBase ? Strategy.startRate : 1)),
@@ -1328,7 +1337,7 @@ export abstract class Strategy implements StrategyInterface {
     )
     const quote = this.math.round(
       (this.profitBase ? 0 : deal.profit.total + previousValuesInAssetQuote) +
-        (this.long || (this.futures && !this.coinm)
+        (this.long && ((this.futures && !this.coinm) || !this.futures)
           ? Strategy.initialBalance * (this.profitBase ? Strategy.startRate : 1)
           : 0),
       this.precisionQuote.get(deal.symbol.pair),
@@ -1336,6 +1345,20 @@ export abstract class Strategy implements StrategyInterface {
     deal.equityInAsset = {
       base,
       quote,
+    }
+    const baseRate = this.getUsdRate(
+      deal.symbol.pair,
+      deal.closePrice ?? deal.lastPrice,
+      'base',
+    )
+    const quoteRate = this.getUsdRate(
+      deal.symbol.pair,
+      deal.closePrice ?? deal.lastPrice,
+      'quote',
+    )
+    deal.portfolio = {
+      base: this.math.round(base * baseRate, 3),
+      quote: this.math.round(quote * quoteRate, 3),
     }
     return deal
   }
@@ -2155,6 +2178,7 @@ export abstract class Strategy implements StrategyInterface {
         }
         this.updatePositionWithOrder(o, b.symbol)
         d.lastPrice = o.price
+        d.lastTime = o.filledTime
       }
       d.filledOrders = [...d.filledOrders, ...filledDCA].map((o) => ({
         ...o,
@@ -2536,10 +2560,14 @@ export abstract class Strategy implements StrategyInterface {
     d.splitDuration = friendlyTime(d.duration)
     d.mingrids = d.mingrids.map((m) => this.closeMinigrid(m))
     d.liquidationPrice = liquidationPrice
+    d.lastIndex = Strategy.lastIndex
+    Strategy.lastIndex++
     if (tpOrder && tpOrder.qty > 0) {
       const { price } = tpOrder
       closePrice = price
       d.closePrice = price
+      d.lastPrice = price
+      d.lastTime = tpOrder.filledTime ?? b.time
       d.filledOrders = [
         ...d.filledOrders.filter((fo) => fo.id !== tpOrder.id),
         { ...tpOrder, filledTime: b.time },
@@ -3938,6 +3966,39 @@ export abstract class Strategy implements StrategyInterface {
               : od.usage.current.base) /* * (this.profitBase ? 1 : tpPrice) */ /
               this.leverage) *
             this.getRate()
+          const baseAmount = od.currentBalance.base / this.leverage
+          const quoteAmount = od.currentBalance.quote / this.leverage
+          const baseRate = this.getUsdRate(od.symbol.pair, tpPrice, 'base')
+          const quoteRate = this.getUsdRate(od.symbol.pair, tpPrice, 'quote')
+          od.portfolio = {
+            base: this.math.round(baseAmount * baseRate, 3),
+            quote: this.math.round(quoteAmount * quoteRate, 3),
+          }
+          od.lastTime = lastDataItem?.time
+          Strategy.deals = Strategy.deals.map((d) => {
+            if (d.id === od.id) {
+              return od
+            }
+            return d
+          })
+        }
+      }
+      if (this.futures) {
+        for (const od of openedDeals) {
+          od.portfolio = {
+            base: this.coinm
+              ? this.math.round(unrealizedPnLUsd + Strategy.balanceUsd, 3)
+              : 0,
+            quote: this.coinm
+              ? 0
+              : this.math.round(unrealizedPnLUsd + Strategy.balanceUsd, 3),
+          }
+          Strategy.deals = Strategy.deals.map((d) => {
+            if (d.id === od.id) {
+              return od
+            }
+            return d
+          })
         }
       }
     }

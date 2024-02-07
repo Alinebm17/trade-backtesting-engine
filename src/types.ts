@@ -874,6 +874,7 @@ export type Deal = {
   liquidationPrice?: number
   closePrice?: number
   lastPrice: number
+  lastTime: number
   currentBalance: Balance
   initialBalance: Balance
   slPerc?: number
@@ -890,6 +891,11 @@ export type Deal = {
     base: number
     quote: number
   }
+  portfolio: {
+    base: number
+    quote: number
+  }
+  lastIndex: number
 }
 
 type Balance = {
