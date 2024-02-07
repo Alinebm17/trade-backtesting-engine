@@ -3685,8 +3685,6 @@ export abstract class Strategy implements StrategyInterface {
 
     cwr = this.math.round(annualizedReturn * rSq, 4)
 
-    console.log(x, y, beta)
-
     return cwr
   }
 
