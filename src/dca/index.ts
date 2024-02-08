@@ -174,37 +174,44 @@ class DCABacktesting extends Backtesting {
     )
     /*  : this.period.from * 1000 */
     this.strategy.loadData(testData, startTime)
-    return this.strategy.test(updateProgress).then(() => {
-      if (this._stop) {
-        return
-      }
-      const processingTime = (new Date().getTime() - start) / 1000
-      const [lowest] = testData.filter((d) => d.interval === lowestInterval)
-      if (this.strategy && lowest) {
-        const startBar: Map<string, FullBar> = new Map()
-        const lastBar: Map<string, FullBar> = new Map()
-        for (const s of this.symbols.keys()) {
-          const barsBySymbol = lowest.bar.filter(
-            (b) => b.time > startTime && b.symbol === s,
-          )
-          if (barsBySymbol.length) {
-            startBar.set(s, barsBySymbol[0])
-            lastBar.set(s, barsBySymbol[barsBySymbol.length - 1])
+    const lowest = testData.find((d) => d.interval === lowestInterval)
+    return this.strategy
+      .test(
+        lowest?.bar[0].time ?? 0,
+        lowest?.bar[(lowest.bar.length ?? 1) - 1].time ?? 0,
+        updateProgress,
+      )
+      .then(() => {
+        if (this._stop) {
+          return
+        }
+        const processingTime = (new Date().getTime() - start) / 1000
+        const [lowest] = testData.filter((d) => d.interval === lowestInterval)
+        if (this.strategy && lowest) {
+          const startBar: Map<string, FullBar> = new Map()
+          const lastBar: Map<string, FullBar> = new Map()
+          for (const s of this.symbols.keys()) {
+            const barsBySymbol = lowest.bar.filter(
+              (b) => b.time > startTime && b.symbol === s,
+            )
+            if (barsBySymbol.length) {
+              startBar.set(s, barsBySymbol[0])
+              lastBar.set(s, barsBySymbol[barsBySymbol.length - 1])
+            }
           }
+          const result = this.strategy.returnResult(
+            startBar,
+            lastBar,
+            loadingTime,
+            processingTime,
+          )
+          if (result.noData) {
+            result.duration.firstDataTime = this.period.from * 1000
+            result.duration.lastDataTime = this.period.to * 1000
+          }
+          return result
         }
-        const result = this.strategy.returnResult(
-          startBar,
-          lastBar,
-          loadingTime,
-          processingTime,
-        )
-        if (result.noData) {
-          result.duration.firstDataTime = this.period.from * 1000
-          result.duration.lastDataTime = this.period.to * 1000
-        }
-        return result
-      }
-    })
+      })
   }
 
   public returnResult(

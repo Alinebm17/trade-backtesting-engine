@@ -425,7 +425,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
     for (const b of lowest.bar) {
-      await this.processBar(b)
+      await this.processBar(false, b)
     }
   }
 
@@ -504,7 +504,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         }
       }
     }
-    this.checkDeals({
+    this.checkDeals(false, {
       open: +trade.price,
       high: +trade.price,
       low: +trade.price,
@@ -514,7 +514,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
     })
   }
 
-  public async processBar(bar: FullBar): Promise<void> {
+  public async processBar(
+    checkPortfolio: boolean,
+    bar: FullBar,
+  ): Promise<void> {
     if (
       Strategy.workingShift.length === 0 &&
       ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start)
@@ -602,7 +605,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
     this.checkIndicators(bar)
 
-    await this.checkDeals(bar)
+    await this.checkDeals(checkPortfolio, bar)
   }
 
   private updateIndicatorData(i: Indicator) {

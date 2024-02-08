@@ -20,7 +20,7 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
 
   public async test(): Promise<void> {
     for (const b of Strategy.data[0].bar) {
-      await this.processBar(b)
+      await this.processBar(false, b)
     }
   }
 
@@ -63,7 +63,10 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
     void 0
   }
 
-  public async processBar(bar: FullBar): Promise<void> {
+  public async processBar(
+    _checkPortfolio: boolean,
+    bar: FullBar,
+  ): Promise<void> {
     if (Strategy.deals.length === 0) {
       if (
         Strategy.workingShift.length === 0 &&
@@ -75,7 +78,7 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
     if (this.startTimes.includes(bar.time)) {
       this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
     }
-    await this.checkDeals(bar)
+    await this.checkDeals(false, bar)
   }
 }
 

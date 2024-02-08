@@ -72,10 +72,18 @@ export type DataType = {
 export interface StrategyInterface {
   getOtherIntervals(): { interval: ExchangeIntervals; countBack: number }[]
   loadData(data: DataType[], start?: number): void
-  test(updateProgress?: (value: number, text: string) => void): Promise<void>
+  test(
+    start: number,
+    end: number,
+    updateProgress?: (value: number, text: string) => void,
+  ): Promise<void>
   preTest(): Promise<void>
   startWorkingShift(start: number): void
-  processBar(bar: FullBar, nextBar?: FullBar): Promise<void>
+  processBar(
+    checkPortfolio: boolean,
+    bar: FullBar,
+    nextBar?: FullBar,
+  ): Promise<void>
   processTrade(
     trade: TradeResponse,
     candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
@@ -91,7 +99,11 @@ export interface StrategyInterface {
     low: number,
     symbol: string,
   ): void
-  checkDeals(b: FullBar, cbClose?: (price: number) => void): void
+  checkDeals(
+    checkPortfolio: boolean,
+    b: FullBar,
+    cbClose?: (price: number) => void,
+  ): void
   checkInRange(price: number, time: number): boolean
   returnResult(
     firstData: Map<string, FullBar>,
@@ -192,6 +204,8 @@ export abstract class Strategy implements StrategyInterface {
   static totalProfitUsd = 0
 
   static lastIndex = 0
+
+  static portfolio: NonNullable<DCABacktestingResult['portfolio']> = []
 
   protected math = new MathHelper()
 
@@ -306,6 +320,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.multi = false
     Strategy.initialBalanceSymbol = ''
     Strategy.lastIndex = 0
+    Strategy.portfolio = []
   }
 
   static position: Map<string, typeof Strategy.emptyPositon> = new Map()
@@ -427,7 +442,7 @@ export abstract class Strategy implements StrategyInterface {
     return []
   }
 
-  public abstract test(): Promise<void>
+  public abstract test(start: number, end: number): Promise<void>
 
   public abstract preTest(): Promise<void>
 
@@ -435,7 +450,11 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.workingShift.push({ start })
   }
 
-  public abstract processBar(bar: FullBar, nextBar?: FullBar): Promise<void>
+  public abstract processBar(
+    checkPortfolio: boolean,
+    bar: FullBar,
+    nextBar?: FullBar,
+  ): Promise<void>
 
   public abstract processTrade(
     trade: TradeResponse,
@@ -1254,7 +1273,7 @@ export abstract class Strategy implements StrategyInterface {
         : this.profitBase
         ? s.baseAsset.name
         : s.quoteAsset.name,
-      [...this.prices.filter((p) => p.symbol !== symbol), { symbol, price }],
+      [{ symbol, price }, ...this.prices.filter((p) => p.symbol !== symbol)],
     )
   }
 
@@ -1346,7 +1365,7 @@ export abstract class Strategy implements StrategyInterface {
       base,
       quote,
     }
-    const baseRate = this.getUsdRate(
+    /* const baseRate = this.getUsdRate(
       deal.symbol.pair,
       deal.closePrice ?? deal.lastPrice,
       'base',
@@ -1359,7 +1378,7 @@ export abstract class Strategy implements StrategyInterface {
     deal.portfolio = {
       base: this.math.round(base * baseRate, 3),
       quote: this.math.round(quote * quoteRate, 3),
-    }
+    } */
     return deal
   }
 
@@ -2855,9 +2874,131 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  public async checkDeals(b: FullBar, cbClose?: (price: number) => void) {
+  private checkPortfolio(time: number, price: number, symbol: string) {
+    const openDeal = Strategy.deals.filter((d) => d.status === 'open')
+    if (!this.futures && !openDeal.length) {
+      return Strategy.portfolio.push({
+        x: time,
+        y: Strategy.balanceUsd,
+      })
+    }
+    let value = 0
+
+    if (!this.futures) {
+      for (const o of openDeal) {
+        const differentSymbol = symbol !== o.symbol.pair
+        if (differentSymbol) {
+          const findPrice = Strategy.data
+            .find((d) => d.interval === Strategy.lowestInterval)
+            ?.bar.find((b) => b.symbol === o.symbol.pair && b.time === time)
+          if (findPrice) {
+            price = findPrice.close
+          }
+        }
+        const baseRate = this.getUsdRate(o.symbol.pair, price, 'base')
+        const quoteRate = this.getUsdRate(o.symbol.pair, price, 'quote')
+        const tp = this.getTP(o, price, true, false)[0]
+        const { price: tpPrice } = tp
+        const qty = tp?.qty ?? 0
+        if (qty === 0) {
+          continue
+        }
+        const filledOrders = o.filledOrders.filter(
+          (fo) =>
+            fo.type &&
+            [DCAOrderTypeEnum.dca, DCAOrderTypeEnum.bo].includes(fo.type),
+        )
+        const filledTPOrders = o.filledOrders.filter(
+          (fo) =>
+            fo.type &&
+            [DCAOrderTypeEnum.tp, DCAOrderTypeEnum.sl].includes(fo.type),
+        )
+        const quote = this.combo
+          ? (this.long
+              ? o.initialBalance.quote - o.currentBalance.quote
+              : o.currentBalance.quote) +
+            (this.profitBase ? 0 : o.profit.total * (this.long ? 1 : -1))
+          : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
+            filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
+        const base = this.combo
+          ? this.long
+            ? o.currentBalance.base
+            : o.initialBalance.base - o.currentBalance.base
+          : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
+            filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
+        const comboBase =
+          quote / tpPrice +
+          (this.profitBase ? o.profit.total * (this.long ? 1 : -1) : 0)
+        const quoteTp = qty * tpPrice
+        const commission = this.combo
+          ? this.profitBase
+            ? qty * this.userFee
+            : qty * tpPrice * this.userFee
+          : o.filledOrders.reduce(
+              (acc, v) =>
+                (acc += this.profitBase
+                  ? v.qty * this.userFee
+                  : v.qty * v.price * this.userFee),
+              0,
+            )
+        const unPnl =
+          o.profit.total +
+          (this.combo
+            ? (this.profitBase ? base - comboBase : quoteTp - quote) *
+              (this.long ? 1 : -1)
+            : (this.profitBase
+                ? base -
+                  qty +
+                  ((qty * tpPrice - quote) / tpPrice) * (this.long ? 1 : -1)
+                : qty * tpPrice -
+                  quote +
+                  (qty - base) * tpPrice * (this.long ? 1 : -1)) *
+              (this.long ? 1 : -1)) -
+          commission
+        value += unPnl * (this.profitBase ? baseRate : quoteRate)
+      }
+      return Strategy.portfolio.push({
+        x: time,
+        y: this.math.round(value + Strategy.balanceUsd),
+      })
+    }
+    for (const o of openDeal) {
+      const position = Strategy.position.get(o.symbol.pair)
+      if (position) {
+        const differentSymbol = symbol !== o.symbol.pair
+        if (differentSymbol) {
+          const findPrice = Strategy.data
+            .find((d) => d.interval === Strategy.lowestInterval)
+            ?.bar.find((b) => b.symbol === o.symbol.pair && b.time === time)
+          if (findPrice) {
+            price = findPrice.close
+          }
+        }
+        const quoteRate = this.getUsdRate(o.symbol.pair, price, 'quote')
+        const unPnL =
+          (position?.side === PositionSide.LONG
+            ? price * position.qty - position.entryPrice * position.qty
+            : position.entryPrice * position.qty - price * position.qty) *
+          quoteRate
+        value += unPnL
+      }
+    }
+    return Strategy.portfolio.push({
+      x: time,
+      y: this.math.round(value + Strategy.balanceUsd),
+    })
+  }
+
+  public async checkDeals(
+    checkPortfolio: boolean,
+    b: FullBar,
+    cbClose?: (price: number) => void,
+  ) {
     if (this._stop) {
       return
+    }
+    if (checkPortfolio) {
+      this.checkPortfolio(b.time, b.close, b.symbol)
     }
     for (let d of Strategy.deals.filter(
       (dd) => dd.status === 'open' && dd.symbol.pair === b.symbol,
@@ -3966,7 +4107,7 @@ export abstract class Strategy implements StrategyInterface {
               : od.usage.current.base) /* * (this.profitBase ? 1 : tpPrice) */ /
               this.leverage) *
             this.getRate()
-          const baseAmount = od.currentBalance.base / this.leverage
+          /* const baseAmount = od.currentBalance.base / this.leverage
           const quoteAmount = od.currentBalance.quote / this.leverage
           const baseRate = this.getUsdRate(od.symbol.pair, tpPrice, 'base')
           const quoteRate = this.getUsdRate(od.symbol.pair, tpPrice, 'quote')
@@ -3980,10 +4121,10 @@ export abstract class Strategy implements StrategyInterface {
               return od
             }
             return d
-          })
+          }) */
         }
       }
-      if (this.futures) {
+      /*  if (this.futures) {
         for (const od of openedDeals) {
           od.portfolio = {
             base: this.coinm
@@ -4000,7 +4141,7 @@ export abstract class Strategy implements StrategyInterface {
             return d
           })
         }
-      }
+      } */
     }
     const levels = Strategy.deals.map((d) => d.levels.max)
     const maxDealUsage = this.math.round(
@@ -4389,7 +4530,14 @@ export abstract class Strategy implements StrategyInterface {
     stDevDownLoss = isNaN(stDevDownLoss) ? 0 : stDevDownLoss
     let stDevLoss = this.math.stDev(lossDeals.map((d) => d.profit.perc))
     stDevLoss = isNaN(stDevLoss) ? 0 : stDevLoss
+    if (lastDataItem) {
+      Strategy.portfolio.push({
+        x: lastDataItem.time,
+        y: Strategy.balanceUsd + unrealizedPnLUsd,
+      })
+    }
     const result: DCABacktestingResult = {
+      portfolio: Strategy.portfolio,
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
       symbolStats,

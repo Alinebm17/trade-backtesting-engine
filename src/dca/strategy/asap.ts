@@ -15,7 +15,7 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
 
   public async test(): Promise<void> {
     for (const b of Strategy.data[0].bar) {
-      await this.processBar(b)
+      await this.processBar(false, b)
     }
   }
 
@@ -53,6 +53,7 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
       )
     } else {
       this.checkDeals(
+        false,
         {
           open: +trade.price,
           high: +trade.price,
@@ -73,7 +74,10 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
     }
   }
 
-  public async processBar(bar: FullBar): Promise<void> {
+  public async processBar(
+    checkPortfolio: boolean,
+    bar: FullBar,
+  ): Promise<void> {
     const maxPerSymbol =
       this.settings.useMulti &&
       Strategy.multi &&
@@ -106,7 +110,7 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
         this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
       }
     } else {
-      await this.checkDeals(bar, (price: number) =>
+      await this.checkDeals(checkPortfolio, bar, (price: number) =>
         this.openDeal(price, bar.time, bar.high, bar.low, bar.symbol),
       )
     }

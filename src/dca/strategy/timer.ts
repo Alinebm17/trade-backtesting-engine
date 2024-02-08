@@ -29,7 +29,7 @@ class TimerStrategy extends Strategy implements StrategyInterface {
       Strategy.next = tempDate.getTime()
     } */
     for (const b of Strategy.data[0].bar) {
-      await this.processBar(b)
+      await this.processBar(false, b)
     }
   }
 
@@ -71,7 +71,7 @@ class TimerStrategy extends Strategy implements StrategyInterface {
       date.setDate(date.getDate() + +this.settings.hodlDay)
       next = date.getTime()
     }
-    this.checkDeals({
+    this.checkDeals(false, {
       open: +trade.price,
       high: +trade.price,
       low: +trade.price,
@@ -102,7 +102,10 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     return offset
   }
 
-  public async processBar(bar: FullBar): Promise<void> {
+  public async processBar(
+    checkPortfolio: boolean,
+    bar: FullBar,
+  ): Promise<void> {
     let next = Strategy.next.get(bar.symbol)
     if (!next) {
       next = 0
@@ -146,7 +149,7 @@ class TimerStrategy extends Strategy implements StrategyInterface {
       next = date.getTime()
     }
     Strategy.next.set(bar.symbol, next)
-    await this.checkDeals(bar)
+    await this.checkDeals(checkPortfolio, bar)
   }
 }
 

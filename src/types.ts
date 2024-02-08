@@ -1010,6 +1010,7 @@ export type PeriodicStats = {
 
 export type DCABacktestingResult = {
   // pair: string
+  portfolio?: { x: number; y: number }[]
   buyAndHoldEquity?: BuyAndHoldEquity[]
   indicatorsEvents?: IndicatorsEvents[]
   deals: Deal[]

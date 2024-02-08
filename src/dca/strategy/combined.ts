@@ -25,6 +25,8 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
   }
 
   public async test(
+    start: number,
+    end: number,
     updateProgress?: (value: number, text: string) => void,
   ): Promise<void> {
     const data = [...Strategy.data].sort(
@@ -34,6 +36,11 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     if (!lowest) {
       return
     }
+    let step = start !== 0 && end !== 0 ? (end - start) / 100 : 0
+    if (step < timeIntervalMap[lowest.interval]) {
+      step = timeIntervalMap[lowest.interval]
+    }
+    let current = start
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
     await this.preTest()
@@ -42,7 +49,12 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
       if (this._stop) {
         return
       }
+      const checkPortfolio = current === start || b.time >= current
+      if (checkPortfolio) {
+        current += step
+      }
       await this.processBar(
+        checkPortfolio,
         b,
         lowest.bar[i + 1],
         updateProgress,
@@ -62,6 +74,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
   }
 
   public async processBar(
+    checkPortfolio: boolean,
     b: FullBar,
     nextBar: FullBar,
     updateProgress?: (value: number, text: string) => void,
@@ -95,7 +108,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
       if (this._stop) {
         return
       }
-      await s.processBar(b, nextBar)
+      await s.processBar(checkPortfolio, b, nextBar)
     }
   }
 
