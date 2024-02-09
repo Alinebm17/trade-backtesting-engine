@@ -582,6 +582,7 @@ export interface DCABotSettings extends BaseSettings {
   trailingTp?: boolean
   trailingTpPerc?: string
   maxDealsPerPair?: string
+  ignoreStartDeals?: boolean
   useCloseAfterX?: boolean
   closeAfterX?: string
   pair: string[]
