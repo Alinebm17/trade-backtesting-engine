@@ -177,7 +177,7 @@ class DCABacktesting extends Backtesting {
     const lowest = testData.find((d) => d.interval === lowestInterval)
     return this.strategy
       .test(
-        lowest?.bar[0].time ?? 0,
+        lowest?.bar[0]?.time ?? 0,
         lowest?.bar[(lowest.bar.length ?? 1) - 1].time ?? 0,
         updateProgress,
       )
@@ -186,7 +186,6 @@ class DCABacktesting extends Backtesting {
           return
         }
         const processingTime = (new Date().getTime() - start) / 1000
-        const [lowest] = testData.filter((d) => d.interval === lowestInterval)
         if (this.strategy && lowest) {
           const startBar: Map<string, FullBar> = new Map()
           const lastBar: Map<string, FullBar> = new Map()

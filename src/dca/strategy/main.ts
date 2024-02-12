@@ -3810,12 +3810,12 @@ export abstract class Strategy implements StrategyInterface {
       prev <= (lastDataItem?.time ?? -1);
       i = startDate.getTime(), day++
     ) {
-      const deals = Strategy.deals.filter(
+      const _deals = Strategy.deals.filter(
         (d) => d.closedTime && d.closedTime >= prev && d.closedTime < i,
       )
 
-      const profit = deals.reduce((acc, v) => (acc += v.profit.total), 0)
-      const usage = deals.reduce(
+      const profit = _deals.reduce((acc, v) => (acc += v.profit.total), 0)
+      const usage = _deals.reduce(
         (acc, v) =>
           (acc += this.futures
             ? this.coinm
