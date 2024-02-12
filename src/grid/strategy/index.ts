@@ -1088,11 +1088,39 @@ export class Strategy implements StrategyInterface {
       } = this.settings
       const { initialBalancesByAsset, currentBalancesByAsset } = this
       const initialPriceStart = this.firstBarPrice
-      if (tpSlCondition === 'priceReached' && tpTopPrice && tpSl) {
+      if (
+        tpSlCondition === 'priceReached' &&
+        tpTopPrice &&
+        tpSl &&
+        this.isShort
+      ) {
+        if (lastPrice <= +tpTopPrice) {
+          return TpSlReturn.tp
+        }
+      } else if (
+        slCondition === 'priceReached' &&
+        slLowPrice &&
+        sl &&
+        this.isShort
+      ) {
+        if (lastPrice <= +slLowPrice) {
+          return TpSlReturn.sl
+        }
+      } else if (
+        tpSlCondition === 'priceReached' &&
+        tpTopPrice &&
+        tpSl &&
+        !this.isShort
+      ) {
         if (lastPrice >= +tpTopPrice) {
           return TpSlReturn.tp
         }
-      } else if (slCondition === 'priceReached' && slLowPrice && sl) {
+      } else if (
+        slCondition === 'priceReached' &&
+        slLowPrice &&
+        sl &&
+        !this.isShort
+      ) {
         if (lastPrice <= +slLowPrice) {
           return TpSlReturn.sl
         }
