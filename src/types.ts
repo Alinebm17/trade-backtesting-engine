@@ -1055,6 +1055,8 @@ export type DCABacktestingResult = {
     maxDrawDown: number
     maxDrawDownUsd: number
     maxDrawDownPerc: number
+    maxDrawDownEquityUsd?: number
+    maxDrawDownEquityPerc?: number
     initialBalanceUsd: number
     stDevWinningTrade?: number
     stDevLosingTrade?: number

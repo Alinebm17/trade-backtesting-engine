@@ -178,6 +178,13 @@ export abstract class Strategy implements StrategyInterface {
     perc: 0,
   }
 
+  static seriesLossE = {
+    valueUsd: 0,
+    minUsd: 0,
+    maxUsd: 0,
+    perc: 0,
+  }
+
   static seriesLoss = {
     count: 0,
     value: 0,
@@ -276,6 +283,12 @@ export abstract class Strategy implements StrategyInterface {
       min: 0,
       minUsd: 0,
       max: 0,
+      maxUsd: 0,
+      perc: 0,
+    }
+    Strategy.seriesLossE = {
+      valueUsd: 0,
+      minUsd: 0,
       maxUsd: 0,
       perc: 0,
     }
@@ -2989,6 +3002,43 @@ export abstract class Strategy implements StrategyInterface {
     })
   }
 
+  private checkEquityDrawdown() {
+    const last = Strategy.portfolio[Strategy.portfolio.length - 1]
+    const secondToLast = Strategy.portfolio[Strategy.portfolio.length - 2]
+    if (!last) {
+      return
+    }
+    if (!secondToLast) {
+      return (Strategy.seriesLossE = {
+        valueUsd: 0,
+        minUsd: last.y,
+        maxUsd: last.y,
+        perc: 0,
+      })
+    }
+    if (last.y === secondToLast.y) {
+      return
+    }
+    if (last.y > Strategy.seriesLossE.maxUsd) {
+      return (Strategy.seriesLossE = {
+        ...Strategy.seriesLossE,
+        minUsd: last.y,
+        maxUsd: last.y,
+      })
+    }
+    if (last.y < Strategy.seriesLossE.maxUsd) {
+      const tempValue = Strategy.seriesLossE.maxUsd - last.y
+      if (tempValue > Strategy.seriesLossE.valueUsd) {
+        Strategy.seriesLossE = {
+          ...Strategy.seriesLossE,
+          valueUsd: tempValue,
+          minUsd: last.y,
+          perc: tempValue / Strategy.seriesLossE.maxUsd,
+        }
+      }
+    }
+  }
+
   public async checkDeals(
     checkPortfolio: boolean,
     b: FullBar,
@@ -2999,6 +3049,7 @@ export abstract class Strategy implements StrategyInterface {
     }
     if (checkPortfolio) {
       this.checkPortfolio(b.time, b.close, b.symbol)
+      this.checkEquityDrawdown()
     }
     for (let d of Strategy.deals.filter(
       (dd) => dd.status === 'open' && dd.symbol.pair === b.symbol,
@@ -4673,6 +4724,16 @@ export abstract class Strategy implements StrategyInterface {
         maxDrawDownUsd: -this.math.round(Strategy.seriesLoss.valueUsd, 2),
         maxDrawDownPerc: this.math.round(
           Strategy.seriesLoss.perc * 100,
+          2,
+          false,
+          true,
+        ),
+        maxDrawDownEquityUsd: -this.math.round(
+          Strategy.seriesLossE.valueUsd,
+          2,
+        ),
+        maxDrawDownEquityPerc: this.math.round(
+          Strategy.seriesLossE.perc * 100,
           2,
           false,
           true,
