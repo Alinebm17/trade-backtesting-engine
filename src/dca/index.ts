@@ -178,7 +178,7 @@ class DCABacktesting extends Backtesting {
     return this.strategy
       .test(
         lowest?.bar[0]?.time ?? 0,
-        lowest?.bar[(lowest.bar.length ?? 1) - 1].time ?? 0,
+        lowest?.bar[(lowest.bar.length ?? 1) - 1]?.time ?? 0,
         updateProgress,
       )
       .then(() => {
