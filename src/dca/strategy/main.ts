@@ -2906,6 +2906,8 @@ export abstract class Strategy implements StrategyInterface {
             ?.bar.find((b) => b.symbol === o.symbol.pair && b.time === time)
           if (findPrice) {
             price = findPrice.close
+          } else {
+            return
           }
         }
         const baseRate = this.getUsdRate(o.symbol.pair, price, 'base')
@@ -2985,6 +2987,8 @@ export abstract class Strategy implements StrategyInterface {
             ?.bar.find((b) => b.symbol === o.symbol.pair && b.time === time)
           if (findPrice) {
             price = findPrice.close
+          } else {
+            return
           }
         }
         const quoteRate = this.getUsdRate(o.symbol.pair, price, 'quote')
