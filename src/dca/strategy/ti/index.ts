@@ -560,27 +560,27 @@ class TIStrategy extends Strategy implements StrategyInterface {
       ) {
         continue
       }
-      const [data] = Strategy.data.filter((d) => d.interval === i.interval)
-      if (data) {
+      const _data = Strategy.dataMap.get(i.interval)
+      if (_data) {
+        const data = Array.from(_data.values())
         let bars: FullBar[] = []
         if ((this.firstBar.get(bar.symbol) ?? 0) < restIndicators.length) {
           this.firstBar.set(
             bar.symbol,
             (this.firstBar.get(bar.symbol) ?? 0) + 1,
           )
-          bars = data.bar.filter(
+          bars = data.filter(
             (b) => b.time < range[0] && b.symbol === bar.symbol,
           )
         }
 
-        bars = bars.concat(
-          data.bar.filter(
-            (b) =>
-              b.time >= range[0] &&
-              b.time <= range[1] &&
-              b.symbol === bar.symbol,
-          ),
-        )
+        for (const d of data.filter(
+          (b) =>
+            b.time >= range[0] && b.time <= range[1] && b.symbol === bar.symbol,
+        )) {
+          bars.push(d)
+        }
+
         for (const b of bars) {
           i.instance.updateValue(
             {

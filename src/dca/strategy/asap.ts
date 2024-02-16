@@ -24,7 +24,8 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
   }
 
   public processTrade(trade: TradeResponse): void {
-    if (Strategy.deals.length === 0) {
+    const allDeals = Strategy.getDeals()
+    if (allDeals.length === 0) {
       if (
         Strategy.workingShift.length === 0 &&
         ((Strategy.start && trade.timestamp >= Strategy.start) ||
@@ -40,9 +41,8 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
         trade.symbol,
       )
     } else if (
-      Strategy.deals.length !== 0 &&
-      Strategy.deals.filter((d) => d.status === 'closed').length ===
-        Strategy.deals.length
+      allDeals.length !== 0 &&
+      Strategy.getDeals('closed').length === allDeals.length
     ) {
       this.openDeal(
         +trade.price,
@@ -86,9 +86,7 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
       !isNaN(+this.settings.maxDealsPerPair)
         ? +this.settings.maxDealsPerPair
         : 1
-    const dealsPerSymbols = Strategy.deals.filter(
-      (d) => d.symbol.pair === bar.symbol,
-    )
+    const dealsPerSymbols = Strategy.getDeals(undefined, bar.symbol)
     if (dealsPerSymbols.length === 0) {
       if (
         Strategy.workingShift.length === 0 &&

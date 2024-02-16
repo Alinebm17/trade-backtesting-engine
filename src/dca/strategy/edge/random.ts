@@ -67,7 +67,7 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
     _checkPortfolio: boolean,
     bar: FullBar,
   ): Promise<void> {
-    if (Strategy.deals.length === 0) {
+    if (Strategy.getDeals()) {
       if (
         Strategy.workingShift.length === 0 &&
         ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start)

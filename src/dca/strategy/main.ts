@@ -150,7 +150,8 @@ export abstract class Strategy implements StrategyInterface {
     botQuote: 0,
   }
 
-  static deals: Deal[] = []
+  static dealsBySymbolsStatusId: Map<string, Map<string, Map<string, Deal>>> =
+    new Map()
 
   static profits: Profit[] = []
 
@@ -240,6 +241,8 @@ export abstract class Strategy implements StrategyInterface {
 
   static data: DataType[] = []
 
+  static dataMap: Map<ExchangeIntervals, Map<number, FullBar>> = new Map()
+
   private readonly slippage?: number
 
   static lastOpenedDeal = 0
@@ -262,7 +265,17 @@ export abstract class Strategy implements StrategyInterface {
 
   static start = 0
 
+  static previousValues = 0
+
+  static previousValuesInAsset = new Map<
+    string,
+    { base: number; quote: number }
+  >()
+
   static resetData() {
+    Strategy.dataMap = new Map()
+    Strategy.previousValuesInAsset = new Map()
+    Strategy.previousValues = 0
     Strategy.start = 0
     Strategy.workingShift = []
     Strategy.maxUsage = {
@@ -270,7 +283,6 @@ export abstract class Strategy implements StrategyInterface {
       bot: 0,
       botQuote: 0,
     }
-    Strategy.deals = []
     Strategy.profits = []
     Strategy.maxProfit = 0
     Strategy.maxLoss = 0
@@ -334,6 +346,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.initialBalanceSymbol = ''
     Strategy.lastIndex = 0
     Strategy.portfolio = []
+    Strategy.dealsBySymbolsStatusId = new Map()
   }
 
   static position: Map<string, typeof Strategy.emptyPositon> = new Map()
@@ -446,6 +459,9 @@ export abstract class Strategy implements StrategyInterface {
   public loadData(data: DataType[], start?: number): void {
     Strategy.start = start ?? 0
     Strategy.data = data
+    Strategy.dataMap = new Map(
+      data.map((d) => [d.interval, new Map(d.bar.map((b) => [b.time, b]))]),
+    )
   }
 
   public getOtherIntervals(): {
@@ -511,14 +527,85 @@ export abstract class Strategy implements StrategyInterface {
     return result
   }
 
+  private setDeal(deal: Deal, status: Deal['status'], symbol: string) {
+    const getBySymbol = Strategy.dealsBySymbolsStatusId.get(symbol)
+    if (!getBySymbol) {
+      Strategy.dealsBySymbolsStatusId.set(
+        symbol,
+        new Map().set(status, new Map().set(deal.id, deal)),
+      )
+      return
+    }
+    const getDeals = getBySymbol.get(status)
+    if (!getDeals) {
+      getBySymbol.set(status, new Map().set(deal.id, deal))
+      return
+    }
+    getDeals.set(deal.id, deal)
+  }
+
+  static getDeals(status?: Deal['status'], symbol?: string): Deal[] {
+    if (!status) {
+      const d: Deal[] = []
+      if (!symbol) {
+        for (const [, k] of Strategy.dealsBySymbolsStatusId.entries()) {
+          for (const [, deal] of k.entries()) {
+            d.push(...Array.from(deal.values()))
+          }
+        }
+      } else {
+        for (const [, deal] of (
+          Strategy.dealsBySymbolsStatusId.get(symbol) ??
+          new Map<string, Map<string, Deal>>()
+        ).entries()) {
+          d.push(...Array.from(deal.values()))
+        }
+      }
+      return d
+    }
+    if (symbol) {
+      const getBySymbol = Strategy.dealsBySymbolsStatusId.get(symbol)
+      if (!getBySymbol) {
+        return []
+      }
+      const getByStatus = getBySymbol.get(status)
+      if (!getByStatus) {
+        return []
+      }
+      return Array.from(getByStatus.values())
+    }
+    const d: Deal[] = []
+    for (const [, k] of Strategy.dealsBySymbolsStatusId.entries()) {
+      for (const deal of (k.get(status) ?? new Map<string, Deal>()).values()) {
+        d.push(deal)
+      }
+    }
+    return d
+  }
+
+  private removeDeal(id: string, status: Deal['status'], symbol: string) {
+    const getBySymbol = Strategy.dealsBySymbolsStatusId.get(symbol)
+    if (!getBySymbol) {
+      return
+    }
+    const getDeals = getBySymbol.get(status)
+    if (!getDeals) {
+      return
+    }
+    getDeals.delete(id)
+  }
+
+  private processDealCloseFromMap(deal: Deal) {
+    this.removeDeal(deal.id, 'open', deal.symbol.pair)
+    this.setDeal(deal, 'closed', deal.symbol.pair)
+  }
+
   private checkMaxDealsPerPair(symbol: string) {
     const { useMulti, maxDealsPerPair } = this.settings
     if (useMulti && maxDealsPerPair && maxDealsPerPair !== '') {
       const max = +maxDealsPerPair
       if (max && !isNaN(max) && max > 0) {
-        const symbolDealsLength = Strategy.deals.filter(
-          (d) => d.status === 'open' && d.symbol.pair === symbol,
-        ).length
+        const symbolDealsLength = Strategy.getDeals('open', symbol).length
         if (symbolDealsLength < max) {
           return true
         }
@@ -533,10 +620,7 @@ export abstract class Strategy implements StrategyInterface {
     if (maxNumberOfOpenDeals && maxNumberOfOpenDeals !== '') {
       const max = +maxNumberOfOpenDeals
       if (max && !isNaN(max) && max > 0) {
-        const dealsLength = Strategy.deals.filter(
-          (d) => d.status === 'open',
-        ).length
-
+        const dealsLength = Strategy.getDeals('open').length
         if (dealsLength < max) {
           if (this.checkMaxDealsPerPair(symbol)) {
             return true
@@ -936,13 +1020,10 @@ export abstract class Strategy implements StrategyInterface {
       return true
     }
     if (this.settings.useCloseAfterX && this.settings.closeAfterX) {
-      return (
-        Strategy.deals.filter((d) => d.status === 'closed').length <=
-        +this.settings.closeAfterX
-      )
+      return Strategy.getDeals('closed').length <= +this.settings.closeAfterX
     }
     if (this.settings.useCloseAfterXopen && this.settings.closeAfterXopen) {
-      return Strategy.deals.length <= +this.settings.closeAfterXopen
+      return Strategy.getDeals().length <= +this.settings.closeAfterXopen
     }
     return true
   }
@@ -1227,7 +1308,8 @@ export abstract class Strategy implements StrategyInterface {
     if (!this.profitBase && deal.usage.current.quote > Strategy.maxUsage.deal) {
       Strategy.maxUsage.deal = deal.usage.current.quote
     }
-    Strategy.deals.push(deal)
+
+    this.setDeal(deal, 'open', s)
 
     if (Strategy.balance === 0) {
       const usdRateQuote = this.usdRateQuote.get(s) ?? 1
@@ -1322,45 +1404,29 @@ export abstract class Strategy implements StrategyInterface {
     if (!deal.closedTime) {
       return deal
     }
-    const previousValues = Strategy.deals
-      .filter(
-        (d) =>
-          d.closedTime &&
-          d.closedTime <= (deal.closedTime ?? deal.startTime) &&
-          deal.id !== d.id,
-      )
-      .reduce((acc, v) => acc + v.profit.totalUsd, 0)
+
     const separatePerSymbol =
       !this.futures &&
       ((this.long && this.profitBase) || (!this.long && !this.profitBase))
-    const previousValuesInAssetBase = Strategy.deals
-      .filter(
-        (d) =>
-          (separatePerSymbol
-            ? d.symbol.baseAsset.name === deal.symbol.baseAsset.name
-            : true) &&
-          d.closedTime &&
-          d.closedTime <= (deal.closedTime ?? deal.startTime) &&
-          deal.id !== d.id,
-      )
-      .reduce((acc, v) => acc + v.profit.total, 0)
-    const previousValuesInAssetQuote = Strategy.deals
-      .filter(
-        (d) =>
-          (separatePerSymbol
-            ? d.symbol.quoteAsset.name === deal.symbol.quoteAsset.name
-            : true) &&
-          d.closedTime &&
-          d.closedTime <= (deal.closedTime ?? deal.startTime) &&
-          deal.id !== d.id,
-      )
-      .reduce((acc, v) => acc + v.profit.total, 0)
+    const previousAsset = separatePerSymbol ? deal.symbol.pair : 'all'
+    const previousValuesInAsset =
+      Strategy.previousValuesInAsset.get(previousAsset)
+    const previousValuesInAssetBase = previousValuesInAsset?.base || 0
+    const previousValuesInAssetQuote = previousValuesInAsset?.quote || 0
+    const newPreviousValue = deal.profit.totalUsd + Strategy.previousValues
     deal.equity = this.math.round(
-      deal.profit.totalUsd + previousValues + Strategy.initialBalanceUsd,
+      newPreviousValue + Strategy.initialBalanceUsd,
       3,
     )
+    Strategy.previousValues = newPreviousValue
+    const newPreviousValueBaseInAsset = this.profitBase
+      ? deal.profit.total + previousValuesInAssetBase
+      : 0
+    const newPreviousValueQuoteInAsset = this.profitBase
+      ? 0
+      : deal.profit.total + previousValuesInAssetQuote
     const base = this.math.round(
-      (this.profitBase ? deal.profit.total + previousValuesInAssetBase : 0) +
+      newPreviousValueBaseInAsset +
         (this.long && ((this.futures && !this.coinm) || !this.futures)
           ? 0
           : Strategy.initialBalance /
@@ -1368,30 +1434,20 @@ export abstract class Strategy implements StrategyInterface {
       this.precisionBase.get(deal.symbol.pair),
     )
     const quote = this.math.round(
-      (this.profitBase ? 0 : deal.profit.total + previousValuesInAssetQuote) +
+      newPreviousValueQuoteInAsset +
         (this.long && ((this.futures && !this.coinm) || !this.futures)
           ? Strategy.initialBalance * (this.profitBase ? Strategy.startRate : 1)
           : 0),
       this.precisionQuote.get(deal.symbol.pair),
     )
+    Strategy.previousValuesInAsset.set(previousAsset, {
+      base: newPreviousValueBaseInAsset,
+      quote: newPreviousValueQuoteInAsset,
+    })
     deal.equityInAsset = {
       base,
       quote,
     }
-    /* const baseRate = this.getUsdRate(
-      deal.symbol.pair,
-      deal.closePrice ?? deal.lastPrice,
-      'base',
-    )
-    const quoteRate = this.getUsdRate(
-      deal.symbol.pair,
-      deal.closePrice ?? deal.lastPrice,
-      'quote',
-    )
-    deal.portfolio = {
-      base: this.math.round(base * baseRate, 3),
-      quote: this.math.round(quote * quoteRate, 3),
-    } */
     return deal
   }
 
@@ -1920,12 +1976,15 @@ export abstract class Strategy implements StrategyInterface {
       amountFreeQuoteSell: 0,
     }
     Strategy.transactionIndex++
-    Strategy.deals = Strategy.deals.map((d) => {
-      if (d.id === minigrid.dealId) {
-        d.transactions.push(transaction)
-      }
-      return d
-    })
+    const findDeal = Strategy.getDeals('open', minigrid.symbol.pair).find(
+      (d) => d.id === minigrid.dealId,
+    )
+
+    if (findDeal) {
+      findDeal.transactions.push(transaction)
+      this.setDeal(findDeal, 'open', minigrid.symbol.pair)
+    }
+
     return {
       profitBase: profitBase - comBase,
       profitQuote: profitQuote - comQuote,
@@ -1942,9 +2001,12 @@ export abstract class Strategy implements StrategyInterface {
     return d
   }
 
-  private processGridOrders(d: Deal, b: FullBar) {
+  private processGridOrders(
+    d: Deal,
+    b: FullBar,
+  ): { deal: Deal; closePrice: number } {
     if (!this.combo) {
-      return d
+      return { deal: d, closePrice: 0 }
     }
     for (const m of d.mingrids.filter(
       (mg) => mg.status === 'open' && mg.symbol.pair === b.symbol,
@@ -2112,7 +2174,7 @@ export abstract class Strategy implements StrategyInterface {
         }
       }
     }
-    return d
+    return { deal: d, closePrice: 0 }
   }
 
   private replaceSlHistoryLine(d: Deal, slLines: FullGrid[], time: number) {
@@ -2138,11 +2200,8 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   addDCAOrder(index: number, price: number, time: number, symbol: string) {
-    for (const d of Strategy.deals.filter(
-      (dd) =>
-        dd.status === 'open' &&
-        dd.lastFilled + 1 === index + 1 &&
-        dd.symbol.pair === symbol,
+    for (const d of Strategy.getDeals('open', symbol).filter(
+      (dd) => dd.lastFilled + 1 === index + 1,
     )) {
       if (this.settings.dcaCondition === DCAConditionEnum.indicators) {
         const ind = this.settings.indicators.filter(
@@ -2555,19 +2614,16 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   closeAllDeals(b: FullBar, sl = false) {
-    Strategy.deals = Strategy.deals.map((d) => {
-      if (
-        d.status === 'open' &&
-        ((!sl && this.checkMinTp(b.open, d)) || sl) &&
-        d.symbol.pair === b.symbol
-      ) {
-        const position = Strategy.emptyPositon
-        Strategy.position.set(b.symbol, position)
-        const tp = this.getTP(d, b.open, true, false)[0]
-        return this.closeDeal(d, b, tp)
-      }
-      return d
-    })
+    const allDeals = Strategy.getDeals('open', b.symbol).filter(
+      (d) => (!sl && this.checkMinTp(b.open, d)) || sl,
+    )
+    for (const d of allDeals) {
+      const position = Strategy.emptyPositon
+      Strategy.position.set(b.symbol, position)
+      const tp = this.getTP(d, b.open, true, false)[0]
+      this.closeDeal(d, b, tp)
+      this.processDealCloseFromMap(d)
+    }
   }
 
   private closeMinigrid(minigrid: Minigrid): Minigrid {
@@ -2578,9 +2634,8 @@ export abstract class Strategy implements StrategyInterface {
     d: Deal,
     b: FullBar,
     tpOrder?: FullGrid,
-    cbClose?: (price: number) => void,
     liquidationPrice?: number,
-  ) {
+  ): { deal: Deal; closePrice: number } {
     let closePrice = b.close
     let profit: ReturnType<typeof this.getProfit> | undefined
     d.status = 'closed'
@@ -2759,10 +2814,7 @@ export abstract class Strategy implements StrategyInterface {
     }
     Strategy.previousDeal = d
     Strategy.lastClosedDeal = b.time
-    if (cbClose) {
-      cbClose(closePrice)
-    }
-    return d
+    return { deal: d, closePrice }
   }
 
   private getCandleType(b: FullBar) {
@@ -2849,13 +2901,12 @@ export abstract class Strategy implements StrategyInterface {
       ? current.liquidationPrice > price
       : current.liquidationPrice < price
     if (close) {
-      Strategy.deals = Strategy.deals.map((d) => {
-        if (current && d.symbol.pair === b.symbol && d.status === 'open') {
-          const tp = this.getTP(d, current.liquidationPrice, true, false)[0]
-          return this.closeDeal(d, b, tp, undefined, current.liquidationPrice)
-        }
-        return d
-      })
+      const allDeals = Strategy.getDeals('open', b.symbol)
+      for (const d of allDeals) {
+        const tp = this.getTP(d, current.liquidationPrice, true, false)[0]
+        this.closeDeal(d, b, tp, current.liquidationPrice)
+        this.processDealCloseFromMap(d)
+      }
       current = Strategy.emptyPositon
       if (this.settings.startCondition === StartConditionEnum.asap) {
         this.openDeal(current.liquidationPrice, b.time, b.high, b.low, b.symbol)
@@ -2888,7 +2939,7 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private checkPortfolio(time: number, price: number, symbol: string) {
-    const openDeal = Strategy.deals.filter((d) => d.status === 'open')
+    const openDeal = Strategy.getDeals('open')
     if (!this.futures && !openDeal.length) {
       return Strategy.portfolio.push({
         x: time,
@@ -2900,10 +2951,10 @@ export abstract class Strategy implements StrategyInterface {
     if (!this.futures) {
       for (const o of openDeal) {
         const differentSymbol = symbol !== o.symbol.pair
-        if (differentSymbol) {
-          const findPrice = Strategy.data
-            .find((d) => d.interval === Strategy.lowestInterval)
-            ?.bar.find((b) => b.symbol === o.symbol.pair && b.time === time)
+        if (differentSymbol && Strategy.lowestInterval) {
+          const findPrice = Strategy.dataMap
+            .get(Strategy.lowestInterval)
+            ?.get(time)
           if (findPrice) {
             price = findPrice.close
           } else {
@@ -2981,10 +3032,10 @@ export abstract class Strategy implements StrategyInterface {
       const position = Strategy.position.get(o.symbol.pair)
       if (position) {
         const differentSymbol = symbol !== o.symbol.pair
-        if (differentSymbol) {
-          const findPrice = Strategy.data
-            .find((d) => d.interval === Strategy.lowestInterval)
-            ?.bar.find((b) => b.symbol === o.symbol.pair && b.time === time)
+        if (differentSymbol && Strategy.lowestInterval) {
+          const findPrice = Strategy.dataMap
+            .get(Strategy.lowestInterval)
+            ?.get(time)
           if (findPrice) {
             price = findPrice.close
           } else {
@@ -3055,9 +3106,7 @@ export abstract class Strategy implements StrategyInterface {
       this.checkPortfolio(b.time, b.close, b.symbol)
       this.checkEquityDrawdown()
     }
-    for (let d of Strategy.deals.filter(
-      (dd) => dd.status === 'open' && dd.symbol.pair === b.symbol,
-    )) {
+    for (let d of Strategy.getDeals('open', b.symbol)) {
       let tpOrder: FullGrid | undefined
       tpOrder = this.checkCloseTimer(d, b)
       const bOpenHigh = { ...b, low: b.open }
@@ -3065,10 +3114,13 @@ export abstract class Strategy implements StrategyInterface {
       const bHighClose = { ...b, low: b.close }
       const bOpenLow = { ...b, high: b.open }
       const candleType = this.getCandleType(b)
+      let closePrice = 0
       if (this.long && !tpOrder) {
         if (candleType === CandleTypeEnum.bull) {
           // open -> low. Check DCA and SL
-          d = this.processGridOrders(d, b)
+          const r = this.processGridOrders(d, b)
+          d = r.deal
+          closePrice = r.closePrice
           if (d.status === 'closed') {
             return
           }
@@ -3104,7 +3156,9 @@ export abstract class Strategy implements StrategyInterface {
           d = this.checkTrailing(d, b.high, b.time)
           // high -> low movement. Check SL if it was moved. If SL not filled check DCA
           if (!tpOrder) {
-            d = this.processGridOrders(d, b)
+            const r = this.processGridOrders(d, b)
+            d = r.deal
+            closePrice = r.closePrice
             if (d.status === 'closed') {
               continue
             }
@@ -3133,7 +3187,9 @@ export abstract class Strategy implements StrategyInterface {
           d = this.checkTrailing(d, b.low, b.time)
           // low -> high movement. Check moved SL, If SL not filled, check DCA
           if (!tpOrder) {
-            d = this.processGridOrders(d, b)
+            const r = this.processGridOrders(d, b)
+            d = r.deal
+            closePrice = r.closePrice
             if (d.status === 'closed') {
               return
             }
@@ -3154,7 +3210,9 @@ export abstract class Strategy implements StrategyInterface {
         }
         if (candleType === CandleTypeEnum.bear) {
           // open -> high movement. Check for filled DCA and SL
-          d = this.processGridOrders(d, bOpenHigh)
+          const r = this.processGridOrders(d, bOpenHigh)
+          d = r.deal
+          closePrice = r.closePrice
           if (d.status === 'closed') {
             return
           }
@@ -3184,41 +3242,49 @@ export abstract class Strategy implements StrategyInterface {
         }
       }
       if (tpOrder) {
-        d = this.closeDeal(d, b, tpOrder, cbClose)
+        const r = this.closeDeal(d, b, tpOrder)
+        d = r.deal
+        closePrice = r.closePrice
       }
-      Strategy.deals = [...Strategy.deals.filter((dd) => dd.id !== d.id), d]
+      if (d.status === 'closed') {
+        this.processDealCloseFromMap(d)
+        if (closePrice && cbClose) {
+          cbClose(closePrice)
+        }
+      } else {
+        this.setDeal(d, d.status, b.symbol)
+      }
     }
     this.checkPosition(b)
+    const openDeals = Strategy.getDeals('open')
     if ((this.long || this.futures) && !this.coinm) {
-      const all = Strategy.deals
-        .filter((df) => df.status === 'open')
-        .reduce((acc, deal) => (acc += deal.usage.current.quote), 0)
+      const all = openDeals.reduce(
+        (acc, deal) => (acc += deal.usage.current.quote),
+        0,
+      )
       if (all > Strategy.maxUsage.bot) {
         Strategy.maxUsage.bot = all
         Strategy.maxUsage.botQuote = all
       }
     } else if (!this.long || this.coinm) {
-      const all = Strategy.deals
-        .filter((df) => df.status === 'open')
-        .reduce((acc, deal) => (acc += deal.usage.current.base), 0)
+      const all = openDeals.reduce(
+        (acc, deal) => (acc += deal.usage.current.base),
+        0,
+      )
       if (all > Strategy.maxUsage.bot) {
         Strategy.maxUsage.bot = all
-        Strategy.maxUsage.botQuote = Strategy.deals
-          .filter((df) => df.status === 'open')
-          .reduce(
-            (acc, deal) =>
-              acc +
-              deal.filledOrders
-                .filter(
-                  (df) =>
-                    df.type &&
-                    [DCAOrderTypeEnum.dca, DCAOrderTypeEnum.bo].includes(
-                      df.type,
-                    ),
-                )
-                .reduce((acco, v) => acco + v.qty * v.price, 0),
-            0,
-          )
+        Strategy.maxUsage.botQuote = openDeals.reduce(
+          (acc, deal) =>
+            acc +
+            deal.filledOrders
+              .filter(
+                (df) =>
+                  df.type &&
+                  [DCAOrderTypeEnum.dca, DCAOrderTypeEnum.bo].includes(df.type),
+              )
+              .reduce((acco, v) => acco + v.qty * v.price, 0),
+          0,
+        )
       }
     }
   }
@@ -3743,9 +3809,8 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private getConfidenceGrade(): { level: string; number: number } {
-    const number = Strategy.deals.filter(
-      (d) =>
-        d.status === 'closed' && d.closedTime && d.closedTime > d.startTime,
+    const number = Strategy.getDeals('closed').filter(
+      (d) => d.closedTime && d.closedTime > d.startTime,
     ).length
     return {
       level:
@@ -3865,7 +3930,7 @@ export abstract class Strategy implements StrategyInterface {
       prev <= (lastDataItem?.time ?? -1);
       i = startDate.getTime(), day++
     ) {
-      const _deals = Strategy.deals.filter(
+      const _deals = Strategy.getDeals('closed').filter(
         (d) => d.closedTime && d.closedTime >= prev && d.closedTime < i,
       )
 
@@ -3922,7 +3987,8 @@ export abstract class Strategy implements StrategyInterface {
     processingTime: number,
   ): DCABacktestingResult {
     const startResultProcessing = new Date().getTime()
-    Strategy.deals = Strategy.deals.map((d) => {
+    let allDeals = Strategy.getDeals()
+    allDeals = allDeals.map((d) => {
       const symbol = this.symbols.get(d.symbol.pair)
       if (!symbol) {
         return d
@@ -3949,8 +4015,8 @@ export abstract class Strategy implements StrategyInterface {
       }
     })
     let maxTheoreticalUsage =
-      Strategy.deals.length > 0
-        ? Strategy.deals[0].initialOrders
+      allDeals.length > 0
+        ? allDeals[0].initialOrders
             .filter((io) => io.type !== DCAOrderTypeEnum.tp)
             .reduce(
               (acc, d) =>
@@ -3995,10 +4061,7 @@ export abstract class Strategy implements StrategyInterface {
     const precisionQuote = this.precisionQuote.values().next().value ?? 8
     const totalProfit = this.math.round(Strategy.totalProfit, precision)
     const totalProfitUsd = this.math.round(Strategy.totalProfitUsd, 2)
-    const totalDuration = Strategy.deals.reduce(
-      (acc, d) => (acc += d.duration),
-      0,
-    )
+    const totalDuration = allDeals.reduce((acc, d) => (acc += d.duration), 0)
     const lastDataItem = lastData?.values().next().value
     const firstDataItem = firstData?.get(lastDataItem?.symbol ?? '')
     const workingTime = Strategy.workingShift.reduce(
@@ -4006,17 +4069,17 @@ export abstract class Strategy implements StrategyInterface {
         (acc += (ws.end || lastDataItem?.time || ws.start) - ws.start),
       0,
     )
-    const closedDeals = Strategy.deals.filter((d) => d.status === 'closed')
+    const closedDeals = allDeals.filter((d) => d.status === 'closed')
     const avgDuration =
-      Strategy.deals.length > 0
-        ? this.math.round(totalDuration / Strategy.deals.length, 0)
+      allDeals.length > 0
+        ? this.math.round(totalDuration / allDeals.length, 0)
         : 0
-    const openedDeals = Strategy.deals.filter((d) => d.status === 'open')
+    const openedDeals = allDeals.filter((d) => d.status === 'open')
     const workingDays = this.math.round(workingTime / (24 * 60 * 60 * 1000), 4)
-    const profitDeals = Strategy.deals.filter(
+    const profitDeals = allDeals.filter(
       (d) => d.profit.perc > 0 && d.status === 'closed',
     )
-    const lossDeals = Strategy.deals.filter(
+    const lossDeals = allDeals.filter(
       (d) => d.profit.perc <= 0 && d.status === 'closed',
     )
     const profitDuration = profitDeals.reduce(
@@ -4048,9 +4111,9 @@ export abstract class Strategy implements StrategyInterface {
       0,
     )
     const avgUsable =
-      Strategy.deals.length > 0
+      allDeals.length > 0
         ? this.math.round(
-            Strategy.deals.reduce(
+            allDeals.reduce(
               (acc, d) =>
                 this.futures
                   ? this.coinm
@@ -4061,7 +4124,7 @@ export abstract class Strategy implements StrategyInterface {
                   : (acc += d.usage.current.quote),
               0,
             ) /
-              Strategy.deals.length /
+              allDeals.length /
               this.leverage,
             precision,
           )
@@ -4198,7 +4261,7 @@ export abstract class Strategy implements StrategyInterface {
         }
       } */
     }
-    const levels = Strategy.deals.map((d) => d.levels.max)
+    const levels = allDeals.map((d) => d.levels.max)
     const maxDealUsage = this.math.round(
       Math.max(Strategy.maxUsage.deal, avgUsable) / this.leverage,
       precision,
@@ -4225,16 +4288,15 @@ export abstract class Strategy implements StrategyInterface {
       return 0
     }
     const coveredPriceDeviation = () => {
-      if (Strategy.deals.length > 0) {
-        return priceDeviation(Strategy.deals[0].initialOrders)
+      if (allDeals.length > 0) {
+        return priceDeviation(allDeals[0].initialOrders)
       }
       return 0
     }
     const actualPriceDeviation = () => {
-      if (Strategy.deals.length > 0) {
+      if (allDeals.length > 0) {
         return priceDeviation(
-          Strategy.deals.sort((a, b) => b.levels.max - a.levels.max)[0]
-            .filledOrders,
+          allDeals.sort((a, b) => b.levels.max - a.levels.max)[0].filledOrders,
         )
       }
       return 0
@@ -4256,7 +4318,7 @@ export abstract class Strategy implements StrategyInterface {
         prev <= (lastDataItem?.time ?? -1);
         i = startDate.getTime()
       ) {
-        const deals = Strategy.deals.filter(
+        const deals = allDeals.filter(
           (d) => d.closedTime && d.closedTime >= prev && d.closedTime < i,
         )
 
@@ -4296,7 +4358,7 @@ export abstract class Strategy implements StrategyInterface {
     const buyAndHold = this.getBuyAndHold(firstData, lastData)
     const symbolStats: SymbolStats[] = []
     for (const s of this.symbols.keys()) {
-      const deals = Strategy.deals.filter((d) => d.symbol.pair === s)
+      const deals = allDeals.filter((d) => d.symbol.pair === s)
       const maxSymbolValue =
         Math.max(
           ...deals.map(
@@ -4404,7 +4466,7 @@ export abstract class Strategy implements StrategyInterface {
       if (findMonth) {
         continue
       }
-      const monthlyDeals = Strategy.deals.filter(
+      const monthlyDeals = allDeals.filter(
         (d) =>
           d.closedTime &&
           d.closedTime >= +monthlyStart &&
@@ -4482,15 +4544,14 @@ export abstract class Strategy implements StrategyInterface {
         continue
       }
       if (
-        !Strategy.deals.filter(
-          (d) => d.closedTime && d.closedTime >= +yearStart,
-        ).length
+        !allDeals.filter((d) => d.closedTime && d.closedTime >= +yearStart)
+          .length
       ) {
         continue
       }
       const nextYear = new Date(yearStart)
       nextYear.setFullYear(nextYear.getFullYear() + 1)
-      const yearlyDeals = Strategy.deals.filter(
+      const yearlyDeals = allDeals.filter(
         (d) =>
           d.closedTime &&
           d.closedTime >= +yearStart &&
@@ -4596,7 +4657,7 @@ export abstract class Strategy implements StrategyInterface {
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
       symbolStats,
-      deals: [...Strategy.deals]
+      deals: [...allDeals]
         .sort((a, b) =>
           Strategy.edge
             ? Math.random() > 0.5
@@ -4613,7 +4674,7 @@ export abstract class Strategy implements StrategyInterface {
             filledOrders: [],
           })),
         })),
-      maxLeverage: Strategy.deals.filter((d) => !!d.liquidationPrice).length
+      maxLeverage: allDeals.filter((d) => !!d.liquidationPrice).length
         ? Math.min(
             ...Array.from(this.symbols.keys()).map(
               (s) => this.getMaxLeverage(s) ?? 1,
@@ -4779,8 +4840,8 @@ export abstract class Strategy implements StrategyInterface {
             ? friendlyTime(workingTime)
             : { d: '', h: '', min: '', s: '' },
         maxDealDuration:
-          Strategy.deals.length > 0
-            ? friendlyTime(Math.max(...Strategy.deals.map((cd) => cd.duration)))
+          allDeals.length > 0
+            ? friendlyTime(Math.max(...allDeals.map((cd) => cd.duration)))
             : { d: '', h: '', min: '', s: '' },
         botWorkingTimeNumber: workingTime,
       },
@@ -4799,7 +4860,7 @@ export abstract class Strategy implements StrategyInterface {
       numerical: {
         confidenceGrade: confidenceGrade.level,
         dealsForConfidenceGrade: confidenceGrade.number,
-        all: Strategy.deals.length,
+        all: allDeals.length,
         profit: profitDeals.length,
         loss: lossDeals.length,
         open: openedDeals.length,
@@ -4808,10 +4869,9 @@ export abstract class Strategy implements StrategyInterface {
         maxConsecutiveWins: Strategy.maxConsecutiveWins,
         maxDCATriggered: Math.max(...levels),
         avgDCATriggered:
-          Strategy.deals.length > 0
+          allDeals.length > 0
             ? Math.ceil(
-                levels.reduce((acc, v) => (acc += v), 0) /
-                  Strategy.deals.length,
+                levels.reduce((acc, v) => (acc += v), 0) / allDeals.length,
               )
             : 0,
         dealsPerDay:
@@ -4823,8 +4883,7 @@ export abstract class Strategy implements StrategyInterface {
           actualPriceDeviation(),
         ),
         actualPriceDeviation: actualPriceDeviation(),
-        liquidationEvents: Strategy.deals.filter((d) => !!d.liquidationPrice)
-          .length,
+        liquidationEvents: allDeals.filter((d) => !!d.liquidationPrice).length,
       },
       ratios: {
         cwr: this.calculateCwr(closedDeals, lastDataItem),
