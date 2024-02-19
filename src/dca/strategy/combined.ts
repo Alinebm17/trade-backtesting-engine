@@ -25,7 +25,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
   }
 
   public async test(
-    start: number,
+    _start: number,
     end: number,
     updateProgress?: (value: number, text: string) => void,
   ): Promise<void> {
@@ -36,6 +36,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     if (!lowest) {
       return
     }
+    const start = Strategy.start || _start
     let step = start !== 0 && end !== 0 ? (end - start) / 100 : 0
     if (step < timeIntervalMap[lowest.interval]) {
       step = timeIntervalMap[lowest.interval]

@@ -241,7 +241,7 @@ export abstract class Strategy implements StrategyInterface {
 
   static data: DataType[] = []
 
-  static dataMap: Map<ExchangeIntervals, Map<number, FullBar>> = new Map()
+  static dataMap: Map<ExchangeIntervals, Map<string, FullBar>> = new Map()
 
   private readonly slippage?: number
 
@@ -460,7 +460,10 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.start = start ?? 0
     Strategy.data = data
     Strategy.dataMap = new Map(
-      data.map((d) => [d.interval, new Map(d.bar.map((b) => [b.time, b]))]),
+      data.map((d) => [
+        d.interval,
+        new Map(d.bar.map((b) => [`${b.time}@${b.symbol}`, b])),
+      ]),
     )
   }
 
@@ -1034,6 +1037,7 @@ export abstract class Strategy implements StrategyInterface {
     high: number,
     low: number,
     s: string,
+    onlyReturn = false,
   ) {
     if (!this.checkCloseAfterX()) {
       return
@@ -1309,7 +1313,9 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.maxUsage.deal = deal.usage.current.quote
     }
 
-    this.setDeal(deal, 'open', s)
+    if (!onlyReturn) {
+      this.setDeal(deal, 'open', s)
+    }
 
     if (Strategy.balance === 0) {
       const usdRateQuote = this.usdRateQuote.get(s) ?? 1
@@ -2938,7 +2944,7 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  private checkPortfolio(time: number, price: number, symbol: string) {
+  private checkPortfolio(time: number, _price: number, symbol: string) {
     const openDeal = Strategy.getDeals('open')
     if (!this.futures && !openDeal.length) {
       return Strategy.portfolio.push({
@@ -2950,15 +2956,16 @@ export abstract class Strategy implements StrategyInterface {
 
     if (!this.futures) {
       for (const o of openDeal) {
+        let price = _price
         const differentSymbol = symbol !== o.symbol.pair
         if (differentSymbol && Strategy.lowestInterval) {
           const findPrice = Strategy.dataMap
             .get(Strategy.lowestInterval)
-            ?.get(time)
+            ?.get(`${time}@${o.symbol.pair}`)
           if (findPrice) {
             price = findPrice.close
           } else {
-            return
+            continue
           }
         }
         const baseRate = this.getUsdRate(o.symbol.pair, price, 'base')
@@ -3029,17 +3036,18 @@ export abstract class Strategy implements StrategyInterface {
       })
     }
     for (const o of openDeal) {
+      let price = _price
       const position = Strategy.position.get(o.symbol.pair)
       if (position) {
         const differentSymbol = symbol !== o.symbol.pair
         if (differentSymbol && Strategy.lowestInterval) {
           const findPrice = Strategy.dataMap
             .get(Strategy.lowestInterval)
-            ?.get(time)
+            ?.get(`${time}@${o.symbol.pair}`)
           if (findPrice) {
             price = findPrice.close
           } else {
-            return
+            continue
           }
         }
         const quoteRate = this.getUsdRate(o.symbol.pair, price, 'quote')
@@ -3101,6 +3109,9 @@ export abstract class Strategy implements StrategyInterface {
   ) {
     if (this._stop) {
       return
+    }
+    if (Strategy.balance === 0) {
+      this.openDeal(b.close, b.time, b.high, b.low, b.symbol, true)
     }
     if (checkPortfolio) {
       this.checkPortfolio(b.time, b.close, b.symbol)
