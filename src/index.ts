@@ -88,10 +88,10 @@ class Backtesting {
       }
     }
     const _from = now.getTime() - time * this.counBack
-    now.setHours(23, 59, 0, 0)
+    now.setUTCHours(23, 59, 0, 0)
     const nowTime = now.getTime()
     const fromDate = new Date(_from)
-    fromDate.setHours(0, 0, 0, 0)
+    fromDate.setUTCHours(0, 0, 0, 0)
     return {
       to: Math.ceil(nowTime / 1000),
       from: Math.ceil(fromDate.getTime() / 1000),
