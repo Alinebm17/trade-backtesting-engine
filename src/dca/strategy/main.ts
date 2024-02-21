@@ -3132,29 +3132,28 @@ export abstract class Strategy implements StrategyInterface {
           const r = this.processGridOrders(d, b)
           d = r.deal
           closePrice = r.closePrice
-          if (d.status === 'closed') {
-            return
-          }
-          d = this.processDCAOrders(d, b)
-          const slReturn = this.getSLOrder(d, b)
-          d = slReturn.deal
-          if (slReturn.order) {
-            tpOrder = slReturn.order
-          }
-          // low -> high. Check TP and move SL and check trailing
-          if (!tpOrder) {
-            const tpReturn = this.filterTP(d, bOpenHigh)
-            d = tpReturn.deal
-            tpOrder = tpReturn.order
-            d = this.checkValue(b, d)
-            d = this.checkTrailing(d, b.high, b.time)
-          }
-          // high -> close. Check SL if it was moved
-          if (!tpOrder) {
-            const slNext = this.getSLOrder(d, bHighClose)
-            d = slNext.deal
-            if (slNext.order) {
-              tpOrder = slNext.order
+          if (d.status !== 'closed') {
+            d = this.processDCAOrders(d, b)
+            const slReturn = this.getSLOrder(d, b)
+            d = slReturn.deal
+            if (slReturn.order) {
+              tpOrder = slReturn.order
+            }
+            // low -> high. Check TP and move SL and check trailing
+            if (!tpOrder) {
+              const tpReturn = this.filterTP(d, bOpenHigh)
+              d = tpReturn.deal
+              tpOrder = tpReturn.order
+              d = this.checkValue(b, d)
+              d = this.checkTrailing(d, b.high, b.time)
+            }
+            // high -> close. Check SL if it was moved
+            if (!tpOrder) {
+              const slNext = this.getSLOrder(d, bHighClose)
+              d = slNext.deal
+              if (slNext.order) {
+                tpOrder = slNext.order
+              }
             }
           }
         }
@@ -3170,15 +3169,13 @@ export abstract class Strategy implements StrategyInterface {
             const r = this.processGridOrders(d, b)
             d = r.deal
             closePrice = r.closePrice
-            if (d.status === 'closed') {
-              continue
-            }
-            d = this.processDCAOrders(d, b)
-
-            const slReturn = this.getSLOrder(d, b)
-            d = slReturn.deal
-            if (slReturn.order) {
-              tpOrder = slReturn.order
+            if (d.status !== 'closed') {
+              d = this.processDCAOrders(d, b)
+              const slReturn = this.getSLOrder(d, b)
+              d = slReturn.deal
+              if (slReturn.order) {
+                tpOrder = slReturn.order
+              }
             }
           }
           // low -> close movement. Check TP
@@ -3201,15 +3198,13 @@ export abstract class Strategy implements StrategyInterface {
             const r = this.processGridOrders(d, b)
             d = r.deal
             closePrice = r.closePrice
-            if (d.status === 'closed') {
-              return
-            }
-            d = this.processDCAOrders(d, b)
-
-            const slReturn = this.getSLOrder(d, b)
-            d = slReturn.deal
-            if (slReturn.order) {
-              tpOrder = slReturn.order
+            if (d.status !== 'closed') {
+              d = this.processDCAOrders(d, b)
+              const slReturn = this.getSLOrder(d, b)
+              d = slReturn.deal
+              if (slReturn.order) {
+                tpOrder = slReturn.order
+              }
             }
           }
           // high -> close. Check TP
@@ -3224,30 +3219,29 @@ export abstract class Strategy implements StrategyInterface {
           const r = this.processGridOrders(d, bOpenHigh)
           d = r.deal
           closePrice = r.closePrice
-          if (d.status === 'closed') {
-            return
-          }
-          d = this.processDCAOrders(d, bOpenHigh)
-          const slReturn = this.getSLOrder(d, bOpenHigh)
-          d = slReturn.deal
-          if (slReturn.order) {
-            tpOrder = slReturn.order
-          }
+          if (d.status !== 'closed') {
+            d = this.processDCAOrders(d, bOpenHigh)
+            const slReturn = this.getSLOrder(d, bOpenHigh)
+            d = slReturn.deal
+            if (slReturn.order) {
+              tpOrder = slReturn.order
+            }
 
-          // high -> low movement. Check for filled TP and move SL and check trailing
-          if (!tpOrder) {
-            const tpReturn = this.filterTP(d, b)
-            d = tpReturn.deal
-            tpOrder = tpReturn.order
-            d = this.checkValue(b, d)
-            d = this.checkTrailing(d, b.low, b.time)
-          }
-          // low -> close. Check SL if it was moved
-          if (!tpOrder) {
-            const slReturnNext = this.getSLOrder(d, bLowClose)
-            d = slReturnNext.deal
-            if (slReturnNext.order) {
-              tpOrder = slReturnNext.order
+            // high -> low movement. Check for filled TP and move SL and check trailing
+            if (!tpOrder) {
+              const tpReturn = this.filterTP(d, b)
+              d = tpReturn.deal
+              tpOrder = tpReturn.order
+              d = this.checkValue(b, d)
+              d = this.checkTrailing(d, b.low, b.time)
+            }
+            // low -> close. Check SL if it was moved
+            if (!tpOrder) {
+              const slReturnNext = this.getSLOrder(d, bLowClose)
+              d = slReturnNext.deal
+              if (slReturnNext.order) {
+                tpOrder = slReturnNext.order
+              }
             }
           }
         }
