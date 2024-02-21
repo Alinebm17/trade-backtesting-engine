@@ -103,6 +103,7 @@ class DCABacktesting extends Backtesting {
   public async test(
     bars?: { bar: FullBar[]; interval: ExchangeIntervals }[],
     updateProgress?: (value: number, text: string) => void,
+    loadDataCallBack?: () => void,
   ) {
     if (!this.strategy) {
       return
@@ -164,6 +165,9 @@ class DCABacktesting extends Backtesting {
           })
         }
       }
+    }
+    if (loadDataCallBack) {
+      loadDataCallBack()
     }
     const loadingTime = (new Date().getTime() - startLoading) / 1000
     const start = new Date().getTime()
