@@ -22,6 +22,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     Strategy.resetData()
     super(input)
     this.strategies = strategies.map((s) => s(input))
+    Strategy.fullResult = input.fullResult
   }
 
   public async test(

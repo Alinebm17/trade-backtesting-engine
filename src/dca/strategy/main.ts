@@ -63,6 +63,7 @@ export type StrategyInput = {
   previousData?: DCABacktestingResult
   multi?: boolean
   timezone?: string | null
+  fullResult?: boolean
 }
 
 export type DataType = {
@@ -273,7 +274,10 @@ export abstract class Strategy implements StrategyInterface {
     { base: number; quote: number }
   >()
 
+  static fullResult?: boolean
+
   static resetData() {
+    Strategy.fullResult = false
     Strategy.dataMap = new Map()
     Strategy.previousValuesInAsset = new Map()
     Strategy.previousValues = 0
@@ -3987,6 +3991,9 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private prepareDeals(deals: Deal[]): PreparedDeal[] {
+    if (Strategy.fullResult) {
+      return deals
+    }
     return deals.map((d) => ({
       symbol: d.symbol,
       transactions: d.transactions.map((t) => ({

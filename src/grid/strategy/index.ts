@@ -39,6 +39,7 @@ export type GRIDStrategyInput = {
   prices: Prices
   interval?: ExchangeIntervals
   trades?: boolean
+  fullResult?: boolean
 }
 
 export interface StrategyInterface {
@@ -190,8 +191,12 @@ export class Strategy implements StrategyInterface {
 
   private memoryOrders: Map<string, Grid[]> = new Map()
 
+  private fullResult?: boolean
+
   constructor(input: GRIDStrategyInput) {
-    const { settings, userFee, symbol, prices, interval, trades } = input
+    const { settings, userFee, symbol, prices, interval, trades, fullResult } =
+      input
+    this.fullResult = fullResult
     this.settings = settings
     this.botFunctions = new BotFunctions(
       settings,
@@ -1373,6 +1378,9 @@ export class Strategy implements StrategyInterface {
   private prepareTransactions(
     transaction: BacktestingTransaction[],
   ): PreparedTransaction[] {
+    if (this.fullResult) {
+      return transaction
+    }
     return transaction.map((t) => ({
       _id: t._id,
       updateTime: t.updateTime,
@@ -1482,7 +1490,8 @@ export class Strategy implements StrategyInterface {
       budgetUsd,
       periodRatio,
     )
-    return {
+    const result: GridBacktestingResult = {
+      filledOrders: this.filledOrders,
       buyAndHoldEquity: buyAndHold.buyAndHoldEquity,
       values: this.values.sort((a, b) => a.time - b.time),
       firstUsdRate: this.firstUsdRate,
@@ -1491,14 +1500,18 @@ export class Strategy implements StrategyInterface {
         this.transactions.sort((a, b) => b.index - a.index),
       ),
       noData: !firstData && !lastData,
-      ordersHistory: this.historyLines.map((o) => ({
-        price: o.price,
-        side: o.side,
-        id: o.id,
-        filledTime: o.filledTime,
-        startTime: o.startTime,
-        avgLine: o.avgLine,
-      })),
+      ordersHistory: this.historyLines.map((o) =>
+        this.fullResult
+          ? o
+          : {
+              price: o.price,
+              side: o.side,
+              id: o.id,
+              filledTime: o.filledTime,
+              startTime: o.startTime,
+              avgLine: o.avgLine,
+            },
+      ),
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       orders: [
@@ -1516,14 +1529,18 @@ export class Strategy implements StrategyInterface {
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore
           .map((g) => ({ ...g, side: 'GREY' }))
-          .map((o) => ({
-            price: o.price,
-            side: o.side,
-            id: o.id,
-            filledTime: o.filledTime,
-            startTime: o.startTime,
-            qty: o.qty,
-          })),
+          .map((o) =>
+            this.fullResult
+              ? o
+              : {
+                  price: o.price,
+                  side: o.side,
+                  id: o.id,
+                  filledTime: o.filledTime,
+                  startTime: o.startTime,
+                  qty: o.qty,
+                },
+          ),
       ],
       financial: {
         freeProfitTotal: this.freeTotalProfit,
@@ -1712,5 +1729,9 @@ export class Strategy implements StrategyInterface {
         pnl: positionPnL,
       },
     }
+    if (!this.fullResult) {
+      delete result.filledOrders
+    }
+    return result
   }
 }

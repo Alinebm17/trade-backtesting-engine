@@ -1010,6 +1010,7 @@ export type BacktestingInput<T> = {
   trades?: boolean
   multi?: boolean
   timezone?: string | null
+  fullResult?: boolean
 }
 
 export type LoadDataFn = (
@@ -1308,6 +1309,7 @@ export type GridBacktestingResult = {
   firstUsdRate: number
   lastUsdRate: number
   transaction: PreparedTransaction[]
+  filledOrders?: Grid[]
   orders: (PreparedGrid & { qty: number })[]
   ordersHistory?: (PreparedGrid & {
     avgLine?: boolean
