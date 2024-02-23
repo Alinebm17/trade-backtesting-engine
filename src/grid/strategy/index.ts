@@ -7,6 +7,7 @@ import {
   PositionSide,
   StrategyEnum,
   FuturesStrategyEnum,
+  timeIntervalMap,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -26,6 +27,7 @@ import type {
   ValueChangeHistory,
   BuyAndHoldEquity,
   Grid,
+  PreparedTransaction,
 } from '../../types'
 
 export type Bar = BarTV
@@ -43,7 +45,7 @@ export interface StrategyInterface {
   loadData(data: BarTV[]): void
   test(updateProgress?: (value: number, text: string) => void): Promise<void>
   startWorkingShift(start: number): void
-  processBar(bar: Bar): Promise<void>
+  processBar(checkPortfolio: boolean, bar: Bar): Promise<void>
   passTradeCandleData?: (
     trade: TradeResponse,
     candles: { candle: Bar[] | null; interval: ExchangeIntervals }[],
@@ -280,6 +282,15 @@ export class Strategy implements StrategyInterface {
         }
       }
     }
+    const start = this.data[0]?.time
+    const end = this.data[this.data.length - 1]?.time
+    let stepPortfolio = start !== 0 && end !== 0 ? (end - start) / 100 : 0
+    if (
+      stepPortfolio < timeIntervalMap[this.interval ?? ExchangeIntervals.fiveM]
+    ) {
+      stepPortfolio = timeIntervalMap[this.interval ?? ExchangeIntervals.fiveM]
+    }
+    let current = start
     for (const d of this.data) {
       if (this._stop) {
         break
@@ -299,7 +310,11 @@ export class Strategy implements StrategyInterface {
       if (this.botClosed) {
         break
       }
-      await this.processBar(d)
+      const checkPortfolio = current === start || d.time >= current
+      if (checkPortfolio) {
+        current += stepPortfolio
+      }
+      await this.processBar(checkPortfolio, d)
     }
   }
 
@@ -317,7 +332,7 @@ export class Strategy implements StrategyInterface {
     this.openPosition(bar)
     this.checkPosition(bar)
 
-    this.processBar(bar)
+    this.processBar(false, bar)
   }
 
   private openPosition(d: BarTV) {
@@ -838,6 +853,11 @@ export class Strategy implements StrategyInterface {
     if (localAvg?.price === price) {
       return
     }
+    if (localAvg?.startTime === time) {
+      localAvg.price = price
+      this.historyLines[this.historyLines.length - 1] = localAvg
+      return
+    }
     if (localAvg) {
       localAvg.filledTime = time
       if (this.historyLines.length) {
@@ -851,7 +871,6 @@ export class Strategy implements StrategyInterface {
       avgLine: true,
       price,
       side: BotOrderSideEnum.buy,
-      qty: 0,
       id: this.botFunctions.utils.id(20),
     }
     this.historyLines.push(this.pendingHistoryLine)
@@ -861,7 +880,7 @@ export class Strategy implements StrategyInterface {
     return [...this.pricesWOutSymbols, { price, symbol: this.symbol.pair }]
   }
 
-  public async processBar(bar: Bar) {
+  public async processBar(checkPortfolio: boolean, bar: Bar) {
     if (!this.firstBarPrice) {
       this.firstBarPrice = bar.close
     }
@@ -916,10 +935,12 @@ export class Strategy implements StrategyInterface {
       this.addAvgHistoryLine(bar.time)
     }
 
-    this.values.push({
-      value: this.currentBalances - this.initialBalances,
-      time: bar.time,
-    })
+    if (checkPortfolio) {
+      this.values.push({
+        value: this.currentBalances - this.initialBalances,
+        time: bar.time,
+      })
+    }
   }
 
   private closeWorkingShift(time: number) {
@@ -1315,10 +1336,13 @@ export class Strategy implements StrategyInterface {
     const buyAndHoldEquity: BuyAndHoldEquity[] = []
     /*     buyAndHoldEquity.push({ value: buyAndHoldUsage, time: firstData.time })
     buyAndHoldEquity.push({ value: buyAndHoldLastEquity, time: lastData.time }) */
-    if (this.values.length > 2) {
+    const lowestData = this.data
+    if (lowestData.length > 2) {
       const data: Bar[] = []
-      for (const i of this.values) {
-        const d = this.data.find((b) => b.time === i.time)
+      const steps = Math.min(Math.floor(lowestData.length / 2), 500)
+      const step = Math.floor(lowestData.length / steps)
+      for (const i of [...Array(steps).keys()]) {
+        const d = lowestData[i * step]
         if (
           d &&
           buyAndHoldEquity.filter((bh) => bh.time === d.time).length === 0
@@ -1344,6 +1368,28 @@ export class Strategy implements StrategyInterface {
       buyAndHoldUsage,
       buyAndHoldEquity: buyAndHoldEquity.sort((a, b) => a.time - b.time),
     }
+  }
+
+  private prepareTransactions(
+    transaction: BacktestingTransaction[],
+  ): PreparedTransaction[] {
+    return transaction.map((t) => ({
+      _id: t._id,
+      updateTime: t.updateTime,
+      side: t.side,
+      amountBaseBuy: t.amountBaseBuy,
+      amountQuoteBuy: t.amountQuoteBuy,
+      amountBaseSell: t.amountBaseSell,
+      amountQuoteSell: t.amountQuoteSell,
+      priceBuy: t.priceBuy,
+      priceSell: t.priceSell,
+      profit: t.profit,
+      profitUsd: t.profitUsd,
+      baseAsset: t.baseAsset,
+      quoteAsset: t.quoteAsset,
+      profitAsset: t.profitAsset,
+      index: t.index,
+    }))
   }
 
   public returnResult(
@@ -1441,10 +1487,18 @@ export class Strategy implements StrategyInterface {
       values: this.values.sort((a, b) => a.time - b.time),
       firstUsdRate: this.firstUsdRate,
       lastUsdRate: this.lastUsdRate,
-      filledOrders: this.filledOrders,
-      transaction: this.transactions.sort((a, b) => b.index - a.index),
+      transaction: this.prepareTransactions(
+        this.transactions.sort((a, b) => b.index - a.index),
+      ),
       noData: !firstData && !lastData,
-      ordersHistory: this.historyLines,
+      ordersHistory: this.historyLines.map((o) => ({
+        price: o.price,
+        side: o.side,
+        id: o.id,
+        filledTime: o.filledTime,
+        startTime: o.startTime,
+        avgLine: o.avgLine,
+      })),
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       orders: [
@@ -1461,7 +1515,15 @@ export class Strategy implements StrategyInterface {
           )
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore
-          .map((g) => ({ ...g, side: 'GREY' })),
+          .map((g) => ({ ...g, side: 'GREY' }))
+          .map((o) => ({
+            price: o.price,
+            side: o.side,
+            id: o.id,
+            filledTime: o.filledTime,
+            startTime: o.startTime,
+            qty: o.qty,
+          })),
       ],
       financial: {
         freeProfitTotal: this.freeTotalProfit,

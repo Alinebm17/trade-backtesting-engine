@@ -834,6 +834,28 @@ export type Minigrid = {
   lockClose: boolean
 }
 
+export type PreparedMinigrid = {
+  id: string
+  status: 'open' | 'close'
+  initialPrice: number
+  lastPrice: number
+  profit: {
+    total: number
+    totalUsd: number
+  }
+  avgPrice: number
+  createTime: number
+  updateTime: number
+  closeTime?: number
+  transactions: {
+    buy: number
+    sell: number
+  }
+  settings: {
+    profitCurrency: Currency
+  }
+}
+
 export type Deal = {
   moveSlActivated?: boolean
   symbol: Symbols
@@ -897,6 +919,56 @@ export type Deal = {
     quote: number
   }
   lastIndex: number
+}
+
+export type PreparedGrid = {
+  price: number
+  side: BotOrderSideEnum
+  id: string
+  filledTime?: number
+  startTime?: number
+  dealId?: string
+}
+
+export type PreparedDeal = {
+  symbol: Symbols
+  transactions: PreparedTransaction[]
+  mingrids: PreparedMinigrid[]
+  id: string
+  filledOrders: PreparedGrid[]
+  ordersHistory: (PreparedGrid & {
+    avgLine?: boolean
+  })[]
+  status: 'open' | 'closed'
+  startTime: number
+  closedTime?: number
+  profit: {
+    total: number
+    totalUsd: number
+    perc: number
+  }
+  usage: {
+    current: Balance
+    max: Balance
+  }
+  levels: {
+    all: number
+    complete: number
+    max: number
+  }
+  duration: number
+  splitDuration: SplitTime
+  number?: number
+  avgPrice: number
+  startPrice: number
+  liquidationPrice?: number
+  closePrice?: number
+  volume: number
+  equity: number
+  equityInAsset: {
+    base: number
+    quote: number
+  }
 }
 
 type Balance = {
@@ -1014,7 +1086,7 @@ export type DCABacktestingResult = {
   portfolio?: { x: number; y: number }[]
   buyAndHoldEquity?: BuyAndHoldEquity[]
   indicatorsEvents?: IndicatorsEvents[]
-  deals: Deal[]
+  deals: PreparedDeal[]
   profits?: Profit[]
   noData?: boolean
   maxLeverage?: number
@@ -1203,6 +1275,24 @@ export type BacktestingTransaction = {
   executor: string
 }
 
+export type PreparedTransaction = {
+  updateTime: number
+  side: BotOrderSideEnum
+  amountBaseBuy: string
+  amountQuoteBuy: string
+  amountBaseSell: string
+  amountQuoteSell: string
+  priceBuy: string
+  priceSell: string
+  profit: string
+  profitUsd: number
+  baseAsset: string
+  quoteAsset: string
+  profitAsset: string
+  index: number
+  _id: string
+}
+
 export type Grid = {
   price: number
   side: BotOrderSideEnum
@@ -1217,12 +1307,9 @@ export type GridBacktestingResult = {
   values: ValueChangeHistory[]
   firstUsdRate: number
   lastUsdRate: number
-  transaction: BacktestingTransaction[]
-  filledOrders: FullGridWithTime[]
-  orders: Grid[]
-  ordersHistory?: (Grid & {
-    startTime: number
-    filledTime?: number
+  transaction: PreparedTransaction[]
+  orders: (PreparedGrid & { qty: number })[]
+  ordersHistory?: (PreparedGrid & {
     avgLine?: boolean
   })[]
   noData?: boolean

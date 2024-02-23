@@ -44,6 +44,7 @@ import type {
   FullBar,
   SymbolStats,
   PeriodicStats,
+  PreparedDeal,
 } from '../../types'
 
 export type Bar = BarTV
@@ -3985,6 +3986,78 @@ export abstract class Strategy implements StrategyInterface {
     return cwr
   }
 
+  private prepareDeals(deals: Deal[]): PreparedDeal[] {
+    return deals.map((d) => ({
+      symbol: d.symbol,
+      transactions: d.transactions.map((t) => ({
+        _id: t._id,
+        updateTime: t.updateTime,
+        side: t.side,
+        amountBaseBuy: t.amountBaseBuy,
+        amountQuoteBuy: t.amountQuoteBuy,
+        amountBaseSell: t.amountBaseSell,
+        amountQuoteSell: t.amountQuoteSell,
+        priceBuy: t.priceBuy,
+        priceSell: t.priceSell,
+        profit: t.profit,
+        profitUsd: t.profitUsd,
+        baseAsset: t.baseAsset,
+        quoteAsset: t.quoteAsset,
+        profitAsset: t.profitAsset,
+        index: t.index,
+      })),
+      mingrids: d.mingrids.map((m) => ({
+        id: m.id,
+        status: m.status,
+        initialPrice: m.initialPrice,
+        lastPrice: m.lastPrice,
+        profit: m.profit,
+        avgPrice: m.avgPrice,
+        createTime: m.createTime,
+        updateTime: m.updateTime,
+        closeTime: m.closeTime,
+        transactions: m.transactions,
+        settings: {
+          profitCurrency: m.settings.profitCurrency,
+        },
+      })),
+      id: d.id,
+      filledOrders: d.filledOrders.map((o) => ({
+        price: o.price,
+        side: o.side,
+        id: o.id,
+        filledTime: o.filledTime,
+        startTime: o.startTime,
+        dealId: o.dealId,
+      })),
+      ordersHistory: d.ordersHistory.map((o) => ({
+        price: o.price,
+        side: o.side,
+        id: o.id,
+        filledTime: o.filledTime,
+        startTime: o.startTime,
+        dealId: o.dealId,
+        avgLine: o.avgLine,
+      })),
+      status: d.status,
+      startTime: d.startTime,
+      closedTime: d.closedTime,
+      profit: d.profit,
+      usage: d.usage,
+      levels: d.levels,
+      duration: d.duration,
+      splitDuration: d.splitDuration,
+      number: d.number,
+      avgPrice: d.avgPrice,
+      startPrice: d.startPrice,
+      liquidationPrice: d.liquidationPrice,
+      closePrice: d.closePrice,
+      volume: d.volume,
+      equity: d.equity,
+      equityInAsset: d.equityInAsset,
+    }))
+  }
+
   public returnResult(
     firstData: Map<string, FullBar>,
     lastData: Map<string, FullBar>,
@@ -4662,23 +4735,25 @@ export abstract class Strategy implements StrategyInterface {
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
       symbolStats,
-      deals: [...allDeals]
-        .sort((a, b) =>
-          Strategy.edge
-            ? Math.random() > 0.5
-              ? -1
-              : 1
-            : b.startTime - a.startTime,
-        )
-        .map((d, ind) => ({
-          ...d,
-          number: ind + 1,
-          mingrids: d.mingrids.map((m) => ({
-            ...m,
-            activeOrders: [],
-            filledOrders: [],
+      deals: this.prepareDeals(
+        [...allDeals]
+          .sort((a, b) =>
+            Strategy.edge
+              ? Math.random() > 0.5
+                ? -1
+                : 1
+              : b.startTime - a.startTime,
+          )
+          .map((d, ind) => ({
+            ...d,
+            number: ind + 1,
+            mingrids: d.mingrids.map((m) => ({
+              ...m,
+              activeOrders: [],
+              filledOrders: [],
+            })),
           })),
-        })),
+      ),
       maxLeverage: allDeals.filter((d) => !!d.liquidationPrice).length
         ? Math.min(
             ...Array.from(this.symbols.keys()).map(
