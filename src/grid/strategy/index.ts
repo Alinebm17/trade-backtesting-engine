@@ -96,13 +96,13 @@ export class Strategy implements StrategyInterface {
 
   private readonly userFee: number
 
-  private readonly usdRate: number
+  private usdRate: number
 
   private firstUsdRate = 0
 
   private lastUsdRate = 0
 
-  private readonly usdRateQuote: number
+  private usdRateQuote: number
 
   private readonly precision: number
 
@@ -146,7 +146,7 @@ export class Strategy implements StrategyInterface {
 
   private transactionIndex = 0
 
-  private prices: Prices = []
+  /* private prices: Prices = [] */
 
   private botClosed = false
 
@@ -221,10 +221,8 @@ export class Strategy implements StrategyInterface {
     this.precisionQuote = this.botFunctions.utils.getPrecision(symbol).quote
     this.interval = interval
     this.processBar = this.processBar.bind(this)
-    this.prices = prices
-    this.pricesWOutSymbols = this.prices.filter(
-      (p) => p.symbol !== this.symbol.pair,
-    )
+    /* this.prices = prices.filter((p) => p.exchange === exchange) */
+    this.pricesWOutSymbols = prices.filter((p) => p.symbol !== this.symbol.pair)
   }
 
   public set stop(value: boolean) {
@@ -233,6 +231,21 @@ export class Strategy implements StrategyInterface {
 
   public loadData(data: BarTV[]): void {
     this.data = data
+    const lastRate = this.data[this.data.length - 1]?.close ?? 0
+    if (lastRate) {
+      this.usdRate = findUSDRate(
+        this.profitBase
+          ? this.symbol.baseAsset.name
+          : this.symbol.quoteAsset.name,
+        this.updatePriceWithOldPrice(lastRate),
+      )
+      this.usdRateQuote = this.profitBase
+        ? findUSDRate(
+            this.symbol.quoteAsset.name,
+            this.updatePriceWithOldPrice(lastRate),
+          )
+        : this.usdRate
+    }
     /* this.botFunctions.initPrice = this.data[0]?.close ?? 0 */
     /*     if (this.profitBase) {
       this.firstUsdRate =
@@ -882,7 +895,7 @@ export class Strategy implements StrategyInterface {
   }
 
   private updatePriceWithOldPrice(price: number) {
-    return [...this.pricesWOutSymbols, { price, symbol: this.symbol.pair }]
+    return [{ price, symbol: this.symbol.pair }, ...this.pricesWOutSymbols]
   }
 
   public async processBar(checkPortfolio: boolean, bar: Bar) {
