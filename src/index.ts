@@ -3,6 +3,7 @@ import {
   ExchangeIntervals,
   tvIntervalMap,
   timeIntervalMap,
+  DirName,
 } from './types'
 import { MathHelper } from './helper/math'
 import type {
@@ -11,8 +12,86 @@ import type {
   PeriodParams,
   ResolutionString,
   LoadDataFn,
-  Bar,
+  FullBar,
+  SavedBar,
 } from './types'
+
+type SaveFileFn = (
+  data: FullBar[],
+  interval: ExchangeIntervals,
+) => Promise<void>
+
+let saveFile: SaveFileFn | undefined
+
+if (typeof window === 'undefined') {
+  const fs = require('fs')
+  const esort = require('external-sorting').default
+  const path = require('path')
+  const dir = path.join(__dirname, DirName)
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true })
+  }
+
+  const file = `${dir}/tmp.csv`
+
+  const sortedFile = `${dir}/tmp-sorted.csv`
+  fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
+
+  saveFile = async (data: FullBar[], interval: ExchangeIntervals) => {
+    for (const d of data) {
+      fs.appendFileSync(
+        file,
+        `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${interval}\n`,
+      )
+    }
+
+    await esort({
+      input: fs.createReadStream(file),
+      output: fs.createWriteStream(sortedFile),
+      deserializer: (x: string): SavedBar => {
+        if (x === 'o;h;l;c;v;t;s;i') {
+          return {
+            open: -1,
+            high: 0,
+            low: 0,
+            close: 0,
+            volume: 0,
+            time: 0,
+            symbol: '',
+            interval: ExchangeIntervals.oneM,
+          }
+        }
+        const [open, high, low, close, volume, time, symbol, interval] =
+          x.split(';')
+        return {
+          open: +open,
+          high: +high,
+          low: +low,
+          close: +close,
+          volume: +volume,
+          time: +time,
+          symbol: symbol,
+          interval: interval as ExchangeIntervals,
+        }
+      },
+      serializer: (d: SavedBar) => {
+        if (d.open === -1) {
+          return 'o;h;l;c;v;t;s;i'
+        }
+        return `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${d.interval}`
+      },
+      tempDir: dir,
+    }).asc([
+      (obj: SavedBar) => obj.time,
+      (obj: SavedBar) =>
+        [...obj.symbol.toLowerCase()].map((c) => parseInt(c, 36)),
+      (obj: SavedBar) => timeIntervalMap[obj.interval],
+    ])
+
+    fs.unlinkSync(file)
+    fs.renameSync(sortedFile, file)
+  }
+}
 
 class Backtesting {
   public exchange: ExchangeEnum
@@ -37,6 +116,8 @@ class Backtesting {
 
   public _stop = false
 
+  public useFile?: boolean
+
   constructor({
     exchange,
     symbols,
@@ -44,6 +125,7 @@ class Backtesting {
     from,
     to,
     trades,
+    useFile,
   }: BacktestingInput<unknown>) {
     this.exchange = exchange
     this.interval = interval ?? ExchangeIntervals.fiveM
@@ -54,6 +136,7 @@ class Backtesting {
     this.to = to
     this.period = this.calculatePeriod(this.interval)
     this.trades = trades
+    this.useFile = useFile && typeof window === 'undefined'
   }
 
   public set stop(value: boolean) {
@@ -110,7 +193,7 @@ class Backtesting {
     periodParam?: PeriodParams,
     index?: number,
     total?: number,
-  ): Promise<(Bar & { symbol: string })[]> {
+  ): Promise<FullBar[]> {
     const { symbols, interval, period } = this
     const resolution = tvIntervalMap[int ?? interval] as ResolutionString
     let periodToUse = periodParam || period
@@ -118,7 +201,7 @@ class Backtesting {
       periodToUse = this.calculatePeriod(int, from)
     }
     if (this.loadFn) {
-      let data: (Bar & { symbol: string })[] = []
+      let data: FullBar[] = []
       let si = 0
       for (const s of symbols.values()) {
         const result = await this.loadFn(
@@ -134,6 +217,10 @@ class Backtesting {
         si++
 
         data = data.concat(result.map((r) => ({ ...r, symbol: s.pair })))
+      }
+      if (this.useFile && saveFile) {
+        await saveFile(data, int ?? interval)
+        return []
       }
       return data.sort((a, b) => {
         if (a.time === b.time) {

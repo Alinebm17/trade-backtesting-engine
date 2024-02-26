@@ -517,6 +517,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
   public async processBar(
     checkPortfolio: boolean,
     bar: FullBar,
+    interval?: ExchangeIntervals,
   ): Promise<void> {
     if (
       Strategy.workingShift.length === 0 &&
@@ -526,75 +527,98 @@ class TIStrategy extends Strategy implements StrategyInterface {
     }
     this.checkStatuses(bar.time)
     this.checkInRange(bar.close, bar.time)
-    const lowestIndicators = Strategy.indicators.filter(
-      (i) => i.interval === Strategy.lowestInterval && i.symbol === bar.symbol,
-    )
-    const restIndicators = Strategy.indicators.filter(
-      (i) => i.interval !== Strategy.lowestInterval && i.symbol === bar.symbol,
-    )
-    for (const i of lowestIndicators) {
-      i.instance.updateValue(
-        {
-          o: bar.open,
-          h: bar.high,
-          l: bar.low,
-          c: bar.close,
-          v: bar.volume ?? 0,
-        },
-        bar.time,
-        this.updateIndicatorData(i),
+    if (Strategy.useFile && interval) {
+      for (const i of Strategy.indicators.filter(
+        (i) => i.interval === interval && i.symbol === bar.symbol,
+      )) {
+        i.instance.updateValue(
+          {
+            o: bar.open,
+            h: bar.high,
+            l: bar.low,
+            c: bar.close,
+            v: bar.volume ?? 0,
+          },
+          bar.time,
+          this.updateIndicatorData(i),
+        )
+      }
+    } else {
+      const lowestIndicators = Strategy.indicators.filter(
+        (i) =>
+          i.interval === Strategy.lowestInterval && i.symbol === bar.symbol,
       )
-    }
-    const range = [
-      bar.time + 1,
-      bar.time + timeIntervalMap[Strategy.lowestInterval ?? Strategy.interval],
-    ]
-    /*  if (restIndicators.length === 0) {
+      const restIndicators = Strategy.indicators.filter(
+        (i) =>
+          i.interval !== Strategy.lowestInterval && i.symbol === bar.symbol,
+      )
+      for (const i of lowestIndicators) {
+        i.instance.updateValue(
+          {
+            o: bar.open,
+            h: bar.high,
+            l: bar.low,
+            c: bar.close,
+            v: bar.volume ?? 0,
+          },
+          bar.time,
+          this.updateIndicatorData(i),
+        )
+      }
+      const range = [
+        bar.time + 1,
+        bar.time +
+          timeIntervalMap[Strategy.lowestInterval ?? Strategy.interval],
+      ]
+      /*  if (restIndicators.length === 0) {
       this.checkDeals(bar)
     } */
-    for (const i of restIndicators) {
-      const nextBarTime = this.nextBarTime.get(i.id)
-      if (
-        nextBarTime &&
-        !(nextBarTime >= range[0] && nextBarTime <= range[1])
-      ) {
-        continue
-      }
-      const _data = Strategy.dataMap.get(i.interval)
-      if (_data) {
-        const data = Array.from(_data.values())
-        let bars: FullBar[] = []
-        if ((this.firstBar.get(bar.symbol) ?? 0) < restIndicators.length) {
-          this.firstBar.set(
-            bar.symbol,
-            (this.firstBar.get(bar.symbol) ?? 0) + 1,
-          )
-          bars = data.filter(
-            (b) => b.time < range[0] && b.symbol === bar.symbol,
-          )
+      for (const i of restIndicators) {
+        const nextBarTime = this.nextBarTime.get(i.id)
+        if (
+          nextBarTime &&
+          !(nextBarTime >= range[0] && nextBarTime <= range[1])
+        ) {
+          continue
         }
+        const _data = Strategy.dataMap.get(i.interval)
+        if (_data) {
+          const data = Array.from(_data.values())
+          let bars: FullBar[] = []
+          if ((this.firstBar.get(bar.symbol) ?? 0) < restIndicators.length) {
+            this.firstBar.set(
+              bar.symbol,
+              (this.firstBar.get(bar.symbol) ?? 0) + 1,
+            )
+            bars = data.filter(
+              (b) => b.time < range[0] && b.symbol === bar.symbol,
+            )
+          }
 
-        for (const d of data.filter(
-          (b) =>
-            b.time >= range[0] && b.time <= range[1] && b.symbol === bar.symbol,
-        )) {
-          bars.push(d)
-        }
+          for (const d of data.filter(
+            (b) =>
+              b.time >= range[0] &&
+              b.time <= range[1] &&
+              b.symbol === bar.symbol,
+          )) {
+            bars.push(d)
+          }
 
-        for (const b of bars) {
-          i.instance.updateValue(
-            {
-              o: b.open,
-              h: b.high,
-              l: b.low,
-              c: b.close,
-              v: b.volume ?? 0,
-            },
-            b.time,
-            this.updateIndicatorData(i),
-          )
-          this.nextBarTime.set(i.id, b.time + timeIntervalMap[i.interval])
-          //this.checkDeals(b)
+          for (const b of bars) {
+            i.instance.updateValue(
+              {
+                o: b.open,
+                h: b.high,
+                l: b.low,
+                c: b.close,
+                v: b.volume ?? 0,
+              },
+              b.time,
+              this.updateIndicatorData(i),
+            )
+            this.nextBarTime.set(i.id, b.time + timeIntervalMap[i.interval])
+            //this.checkDeals(b)
+          }
         }
       }
     }

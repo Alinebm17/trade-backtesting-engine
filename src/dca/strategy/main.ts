@@ -17,7 +17,6 @@ import {
   BacktestingTransaction,
   DCAConditionEnum,
   IndicatorAction,
-  timeIntervalMap,
   OrderSizeTypeEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
@@ -64,6 +63,7 @@ export type StrategyInput = {
   multi?: boolean
   timezone?: string | null
   fullResult?: boolean
+  useFile?: boolean
 }
 
 export type DataType = {
@@ -78,13 +78,14 @@ export interface StrategyInterface {
     start: number,
     end: number,
     updateProgress?: (value: number, text: string) => void,
+    total?: number,
   ): Promise<void>
   preTest(): Promise<void>
   startWorkingShift(start: number): void
   processBar(
     checkPortfolio: boolean,
     bar: FullBar,
-    nextBar?: FullBar,
+    interval?: ExchangeIntervals,
   ): Promise<void>
   processTrade(
     trade: TradeResponse,
@@ -215,7 +216,9 @@ export abstract class Strategy implements StrategyInterface {
 
   static lastIndex = 0
 
-  static portfolio: NonNullable<DCABacktestingResult['portfolio']> = []
+  static useFile?: boolean
+
+  static portfolio: Map<number, number> = new Map()
 
   protected math = new MathHelper()
 
@@ -277,6 +280,7 @@ export abstract class Strategy implements StrategyInterface {
   static fullResult?: boolean
 
   static resetData() {
+    Strategy.useFile = false
     Strategy.fullResult = false
     Strategy.dataMap = new Map()
     Strategy.previousValuesInAsset = new Map()
@@ -348,10 +352,11 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.edge = undefined
     Strategy.previousResult = undefined
     Strategy.multi = false
-    Strategy.initialBalanceSymbol = ''
     Strategy.lastIndex = 0
-    Strategy.portfolio = []
+    Strategy.portfolio = new Map()
     Strategy.dealsBySymbolsStatusId = new Map()
+    Strategy.lowestDataForBnHSymbol = ''
+    Strategy.lowestDataForBnH = new Map()
   }
 
   static position: Map<string, typeof Strategy.emptyPositon> = new Map()
@@ -372,8 +377,6 @@ export abstract class Strategy implements StrategyInterface {
 
   static startRate = 0
 
-  static initialBalanceSymbol = ''
-
   static initialBalanceUsd = 0
 
   static edge?: EdgeBacktestEnum
@@ -381,6 +384,10 @@ export abstract class Strategy implements StrategyInterface {
   static previousResult?: DCABacktestingResult
 
   static multi = false
+
+  static lowestDataForBnHSymbol = ''
+
+  static lowestDataForBnH: Map<number, FullBar> = new Map()
 
   constructor(input: StrategyInput) {
     const {
@@ -490,7 +497,7 @@ export abstract class Strategy implements StrategyInterface {
   public abstract processBar(
     checkPortfolio: boolean,
     bar: FullBar,
-    nextBar?: FullBar,
+    interval?: ExchangeIntervals,
   ): Promise<void>
 
   public abstract processTrade(
@@ -1362,7 +1369,6 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.initialBalance = Strategy.balance
       Strategy.startRate = deal.startPrice
       Strategy.initialBalanceUsd = Strategy.balanceUsd
-      Strategy.initialBalanceSymbol = s
     }
   }
 
@@ -2949,20 +2955,25 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
+  private replacePortfolioValue(time: number, val: number) {
+    const current = Strategy.portfolio.get(time)
+    if (current) {
+      return Strategy.portfolio.set(time, current + val - Strategy.balanceUsd)
+    }
+    return Strategy.portfolio.set(time, val)
+  }
+
   private checkPortfolio(time: number, _price: number, symbol: string) {
-    const openDeal = Strategy.getDeals('open')
+    const openDeal = Strategy.getDeals('open', symbol)
     if (!this.futures && !openDeal.length) {
-      return Strategy.portfolio.push({
-        x: time,
-        y: Strategy.balanceUsd,
-      })
+      return this.replacePortfolioValue(time, Strategy.balanceUsd)
     }
     let value = 0
 
     if (!this.futures) {
       for (const o of openDeal) {
         let price = _price
-        const differentSymbol = symbol !== o.symbol.pair
+        /* const differentSymbol = symbol !== o.symbol.pair
         if (differentSymbol && Strategy.lowestInterval) {
           const findPrice = Strategy.dataMap
             .get(Strategy.lowestInterval)
@@ -2972,7 +2983,7 @@ export abstract class Strategy implements StrategyInterface {
           } else {
             continue
           }
-        }
+        } */
         const baseRate = this.getUsdRate(o.symbol.pair, price, 'base')
         const quoteRate = this.getUsdRate(o.symbol.pair, price, 'quote')
         const tp = this.getTP(o, price, true, false)[0]
@@ -3035,16 +3046,16 @@ export abstract class Strategy implements StrategyInterface {
           commission
         value += unPnl * (this.profitBase ? baseRate : quoteRate)
       }
-      return Strategy.portfolio.push({
-        x: time,
-        y: this.math.round(value + Strategy.balanceUsd),
-      })
+      return this.replacePortfolioValue(
+        time,
+        this.math.round(value + Strategy.balanceUsd),
+      )
     }
     for (const o of openDeal) {
       let price = _price
       const position = Strategy.position.get(o.symbol.pair)
       if (position) {
-        const differentSymbol = symbol !== o.symbol.pair
+        /* const differentSymbol = symbol !== o.symbol.pair
         if (differentSymbol && Strategy.lowestInterval) {
           const findPrice = Strategy.dataMap
             .get(Strategy.lowestInterval)
@@ -3054,7 +3065,7 @@ export abstract class Strategy implements StrategyInterface {
           } else {
             continue
           }
-        }
+        } */
         const quoteRate = this.getUsdRate(o.symbol.pair, price, 'quote')
         const unPnL =
           (position?.side === PositionSide.LONG
@@ -3064,15 +3075,16 @@ export abstract class Strategy implements StrategyInterface {
         value += unPnL
       }
     }
-    return Strategy.portfolio.push({
-      x: time,
-      y: this.math.round(value + Strategy.balanceUsd),
-    })
+    return this.replacePortfolioValue(
+      time,
+      this.math.round(value + Strategy.balanceUsd),
+    )
   }
 
   private checkEquityDrawdown() {
-    const last = Strategy.portfolio[Strategy.portfolio.length - 1]
-    const secondToLast = Strategy.portfolio[Strategy.portfolio.length - 2]
+    const array = Array.from(Strategy.portfolio, (v) => ({ x: v[0], y: v[1] }))
+    const last = array[Strategy.portfolio.size - 1]
+    const secondToLast = array[Strategy.portfolio.size - 2]
     if (!last) {
       return
     }
@@ -3114,6 +3126,12 @@ export abstract class Strategy implements StrategyInterface {
   ) {
     if (this._stop) {
       return
+    }
+    if (!Strategy.lowestDataForBnHSymbol) {
+      Strategy.lowestDataForBnHSymbol = b.symbol
+    }
+    if (b.symbol === Strategy.lowestDataForBnHSymbol) {
+      Strategy.lowestDataForBnH.set(b.time, b)
     }
     if (Strategy.balance === 0) {
       this.openDeal(b.close, b.time, b.high, b.low, b.symbol, true)
@@ -3848,8 +3866,8 @@ export abstract class Strategy implements StrategyInterface {
     if (!firstDataMap || !lastDataMap) {
       return
     }
-    const firstData = firstDataMap.get(Strategy.initialBalanceSymbol)
-    const lastData = lastDataMap.get(Strategy.initialBalanceSymbol)
+    const firstData = firstDataMap.get(Strategy.lowestDataForBnHSymbol)
+    const lastData = lastDataMap.get(Strategy.lowestDataForBnHSymbol)
     if (!lastData || !firstData) {
       return
     }
@@ -3867,22 +3885,17 @@ export abstract class Strategy implements StrategyInterface {
       (firstPrice && lastPrice
         ? (buyAndHoldUsage / firstPrice) * lastPrice
         : 0) * this.leverage */
-    const lowestData = [...Strategy.data].sort(
-      (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
-    )[0]
+    const lowestData = Array.from(Strategy.lowestDataForBnH.values())
     const buyAndHoldEquity: BuyAndHoldEquity[] = []
     /*     buyAndHoldEquity.push({ value: buyAndHoldUsage, time: firstData.time })
     buyAndHoldEquity.push({ value: buyAndHoldLastEquity, time: lastData.time }) */
-    if (lowestData.bar.length > 2) {
-      lowestData.bar = lowestData.bar.filter(
-        (b) => b.time >= Strategy.start && b.symbol === firstData.symbol,
-      )
-      const steps = Math.min(Math.floor(lowestData.bar.length / 2), 500)
-      const step = Math.floor(lowestData.bar.length / steps)
+    if (lowestData.length > 2) {
+      const steps = Math.min(Math.floor(lowestData.length / 2), 500)
+      const step = Math.floor(lowestData.length / steps)
       const data: FullBar[] = []
       data.push(firstData)
       for (const i of [...Array(steps).keys()]) {
-        const d = lowestData.bar[i * step]
+        const d = lowestData[i * step]
         if (
           d &&
           buyAndHoldEquity.filter((bh) => bh.time === d.time).length === 0
@@ -4732,13 +4745,13 @@ export abstract class Strategy implements StrategyInterface {
     let stDevLoss = this.math.stDev(lossDeals.map((d) => d.profit.perc))
     stDevLoss = isNaN(stDevLoss) ? 0 : stDevLoss
     if (lastDataItem) {
-      Strategy.portfolio.push({
-        x: lastDataItem.time,
-        y: Strategy.balanceUsd + unrealizedPnLUsd,
-      })
+      this.replacePortfolioValue(
+        lastDataItem.time,
+        Strategy.balanceUsd + unrealizedPnLUsd,
+      )
     }
     const result: DCABacktestingResult = {
-      portfolio: Strategy.portfolio,
+      portfolio: Array.from(Strategy.portfolio, (v) => ({ x: v[0], y: v[1] })),
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
       symbolStats,

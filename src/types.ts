@@ -7,6 +7,8 @@ import type {
   SuperTrendResult,
 } from '../indicators/src'
 
+export const DirName = `../../tmp-backtester`
+
 export enum IndicatorEnum {
   rsi = 'RSI',
   adx = 'ADX',
@@ -1011,6 +1013,7 @@ export type BacktestingInput<T> = {
   multi?: boolean
   timezone?: string | null
   fullResult?: boolean
+  useFile?: boolean
 }
 
 export type LoadDataFn = (
@@ -1463,3 +1466,5 @@ export declare type Nominal<T, Name extends string> = T & {
 export declare type ResolutionString = Nominal<string, 'ResolutionString'>
 
 export type FullBar = Bar & { symbol: string }
+
+export type SavedBar = FullBar & { interval: ExchangeIntervals }

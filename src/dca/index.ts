@@ -18,6 +18,7 @@ import {
   DCABotSettings,
   EdgeBacktestEnum,
   TradeResponse,
+  DirName,
 } from '../types'
 
 class DCABacktesting extends Backtesting {
@@ -41,6 +42,7 @@ class DCABacktesting extends Backtesting {
     previousData,
     multi,
     timezone,
+    useFile,
     ...rest
   }: DCABacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
@@ -53,6 +55,7 @@ class DCABacktesting extends Backtesting {
       settings,
       trades,
       timezone,
+      useFile,
     })
     this.edge = edge
     this.settings = settings
@@ -73,6 +76,7 @@ class DCABacktesting extends Backtesting {
           previousData,
           multi,
           timezone,
+          useFile,
         },
         ...strategy,
       )
@@ -178,30 +182,107 @@ class DCABacktesting extends Backtesting {
     )
     /*  : this.period.from * 1000 */
     this.strategy.loadData(testData, startTime)
+
     const lowest = testData.find((d) => d.interval === lowestInterval)
+    let firstTime = lowest?.bar[0]?.time ?? 0
+    let lastTime = lowest?.bar[(lowest.bar.length ?? 1) - 1]?.time ?? 0
+    let startBar: Map<string, FullBar> = new Map()
+    let lastBar: Map<string, FullBar> = new Map()
+    let total = 0
+    if (lowest) {
+      total = lowest.bar.length
+      for (const s of this.symbols.keys()) {
+        const barsBySymbol = lowest.bar.filter(
+          (b) => b.time > startTime && b.symbol === s,
+        )
+        if (barsBySymbol.length) {
+          startBar.set(s, barsBySymbol[0])
+          lastBar.set(s, barsBySymbol[barsBySymbol.length - 1])
+        }
+      }
+    }
+
+    if (this.useFile) {
+      const fs = require('fs')
+      const path = require('path')
+      const dir = path.join(__dirname, `../${DirName}`)
+      const file = `${dir}/tmp.csv`
+      const csv = require('csv-parser')
+      if (fs.existsSync(dir) && fs.existsSync(file)) {
+        const _startBar: Map<string, FullBar> = new Map()
+        const _lastBar: Map<string, FullBar> = new Map()
+
+        await new Promise((res) =>
+          fs
+            .createReadStream(file, 'utf-8')
+            .pipe(csv({ separator: ';' }))
+            .on(
+              'data',
+              async (raw: {
+                o: string
+                h: string
+                l: string
+                c: string
+                v: string
+                t: string
+                s: string
+                i: string
+              }) => {
+                if (this._stop) {
+                  return
+                }
+                if (raw.i !== lowestInterval) {
+                  return
+                }
+                total++
+                const bar = {
+                  open: +raw.o,
+                  high: +raw.h,
+                  low: +raw.l,
+                  close: +raw.c,
+                  volume: +raw.v,
+                  time: +raw.t,
+                  symbol: raw.s,
+                }
+                if (bar.time >= startTime && firstTime === 0) {
+                  firstTime = bar.time
+                  if (!_startBar.has(bar.symbol)) {
+                    _startBar.set(bar.symbol, bar)
+                  }
+                }
+
+                _lastBar.set(bar.symbol, bar)
+              },
+            )
+            .on('end', () => {
+              res([])
+            })
+            .on('error', () => res([])),
+        )
+        if (_lastBar.values().next().value) {
+          lastTime = _lastBar.values().next().value.time
+        }
+        startBar = _startBar
+        lastBar = _lastBar
+      }
+    }
     return this.strategy
-      .test(
-        lowest?.bar[0]?.time ?? 0,
-        lowest?.bar[(lowest.bar.length ?? 1) - 1]?.time ?? 0,
-        updateProgress,
-      )
+      .test(firstTime, lastTime, updateProgress, total)
       .then(() => {
+        if (this.useFile) {
+          const fs = require('fs')
+          const path = require('path')
+          const dir = path.join(__dirname, `../${DirName}`)
+          const file = `${dir}/tmp.csv`
+          if (fs.existsSync(dir) && fs.existsSync(file)) {
+            fs.unlinkSync(file)
+          }
+        }
         if (this._stop) {
           return
         }
         const processingTime = (new Date().getTime() - start) / 1000
         if (this.strategy && lowest) {
-          const startBar: Map<string, FullBar> = new Map()
-          const lastBar: Map<string, FullBar> = new Map()
-          for (const s of this.symbols.keys()) {
-            const barsBySymbol = lowest.bar.filter(
-              (b) => b.time > startTime && b.symbol === s,
-            )
-            if (barsBySymbol.length) {
-              startBar.set(s, barsBySymbol[0])
-              lastBar.set(s, barsBySymbol[barsBySymbol.length - 1])
-            }
-          }
           const result = this.strategy.returnResult(
             startBar,
             lastBar,
