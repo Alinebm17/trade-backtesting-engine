@@ -115,6 +115,9 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
             if (this._stop) {
               return
             }
+            if (d === 'o;h;l;c;v;t;s;i' || !d) {
+              continue
+            }
             const [open, high, low, close, volume, time, symbol, interval] =
               d.split(';')
             const bar = {

@@ -44,7 +44,9 @@ if (typeof window === 'undefined') {
     const file = `${dir}/${fileName}.csv`
 
     const sortedFile = `${dir}/${fileName}-sorted.csv`
-    fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
+    if (!fs.existsSync(file)) {
+      fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
+    }
     fs.appendFileSync(
       file,
       data
