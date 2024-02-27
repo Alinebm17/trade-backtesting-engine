@@ -16,6 +16,7 @@ import type {
   FullBar,
   SavedBar,
 } from './types'
+import { v4 } from 'uuid'
 
 type SaveFileFn = (
   fileName: string,
@@ -27,6 +28,38 @@ type SaveFileFn = (
 let saveFile: SaveFileFn | undefined
 
 if (typeof window === 'undefined') {
+  const deserializer = (x: string): SavedBar => {
+    if (x === 'o;h;l;c;v;t;s;i') {
+      return {
+        open: -1,
+        high: 0,
+        low: 0,
+        close: 0,
+        volume: 0,
+        time: 0,
+        symbol: '',
+        interval: ExchangeIntervals.oneM,
+      }
+    }
+    const [open, high, low, close, volume, time, symbol, _interval] =
+      x.split(';')
+    return {
+      open: +open,
+      high: +high,
+      low: +low,
+      close: +close,
+      volume: +volume,
+      time: +time,
+      symbol: symbol,
+      interval: _interval as ExchangeIntervals,
+    }
+  }
+  const serializer = (d: SavedBar) => {
+    if (d.open === -1) {
+      return 'o;h;l;c;v;t;s;i'
+    }
+    return `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${d.interval}`
+  }
   const fs = require('fs')
   const esort = require('external-sorting').default
   const path = require('path')
@@ -58,51 +91,29 @@ if (typeof window === 'undefined') {
     )
 
     if (sort) {
+      const tempDir = `${dir}/${v4()}`
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true })
+      }
+      const sortOptions = {
+        deserializer,
+        serializer,
+        tempDir,
+      }
       await esort({
+        ...sortOptions,
         input: fs.createReadStream(file),
         output: fs.createWriteStream(sortedFile),
-        deserializer: (x: string): SavedBar => {
-          if (x === 'o;h;l;c;v;t;s;i') {
-            return {
-              open: -1,
-              high: 0,
-              low: 0,
-              close: 0,
-              volume: 0,
-              time: 0,
-              symbol: '',
-              interval: ExchangeIntervals.oneM,
-            }
-          }
-          const [open, high, low, close, volume, time, symbol, _interval] =
-            x.split(';')
-          return {
-            open: +open,
-            high: +high,
-            low: +low,
-            close: +close,
-            volume: +volume,
-            time: +time,
-            symbol: symbol,
-            interval: _interval as ExchangeIntervals,
-          }
-        },
-        serializer: (d: SavedBar) => {
-          if (d.open === -1) {
-            return 'o;h;l;c;v;t;s;i'
-          }
-          return `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${d.interval}`
-        },
-        tempDir: dir,
       }).asc([
         (obj: SavedBar) => obj.time,
         (obj: SavedBar) =>
           [...obj.symbol.toLowerCase()].map((c) => parseInt(c, 36)),
         (obj: SavedBar) => timeIntervalMap[obj.interval],
       ])
-
       fs.unlinkSync(file)
       fs.renameSync(sortedFile, file)
+
+      fs.rmSync(tempDir, { recursive: true, force: true })
     }
   }
 }
