@@ -4744,12 +4744,12 @@ export abstract class Strategy implements StrategyInterface {
     stDevDownLoss = isNaN(stDevDownLoss) ? 0 : stDevDownLoss
     let stDevLoss = this.math.stDev(lossDeals.map((d) => d.profit.perc))
     stDevLoss = isNaN(stDevLoss) ? 0 : stDevLoss
-    if (lastDataItem) {
+    /* if (lastDataItem) {
       this.replacePortfolioValue(
         lastDataItem.time,
         Strategy.balanceUsd + unrealizedPnLUsd,
       )
-    }
+    } */
     const result: DCABacktestingResult = {
       portfolio: Array.from(Strategy.portfolio, (v) => ({ x: v[0], y: v[1] })),
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],

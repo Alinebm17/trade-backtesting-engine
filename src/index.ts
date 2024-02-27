@@ -19,6 +19,7 @@ import type {
 type SaveFileFn = (
   data: FullBar[],
   interval: ExchangeIntervals,
+  sort?: boolean,
 ) => Promise<void>
 
 let saveFile: SaveFileFn | undefined
@@ -37,59 +38,68 @@ if (typeof window === 'undefined') {
   const sortedFile = `${dir}/tmp-sorted.csv`
   fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
 
-  saveFile = async (data: FullBar[], interval: ExchangeIntervals) => {
-    for (const d of data) {
-      fs.appendFileSync(
-        file,
-        `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${interval}\n`,
-      )
-    }
+  saveFile = async (
+    data: FullBar[],
+    interval: ExchangeIntervals,
+    sort?: boolean,
+  ) => {
+    fs.appendFileSync(
+      file,
+      data
+        .map(
+          (d) =>
+            `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${interval}\n`,
+        )
+        .join(''),
+    )
 
-    await esort({
-      input: fs.createReadStream(file),
-      output: fs.createWriteStream(sortedFile),
-      deserializer: (x: string): SavedBar => {
-        if (x === 'o;h;l;c;v;t;s;i') {
-          return {
-            open: -1,
-            high: 0,
-            low: 0,
-            close: 0,
-            volume: 0,
-            time: 0,
-            symbol: '',
-            interval: ExchangeIntervals.oneM,
+    if (sort) {
+      await esort({
+        input: fs.createReadStream(file),
+        output: fs.createWriteStream(sortedFile),
+        deserializer: (x: string): SavedBar => {
+          if (x === 'o;h;l;c;v;t;s;i') {
+            return {
+              open: -1,
+              high: 0,
+              low: 0,
+              close: 0,
+              volume: 0,
+              time: 0,
+              symbol: '',
+              interval: ExchangeIntervals.oneM,
+            }
           }
-        }
-        const [open, high, low, close, volume, time, symbol, interval] =
-          x.split(';')
-        return {
-          open: +open,
-          high: +high,
-          low: +low,
-          close: +close,
-          volume: +volume,
-          time: +time,
-          symbol: symbol,
-          interval: interval as ExchangeIntervals,
-        }
-      },
-      serializer: (d: SavedBar) => {
-        if (d.open === -1) {
-          return 'o;h;l;c;v;t;s;i'
-        }
-        return `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${d.interval}`
-      },
-      tempDir: dir,
-    }).asc([
-      (obj: SavedBar) => obj.time,
-      (obj: SavedBar) =>
-        [...obj.symbol.toLowerCase()].map((c) => parseInt(c, 36)),
-      (obj: SavedBar) => timeIntervalMap[obj.interval],
-    ])
+          const [open, high, low, close, volume, time, symbol, interval] =
+            x.split(';')
+          return {
+            open: +open,
+            high: +high,
+            low: +low,
+            close: +close,
+            volume: +volume,
+            time: +time,
+            symbol: symbol,
+            interval: interval as ExchangeIntervals,
+          }
+        },
+        serializer: (d: SavedBar) => {
+          if (d.open === -1) {
+            return 'o;h;l;c;v;t;s;i'
+          }
+          return `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${d.interval}`
+        },
+        tempDir: dir,
+      }).asc([
+        (obj: SavedBar) => obj.time,
+        (obj: SavedBar) =>
+          [...obj.symbol.toLowerCase()].map((c) => parseInt(c, 36)),
+        (obj: SavedBar) => timeIntervalMap[obj.interval],
+      ])
 
-    fs.unlinkSync(file)
-    fs.renameSync(sortedFile, file)
+      fs.unlinkSync(file)
+      fs.renameSync(sortedFile, file)
+    }
   }
 }
 
@@ -215,11 +225,15 @@ class Backtesting {
           (total ?? 1) * symbols.size,
         )
         si++
-
-        data = data.concat(result.map((r) => ({ ...r, symbol: s.pair })))
+        const fullResult = result.map((r) => ({ ...r, symbol: s.pair }))
+        if (this.useFile && saveFile) {
+          await saveFile(fullResult, int ?? interval)
+        } else {
+          data = data.concat(fullResult)
+        }
       }
       if (this.useFile && saveFile) {
-        await saveFile(data, int ?? interval)
+        await saveFile([], int ?? interval, true)
         return []
       }
       return data.sort((a, b) => {
