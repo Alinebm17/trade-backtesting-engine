@@ -529,7 +529,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     this.checkInRange(bar.close, bar.time)
     if (Strategy.useFile && interval) {
       for (const i of Strategy.indicators.filter(
-        (i) => i.interval === interval && i.symbol === bar.symbol,
+        (_i) => _i.interval === interval && _i.symbol === bar.symbol,
       )) {
         i.instance.updateValue(
           {

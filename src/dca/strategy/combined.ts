@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import { Strategy, StrategyInterface } from './main'
 
 import type { StrategyInput } from './main'
@@ -12,21 +13,18 @@ let getFileLinesSync: (
 ) => Generator<string, void, unknown> | undefined
 
 if (typeof window === 'undefined') {
-  getFileLinesSync = function* getFileLinesSync(
-    filename: string,
-    encoding: BufferEncoding,
-  ) {
+  getFileLinesSync = function* (filename: string, encoding: BufferEncoding) {
     const fs = require('fs')
     const string_decoder = require('string_decoder')
-    let fd = fs.openSync(filename, 'r')
-    let buf = Buffer.allocUnsafe(32768)
+    const fd = fs.openSync(filename, 'r')
+    const buf = Buffer.allocUnsafe(32768)
     let pos = 0
-    let decoder = new string_decoder.StringDecoder(encoding || 'UTF8')
+    const decoder = new string_decoder.StringDecoder(encoding || 'UTF8')
     let lineStart = ''
 
     while (true) {
       // Read buffer
-      let bytesRead = fs.readSync(fd, buf, 0, buf.length, pos)
+      const bytesRead = fs.readSync(fd, buf, 0, buf.length, pos)
       pos += bytesRead
 
       // Decode string
@@ -36,7 +34,7 @@ if (typeof window === 'undefined') {
       else str = lineStart + decoder.write(buf)
 
       // Split into lines and yield the complete ones
-      let lines = str.split(/\r?\n/)
+      const lines = str.split(/\r?\n/)
       for (let i = 0; i < lines.length - 1; i++) {
         yield lines[i]
       }
@@ -64,8 +62,11 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
 
   private step = 0
 
+  private fileName
+
   constructor(
     input: StrategyInput,
+    fileName: string,
     ...strategies: ((args: StrategyInput) => StrategyInterface)[]
   ) {
     Strategy.resetData()
@@ -73,6 +74,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     this.strategies = strategies.map((s) => s(input))
     Strategy.fullResult = input.fullResult
     Strategy.useFile = input.useFile && typeof window === 'undefined'
+    this.fileName = fileName
   }
 
   public async test(
@@ -93,7 +95,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     if (step < timeIntervalMap[lowest.interval]) {
       step = timeIntervalMap[lowest.interval]
     }
-    let current: Map<string, number> = new Map()
+    const current: Map<string, number> = new Map()
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
     await this.preTest()
@@ -101,15 +103,15 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
       const fs = require('fs')
       const path = require('path')
       const dir = path.join(__dirname, `../../${DirName}`)
-      const file = `${dir}/tmp.csv`
+      const file = `${dir}/${this.fileName}.csv`
       if (fs.existsSync(dir) && fs.existsSync(file)) {
         const size =
           total ||
           ((end - start) / timeIntervalMap[lowest.interval]) *
             this.settings.pair.length
-        const data = getFileLinesSync(file, 'utf-8')
-        if (data) {
-          for (const d of data) {
+        const _data = getFileLinesSync(file, 'utf-8')
+        if (_data) {
+          for (const d of _data) {
             if (this._stop) {
               return
             }

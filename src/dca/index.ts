@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import Backtesting from '..'
+import { v4 } from 'uuid'
 
 import {
   CloseConditionEnum,
@@ -47,18 +49,21 @@ class DCABacktesting extends Backtesting {
     ...rest
   }: DCABacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
-    super({
-      ...rest,
-      interval: candleInterval,
-      symbols,
-      userFee,
-      prices,
-      settings,
-      trades,
-      timezone,
-      useFile,
-      fullResult,
-    })
+    super(
+      {
+        ...rest,
+        interval: candleInterval,
+        symbols,
+        userFee,
+        prices,
+        settings,
+        trades,
+        timezone,
+        useFile,
+        fullResult,
+      },
+      v4(),
+    )
     this.edge = edge
     this.settings = settings
     const strategy = getStrategyBySettings(settings, edge)
@@ -81,6 +86,7 @@ class DCABacktesting extends Backtesting {
           useFile,
           fullResult,
         },
+        this.fileName,
         ...strategy,
       )
     }
@@ -209,7 +215,7 @@ class DCABacktesting extends Backtesting {
       const fs = require('fs')
       const path = require('path')
       const dir = path.join(__dirname, `../${DirName}`)
-      const file = `${dir}/tmp.csv`
+      const file = `${dir}/${this.fileName}.csv`
       const csv = require('csv-parser')
       if (fs.existsSync(dir) && fs.existsSync(file)) {
         const _startBar: Map<string, FullBar> = new Map()
@@ -276,7 +282,7 @@ class DCABacktesting extends Backtesting {
           const fs = require('fs')
           const path = require('path')
           const dir = path.join(__dirname, `../${DirName}`)
-          const file = `${dir}/tmp.csv`
+          const file = `${dir}/${this.fileName}.csv`
           if (fs.existsSync(dir) && fs.existsSync(file)) {
             fs.unlinkSync(file)
           }

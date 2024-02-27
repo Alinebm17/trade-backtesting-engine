@@ -2972,7 +2972,7 @@ export abstract class Strategy implements StrategyInterface {
 
     if (!this.futures) {
       for (const o of openDeal) {
-        let price = _price
+        const price = _price
         /* const differentSymbol = symbol !== o.symbol.pair
         if (differentSymbol && Strategy.lowestInterval) {
           const findPrice = Strategy.dataMap
@@ -3052,7 +3052,7 @@ export abstract class Strategy implements StrategyInterface {
       )
     }
     for (const o of openDeal) {
-      let price = _price
+      const price = _price
       const position = Strategy.position.get(o.symbol.pair)
       if (position) {
         /* const differentSymbol = symbol !== o.symbol.pair

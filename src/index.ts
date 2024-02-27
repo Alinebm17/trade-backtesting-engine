@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import {
   ExchangeEnum,
   ExchangeIntervals,
@@ -17,6 +18,7 @@ import type {
 } from './types'
 
 type SaveFileFn = (
+  fileName: string,
   data: FullBar[],
   interval: ExchangeIntervals,
   sort?: boolean,
@@ -33,16 +35,16 @@ if (typeof window === 'undefined') {
     fs.mkdirSync(dir, { recursive: true })
   }
 
-  const file = `${dir}/tmp.csv`
-
-  const sortedFile = `${dir}/tmp-sorted.csv`
-  fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
-
   saveFile = async (
+    fileName: string,
     data: FullBar[],
     interval: ExchangeIntervals,
     sort?: boolean,
   ) => {
+    const file = `${dir}/${fileName}.csv`
+
+    const sortedFile = `${dir}/${fileName}-sorted.csv`
+    fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
     fs.appendFileSync(
       file,
       data
@@ -70,7 +72,7 @@ if (typeof window === 'undefined') {
               interval: ExchangeIntervals.oneM,
             }
           }
-          const [open, high, low, close, volume, time, symbol, interval] =
+          const [open, high, low, close, volume, time, symbol, _interval] =
             x.split(';')
           return {
             open: +open,
@@ -80,7 +82,7 @@ if (typeof window === 'undefined') {
             volume: +volume,
             time: +time,
             symbol: symbol,
-            interval: interval as ExchangeIntervals,
+            interval: _interval as ExchangeIntervals,
           }
         },
         serializer: (d: SavedBar) => {
@@ -128,15 +130,20 @@ class Backtesting {
 
   public useFile?: boolean
 
-  constructor({
-    exchange,
-    symbols,
-    interval,
-    from,
-    to,
-    trades,
-    useFile,
-  }: BacktestingInput<unknown>) {
+  public fileName: string
+
+  constructor(
+    {
+      exchange,
+      symbols,
+      interval,
+      from,
+      to,
+      trades,
+      useFile,
+    }: BacktestingInput<unknown>,
+    fileName: string,
+  ) {
     this.exchange = exchange
     this.interval = interval ?? ExchangeIntervals.fiveM
     symbols.forEach((s) => {
@@ -147,6 +154,7 @@ class Backtesting {
     this.period = this.calculatePeriod(this.interval)
     this.trades = trades
     this.useFile = useFile && typeof window === 'undefined'
+    this.fileName = fileName
   }
 
   public set stop(value: boolean) {
@@ -227,13 +235,13 @@ class Backtesting {
         si++
         const fullResult = result.map((r) => ({ ...r, symbol: s.pair }))
         if (this.useFile && saveFile) {
-          await saveFile(fullResult, int ?? interval)
+          await saveFile(this.fileName, fullResult, int ?? interval)
         } else {
           data = data.concat(fullResult)
         }
       }
       if (this.useFile && saveFile) {
-        await saveFile([], int ?? interval, true)
+        await saveFile(this.fileName, [], int ?? interval, true)
         return []
       }
       return data.sort((a, b) => {
