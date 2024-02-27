@@ -16,6 +16,7 @@ class DCABacktesting extends Backtesting {
     prices,
     interval,
     trades,
+    fullResult,
     ...rest
   }: GRIDBacktestingInput) {
     const candleInterval = interval ?? ExchangeIntervals.fiveM
@@ -27,6 +28,7 @@ class DCABacktesting extends Backtesting {
       prices,
       settings,
       trades,
+      fullResult,
     })
     this.strategy = new Strategy({
       settings,
@@ -35,6 +37,7 @@ class DCABacktesting extends Backtesting {
       prices,
       interval,
       trades,
+      fullResult,
     })
   }
 
