@@ -85,6 +85,7 @@ class DCABacktesting extends Backtesting {
           timezone,
           useFile,
           fullResult,
+          exchange: this.exchange,
         },
         this.fileName,
         ...strategy,
