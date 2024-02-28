@@ -179,6 +179,7 @@ class DCABacktesting extends Backtesting {
           })
         }
       }
+      await this.sortData(updateProgress)
     }
     if (loadDataCallBack) {
       loadDataCallBack()

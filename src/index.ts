@@ -21,8 +21,9 @@ import { v4 } from 'uuid'
 type SaveFileFn = (
   fileName: string,
   data: FullBar[],
-  interval: ExchangeIntervals,
+  interval?: ExchangeIntervals,
   sort?: boolean,
+  updateProgress?: (value: number, text: string) => void,
 ) => Promise<void>
 
 let saveFile: SaveFileFn | undefined
@@ -71,29 +72,35 @@ if (typeof window === 'undefined') {
   saveFile = async (
     fileName: string,
     data: FullBar[],
-    interval: ExchangeIntervals,
+    interval?: ExchangeIntervals,
     sort?: boolean,
+    updateProgress?: (value: number, text: string) => void,
   ) => {
     const file = `${dir}/${fileName}.csv`
 
     const sortedFile = `${dir}/${fileName}-sorted.csv`
-    if (!fs.existsSync(file)) {
-      fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
+    if (data.length) {
+      if (!fs.existsSync(file)) {
+        fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
+      }
+      fs.appendFileSync(
+        file,
+        data
+          .map(
+            (d) =>
+              `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${interval}\n`,
+          )
+          .join(''),
+      )
     }
-    fs.appendFileSync(
-      file,
-      data
-        .map(
-          (d) =>
-            `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${interval}\n`,
-        )
-        .join(''),
-    )
 
     if (sort) {
       const tempDir = `${dir}/${v4()}`
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true })
+      }
+      if (updateProgress) {
+        updateProgress(0, `Start sorting of ${file}`)
       }
       const sortOptions = {
         deserializer,
@@ -114,6 +121,9 @@ if (typeof window === 'undefined') {
       fs.renameSync(sortedFile, file)
 
       fs.rmSync(tempDir, { recursive: true, force: true })
+      if (updateProgress) {
+        updateProgress(1, `End sorting of ${file}`)
+      }
     }
   }
 }
@@ -218,6 +228,14 @@ class Backtesting {
     this.loadFn = loadFn
   }
 
+  public async sortData(
+    updateProgress?: (value: number, text: string) => void,
+  ) {
+    if (this.useFile && saveFile) {
+      await saveFile(this.fileName, [], undefined, true, updateProgress)
+    }
+  }
+
   public async _loadData(
     int?: ExchangeIntervals,
     from?: number,
@@ -252,10 +270,6 @@ class Backtesting {
         } else {
           data = data.concat(fullResult)
         }
-      }
-      if (this.useFile && saveFile) {
-        await saveFile(this.fileName, [], int ?? interval, true)
-        return []
       }
       return data.sort((a, b) => {
         if (a.time === b.time) {
