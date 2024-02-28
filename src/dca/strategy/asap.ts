@@ -93,9 +93,9 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
         ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start)
       ) {
         this.startWorkingShift(bar.time)
-      }
-      for (const _ of [...Array(maxPerSymbol).keys()]) {
-        this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
+        for (const _ of [...Array(maxPerSymbol).keys()]) {
+          this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
+        }
       }
     } else if (
       dealsPerSymbols.length !== 0 &&

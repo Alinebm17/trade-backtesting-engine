@@ -5015,7 +5015,7 @@ export abstract class Strategy implements StrategyInterface {
             : 0,
         dealsPerDay:
           workingDays > 0
-            ? this.math.round(closedDeals.length / workingDays, 1)
+            ? this.math.round(closedDeals.length / workingDays, 1, false, true)
             : 0,
         coveredPriceDeviation: Math.max(
           coveredPriceDeviation(),
