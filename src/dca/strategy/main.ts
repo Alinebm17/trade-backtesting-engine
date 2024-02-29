@@ -2765,7 +2765,7 @@ export abstract class Strategy implements StrategyInterface {
       ? d.symbol.baseAsset.name
       : d.symbol.quoteAsset.name
     let balance = Strategy.balanceForProfit
-    let initialBalance = Strategy.initialBalance
+    const initialBalance = Strategy.initialBalance
     if (profit) {
       Strategy.balance.set(key, (Strategy.balance.get(key) ?? 0) + profit.total)
       Strategy.balanceForProfit += profit.total
