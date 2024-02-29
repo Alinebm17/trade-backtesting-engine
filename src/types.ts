@@ -585,6 +585,7 @@ export interface DCABotSettings extends BaseSettings {
   trailingTpPerc?: string
   maxDealsPerPair?: string
   ignoreStartDeals?: boolean
+  comboTpBase?: ComboTpBase
   useCloseAfterX?: boolean
   closeAfterX?: string
   pair: string[]
@@ -618,6 +619,11 @@ export interface DCABotSettings extends BaseSettings {
   closeByTimerUnits?: CooldownUnits
   maxDealsPerHigherTimeframe?: string
   useMaxDealsPerHigherTimeframe?: boolean
+}
+
+export enum ComboTpBase {
+  full = 'full',
+  filled = 'filled',
 }
 
 export enum BotStartTypeEnum {

@@ -18,6 +18,7 @@ import {
   DCAConditionEnum,
   IndicatorAction,
   OrderSizeTypeEnum,
+  ComboTpBase,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -1433,10 +1434,16 @@ export abstract class Strategy implements StrategyInterface {
       /* this.getUsdRate(deal.symbol.pair, bar.close) */ this.usdRate.get(
         deal.symbol.pair,
       ) ?? 1
-    const usageBase = this.combo ? deal.usage.max.base : deal.usage.current.base
-    const usageQuote = this.combo
-      ? deal.usage.max.quote
-      : deal.usage.current.quote
+    const _usageBase =
+      this.comboBasedOn === ComboTpBase.full
+        ? deal.usage.max.base
+        : deal.usage.current.base
+    const _usageQuote =
+      this.comboBasedOn === ComboTpBase.full
+        ? deal.usage.max.quote
+        : deal.usage.current.quote
+    const usageBase = this.combo ? _usageBase : deal.usage.current.base
+    const usageQuote = this.combo ? _usageQuote : deal.usage.current.quote
     deal.volume = this.math.round(
       (this.futures
         ? this.coinm
@@ -2045,9 +2052,11 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  private updateDeal(d: Deal, b: BarTV) {
+  private updateDeal(d: Deal, b: BarTV, usage = true) {
     d = this.updateDealBalances(d)
-    d = this.updateDealUsage(d)
+    if (usage) {
+      d = this.updateDealUsage(d)
+    }
     d = this.updateDealAvgPrice(d, b.time)
     d = this.updateDealDuration(d, b)
     d = this.updateDealVolume(d)
@@ -2191,7 +2200,7 @@ export abstract class Strategy implements StrategyInterface {
           ...d.activeOrders.filter((o) => o.minigridId !== m.id),
           ...m.activeOrders,
         ]
-        d = this.updateDeal(d, b)
+        d = this.updateDeal(d, b, false)
         if (closed) {
           const order =
             d.filledOrders.find((o) => o.id === m.dcaOrderId) ??
@@ -2207,6 +2216,8 @@ export abstract class Strategy implements StrategyInterface {
             )
           }
           if (order) {
+            d = this.updateDealUsage(d)
+            d = this.updateDealVolume(d)
             d.activeOrders.push({
               ...order,
               filledTime: undefined,
@@ -2392,6 +2403,13 @@ export abstract class Strategy implements StrategyInterface {
     return d
   }
 
+  get comboBasedOn() {
+    return !this.settings.comboTpBase ||
+      this.settings.comboTpBase === ComboTpBase.full
+      ? ComboTpBase.full
+      : ComboTpBase.filled
+  }
+
   private getSLOrder(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
     if (
       this.settings.dealCloseConditionSL !== CloseConditionEnum.tp &&
@@ -2541,16 +2559,22 @@ export abstract class Strategy implements StrategyInterface {
           (this.profitBase ? qty - base : quoteTp - quote) *
             (this.long ? 1 : -1) -
           commission
-
+        const usageBase =
+          this.comboBasedOn === ComboTpBase.full
+            ? d.usage.max.base
+            : d.usage.current.base
+        const usageQuote =
+          this.comboBasedOn === ComboTpBase.full
+            ? d.usage.max.quote
+            : d.usage.current.quote
         const denominator =
           (this.futures
             ? this.coinm
-              ? d.usage.max.base
-              : d.usage.max.quote
+              ? usageBase
+              : usageQuote
             : this.long
-            ? d.usage.max.quote * (this.profitBase ? 1 / d.startPrice : 1)
-            : d.usage.max.base * (this.profitBase ? 1 : d.startPrice)) /
-          this.leverage
+            ? usageQuote * (this.profitBase ? 1 / d.startPrice : 1)
+            : usageBase * (this.profitBase ? 1 : d.startPrice)) / this.leverage
         const perc = total / denominator
         if (
           isFinite(Math.abs(perc)) &&
@@ -2562,10 +2586,10 @@ export abstract class Strategy implements StrategyInterface {
           close = true
           const requiredPrice = this.profitBase
             ? -(quote * (this.long ? 1 : -1)) /
-              (denominator * (slPerc / 100) -
+              (denominator * (slPerc / 100) +
                 commission -
                 qty * (this.long ? 1 : -1))
-            : (denominator * (slPerc / 100) -
+            : (denominator * (slPerc / 100) +
                 commission +
                 quote * (this.long ? 1 : -1)) /
               (qty * (this.long ? 1 : -1))
@@ -2581,15 +2605,16 @@ export abstract class Strategy implements StrategyInterface {
           close = true
           const requiredPrice = this.profitBase
             ? -(quote * (this.long ? 1 : -1)) /
-              (denominator * (tpPerc / 100) -
+              (denominator * (tpPerc / 100) +
                 commission -
                 qty * (this.long ? 1 : -1))
-            : (denominator * (tpPerc / 100) -
+            : (denominator * (tpPerc / 100) +
                 commission +
                 quote * (this.long ? 1 : -1)) /
               (qty * (this.long ? 1 : -1))
           closePrice = requiredPrice
         }
+
         /* if (close) {
           console.log(
             b,
@@ -3762,14 +3787,22 @@ export abstract class Strategy implements StrategyInterface {
     const total = pureProfit
 
     const totalUsd = total * usdRate
+    const usageBase =
+      this.comboBasedOn === ComboTpBase.full
+        ? d.usage.max.base
+        : d.usage.current.base
+    const usageQuote =
+      this.comboBasedOn === ComboTpBase.full
+        ? d.usage.max.quote
+        : d.usage.current.quote
     const denominator = this.combo
       ? this.futures
         ? this.coinm
-          ? d.usage.max.base
-          : d.usage.max.quote
+          ? usageBase
+          : usageQuote
         : this.long
-        ? d.usage.max.quote * (this.profitBase ? 1 / d.startPrice : 1)
-        : d.usage.max.base * (this.profitBase ? 1 : d.startPrice)
+        ? usageQuote * (this.profitBase ? 1 / d.startPrice : 1)
+        : usageBase * (this.profitBase ? 1 : d.startPrice)
       : this.profitBase
       ? base
       : quote
