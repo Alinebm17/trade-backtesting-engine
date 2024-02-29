@@ -179,13 +179,14 @@ class DCABacktesting extends Backtesting {
           })
         }
       }
-      await this.sortData(updateProgress)
     }
+    const start = new Date().getTime()
+    await this.sortData(updateProgress)
     if (loadDataCallBack) {
       loadDataCallBack()
     }
     const loadingTime = (new Date().getTime() - startLoading) / 1000
-    const start = new Date().getTime()
+
     const startTime = /* bars
       ?  */ Math.max(
       testData[0]?.bar?.[0]?.time ?? this.period.from * 1000,

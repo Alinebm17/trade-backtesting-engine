@@ -106,6 +106,7 @@ if (typeof window === 'undefined') {
         deserializer,
         serializer,
         tempDir,
+        maxHeap: 10000,
       }
       await esort({
         ...sortOptions,
