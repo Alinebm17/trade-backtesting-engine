@@ -123,7 +123,7 @@ if (typeof window === 'undefined') {
 
       fs.rmSync(tempDir, { recursive: true, force: true })
       if (updateProgress) {
-        updateProgress(1, `End sorting of ${file}`)
+        updateProgress(0, `End sorting of ${file}`)
       }
     }
   }
