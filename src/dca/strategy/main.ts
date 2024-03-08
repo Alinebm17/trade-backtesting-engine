@@ -5070,8 +5070,7 @@ export abstract class Strategy implements StrategyInterface {
           perc: this.math.round(
             ((buyAndHold?.buyAndHold ?? 0) /
               (buyAndHold?.buyAndHoldUsage ?? 1)) *
-              100 *
-              this.leverage,
+              100,
             2,
           ),
         },

@@ -157,7 +157,7 @@ class DCABacktesting extends Backtesting {
         const data = await this._loadData()
         testData = [{ bar: data, interval: this.interval }]
       } else {
-        let i = 1
+        let i = 0
         for (const oi of otherIntervals) {
           await this._loadData(
             oi.interval,
