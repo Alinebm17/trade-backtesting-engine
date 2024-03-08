@@ -261,7 +261,7 @@ class Backtesting {
           resolution,
           periodToUse,
           this.exchange,
-          (index ?? 1) * (symbols.size === 1 ? 1 : index ?? 1) + si,
+          (index ?? 0) * symbols.size + si,
           (total ?? 1) * symbols.size,
         )
         si++
