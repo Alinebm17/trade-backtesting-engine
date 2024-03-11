@@ -3072,10 +3072,9 @@ export abstract class Strategy implements StrategyInterface {
             [DCAOrderTypeEnum.tp, DCAOrderTypeEnum.sl].includes(fo.type),
         )
         const quote = this.combo
-          ? (this.long
-              ? o.initialBalance.quote - o.currentBalance.quote
-              : o.currentBalance.quote) +
-            (this.profitBase ? 0 : o.profit.total * (this.long ? 1 : -1))
+          ? this.long
+            ? o.initialBalance.quote - o.currentBalance.quote
+            : o.currentBalance.quote
           : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
             filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
         const base = this.combo
@@ -3084,9 +3083,7 @@ export abstract class Strategy implements StrategyInterface {
             : o.initialBalance.base - o.currentBalance.base
           : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
             filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
-        const comboBase =
-          quote / tpPrice +
-          (this.profitBase ? o.profit.total * (this.long ? 1 : -1) : 0)
+        const comboBase = quote / tpPrice
         const quoteTp = qty * tpPrice
         const commission = this.combo
           ? this.profitBase
