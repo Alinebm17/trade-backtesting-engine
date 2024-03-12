@@ -630,7 +630,7 @@ export abstract class Strategy implements StrategyInterface {
     const { useMulti, maxDealsPerPair } = this.settings
     if (useMulti && maxDealsPerPair && maxDealsPerPair !== '') {
       const max = +maxDealsPerPair
-      if (max && !isNaN(max) && max > 0) {
+      if (!isNaN(max) && max >= 0) {
         const symbolDealsLength = Strategy.getDeals('open', symbol).length
         if (symbolDealsLength < max) {
           return true
@@ -645,7 +645,7 @@ export abstract class Strategy implements StrategyInterface {
     const { maxNumberOfOpenDeals } = this.settings
     if (maxNumberOfOpenDeals && maxNumberOfOpenDeals !== '') {
       const max = +maxNumberOfOpenDeals
-      if (max && !isNaN(max) && max > 0) {
+      if (!isNaN(max) && max >= 0) {
         const dealsLength = Strategy.getDeals('open').length
         if (dealsLength < max) {
           if (this.checkMaxDealsPerPair(symbol)) {
@@ -655,7 +655,7 @@ export abstract class Strategy implements StrategyInterface {
         return false
       }
     }
-    return true
+    return this.checkMaxDealsPerPair(symbol)
   }
 
   private convertCooldown(interval?: number, units?: CooldownUnits) {
@@ -1374,7 +1374,7 @@ export abstract class Strategy implements StrategyInterface {
         maxNumberOfOpenDeals &&
         maxNumberOfOpenDeals !== '' &&
         !isNaN(+maxNumberOfOpenDeals) &&
-        +maxNumberOfOpenDeals > 0 &&
+        +maxNumberOfOpenDeals >= 0 &&
         (Strategy.multi || (!Strategy.multi && !useMulti))
       ) {
         balance *= +maxNumberOfOpenDeals
@@ -1384,7 +1384,7 @@ export abstract class Strategy implements StrategyInterface {
         maxDealsPerPair &&
         maxDealsPerPair !== '' &&
         !isNaN(+maxDealsPerPair) &&
-        +maxDealsPerPair > 0 &&
+        +maxDealsPerPair >= 0 &&
         !Strategy.multi &&
         useMulti
       ) {
@@ -3033,7 +3033,7 @@ export abstract class Strategy implements StrategyInterface {
     return Strategy.portfolio.set(time, val)
   }
 
-  private checkPortfolio(time: number, _price: number, symbol: string) {
+  public checkPortfolio(time: number, _price: number, symbol: string) {
     const openDeal = Strategy.getDeals('open', symbol)
     const fullSymbol = this.symbols.get(symbol)
     const baseBalance =
@@ -3051,7 +3051,6 @@ export abstract class Strategy implements StrategyInterface {
       return this.replacePortfolioValue(time, balanceUsd, shared)
     }
     let value = 0
-
     if (!this.futures) {
       for (const o of openDeal) {
         const price = _price
@@ -4207,7 +4206,7 @@ export abstract class Strategy implements StrategyInterface {
       maxNumberOfOpenDealsString &&
       maxNumberOfOpenDealsString !== '' &&
       !isNaN(+maxNumberOfOpenDealsString) &&
-      +maxNumberOfOpenDealsString > 0 &&
+      +maxNumberOfOpenDealsString >= 0 &&
       (Strategy.multi || (!Strategy.multi && !useMulti))
     ) {
       maxNumberOfOpenDeals = +maxNumberOfOpenDealsString
@@ -4216,7 +4215,7 @@ export abstract class Strategy implements StrategyInterface {
       maxDealsPerPair &&
       maxDealsPerPair !== '' &&
       !isNaN(+maxDealsPerPair) &&
-      +maxDealsPerPair > 0 &&
+      +maxDealsPerPair >= 0 &&
       !Strategy.multi &&
       useMulti
     ) {
@@ -4330,10 +4329,9 @@ export abstract class Strategy implements StrategyInterface {
               [DCAOrderTypeEnum.tp, DCAOrderTypeEnum.sl].includes(fo.type),
           )
           const quote = this.combo
-            ? (this.long
-                ? od.initialBalance.quote - od.currentBalance.quote
-                : od.currentBalance.quote) +
-              (this.profitBase ? 0 : od.profit.total * (this.long ? 1 : -1))
+            ? this.long
+              ? od.initialBalance.quote - od.currentBalance.quote
+              : od.currentBalance.quote
             : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
           const base = this.combo
@@ -4342,9 +4340,7 @@ export abstract class Strategy implements StrategyInterface {
               : od.initialBalance.base - od.currentBalance.base
             : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
-          const comboBase =
-            quote / tpPrice +
-            (this.profitBase ? od.profit.total * (this.long ? 1 : -1) : 0)
+          const comboBase = quote / tpPrice
           const quoteTp = qty * tpPrice
           const commission = this.combo
             ? this.profitBase
@@ -4540,7 +4536,7 @@ export abstract class Strategy implements StrategyInterface {
           ),
         ) *
         this.getRate() *
-        +(this.settings.maxDealsPerPair ?? '1')
+        Math.max(1, +(this.settings.maxDealsPerPair ?? '1'))
       const profitDealsStats = deals.filter(
         (d) => d.profit.total > 0 && d.status === 'closed',
       )
