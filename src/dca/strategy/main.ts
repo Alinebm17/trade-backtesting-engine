@@ -3033,7 +3033,7 @@ export abstract class Strategy implements StrategyInterface {
     return Strategy.portfolio.set(time, val)
   }
 
-  private checkPortfolio(time: number, _price: number, symbol: string) {
+  public checkPortfolio(time: number, _price: number, symbol: string) {
     const openDeal = Strategy.getDeals('open', symbol)
     const fullSymbol = this.symbols.get(symbol)
     const baseBalance =
@@ -3051,7 +3051,6 @@ export abstract class Strategy implements StrategyInterface {
       return this.replacePortfolioValue(time, balanceUsd, shared)
     }
     let value = 0
-
     if (!this.futures) {
       for (const o of openDeal) {
         const price = _price
@@ -4330,10 +4329,9 @@ export abstract class Strategy implements StrategyInterface {
               [DCAOrderTypeEnum.tp, DCAOrderTypeEnum.sl].includes(fo.type),
           )
           const quote = this.combo
-            ? (this.long
-                ? od.initialBalance.quote - od.currentBalance.quote
-                : od.currentBalance.quote) +
-              (this.profitBase ? 0 : od.profit.total * (this.long ? 1 : -1))
+            ? this.long
+              ? od.initialBalance.quote - od.currentBalance.quote
+              : od.currentBalance.quote
             : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
           const base = this.combo
@@ -4342,9 +4340,7 @@ export abstract class Strategy implements StrategyInterface {
               : od.initialBalance.base - od.currentBalance.base
             : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
-          const comboBase =
-            quote / tpPrice +
-            (this.profitBase ? od.profit.total * (this.long ? 1 : -1) : 0)
+          const comboBase = quote / tpPrice
           const quoteTp = qty * tpPrice
           const commission = this.combo
             ? this.profitBase

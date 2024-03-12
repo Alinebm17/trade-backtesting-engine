@@ -89,11 +89,15 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
     const dealsPerSymbols = Strategy.getDeals(undefined, bar.symbol)
     if (dealsPerSymbols.length === 0) {
       if ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start) {
-        if (Strategy.workingShift.length === 0) {
+        const newShift = Strategy.workingShift.length === 0
+        if (newShift) {
           this.startWorkingShift(bar.time)
         }
         for (const _ of [...Array(maxPerSymbol).keys()]) {
           this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
+        }
+        if (newShift) {
+          this.checkPortfolio(bar.time, bar.close, bar.symbol)
         }
       }
     } else if (
