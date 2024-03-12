@@ -630,7 +630,7 @@ export abstract class Strategy implements StrategyInterface {
     const { useMulti, maxDealsPerPair } = this.settings
     if (useMulti && maxDealsPerPair && maxDealsPerPair !== '') {
       const max = +maxDealsPerPair
-      if (max && !isNaN(max) && max > 0) {
+      if (!isNaN(max) && max >= 0) {
         const symbolDealsLength = Strategy.getDeals('open', symbol).length
         if (symbolDealsLength < max) {
           return true
@@ -645,7 +645,7 @@ export abstract class Strategy implements StrategyInterface {
     const { maxNumberOfOpenDeals } = this.settings
     if (maxNumberOfOpenDeals && maxNumberOfOpenDeals !== '') {
       const max = +maxNumberOfOpenDeals
-      if (max && !isNaN(max) && max > 0) {
+      if (!isNaN(max) && max >= 0) {
         const dealsLength = Strategy.getDeals('open').length
         if (dealsLength < max) {
           if (this.checkMaxDealsPerPair(symbol)) {
@@ -655,7 +655,7 @@ export abstract class Strategy implements StrategyInterface {
         return false
       }
     }
-    return true
+    return this.checkMaxDealsPerPair(symbol)
   }
 
   private convertCooldown(interval?: number, units?: CooldownUnits) {
@@ -1374,7 +1374,7 @@ export abstract class Strategy implements StrategyInterface {
         maxNumberOfOpenDeals &&
         maxNumberOfOpenDeals !== '' &&
         !isNaN(+maxNumberOfOpenDeals) &&
-        +maxNumberOfOpenDeals > 0 &&
+        +maxNumberOfOpenDeals >= 0 &&
         (Strategy.multi || (!Strategy.multi && !useMulti))
       ) {
         balance *= +maxNumberOfOpenDeals
@@ -1384,7 +1384,7 @@ export abstract class Strategy implements StrategyInterface {
         maxDealsPerPair &&
         maxDealsPerPair !== '' &&
         !isNaN(+maxDealsPerPair) &&
-        +maxDealsPerPair > 0 &&
+        +maxDealsPerPair >= 0 &&
         !Strategy.multi &&
         useMulti
       ) {
@@ -4206,7 +4206,7 @@ export abstract class Strategy implements StrategyInterface {
       maxNumberOfOpenDealsString &&
       maxNumberOfOpenDealsString !== '' &&
       !isNaN(+maxNumberOfOpenDealsString) &&
-      +maxNumberOfOpenDealsString > 0 &&
+      +maxNumberOfOpenDealsString >= 0 &&
       (Strategy.multi || (!Strategy.multi && !useMulti))
     ) {
       maxNumberOfOpenDeals = +maxNumberOfOpenDealsString
@@ -4215,7 +4215,7 @@ export abstract class Strategy implements StrategyInterface {
       maxDealsPerPair &&
       maxDealsPerPair !== '' &&
       !isNaN(+maxDealsPerPair) &&
-      +maxDealsPerPair > 0 &&
+      +maxDealsPerPair >= 0 &&
       !Strategy.multi &&
       useMulti
     ) {
@@ -4536,7 +4536,7 @@ export abstract class Strategy implements StrategyInterface {
           ),
         ) *
         this.getRate() *
-        +(this.settings.maxDealsPerPair ?? '1')
+        Math.max(1, +(this.settings.maxDealsPerPair ?? '1'))
       const profitDealsStats = deals.filter(
         (d) => d.profit.total > 0 && d.status === 'closed',
       )
