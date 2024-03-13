@@ -104,6 +104,7 @@ export interface StrategyInterface {
     high: number,
     low: number,
     symbol: string,
+    onlyReturn?: boolean,
   ): void
   checkDeals(
     checkPortfolio: boolean,
@@ -1047,14 +1048,14 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private checkCloseAfterX() {
-    if (!Strategy.edge) {
+    if (Strategy.edge) {
       return true
     }
     if (this.settings.useCloseAfterX && this.settings.closeAfterX) {
-      return Strategy.getDeals('closed').length <= +this.settings.closeAfterX
+      return Strategy.getDeals('closed').length < +this.settings.closeAfterX
     }
     if (this.settings.useCloseAfterXopen && this.settings.closeAfterXopen) {
-      return Strategy.getDeals().length <= +this.settings.closeAfterXopen
+      return Strategy.getDeals().length < +this.settings.closeAfterXopen
     }
     return true
   }
@@ -1087,7 +1088,9 @@ export abstract class Strategy implements StrategyInterface {
     if (!symbol || !botFunctions) {
       return
     }
-    Strategy.lastOpenedDeal = startTime
+    if (!onlyReturn) {
+      Strategy.lastOpenedDeal = startTime
+    }
     let orderPrice = this.slippage
       ? price * (1 + ((this.long ? 1 : -1) * this.slippage) / 100)
       : price
@@ -3197,12 +3200,17 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.lowestDataForBnH.set(b.time, b)
     }
     const fullSymbol = this.symbols.get(b.symbol)
-    if (
-      fullSymbol &&
-      (!Strategy.balance.has(fullSymbol.baseAsset.name) ||
-        !Strategy.balance.has(fullSymbol.quoteAsset.name))
-    ) {
-      this.openDeal(b.close, b.time, b.high, b.low, b.symbol, true)
+    if (fullSymbol) {
+      const key = this.futures
+        ? this.coinm
+          ? fullSymbol.baseAsset.name
+          : fullSymbol.quoteAsset.name
+        : this.long
+        ? fullSymbol.quoteAsset.name
+        : fullSymbol.baseAsset.name
+      if (!Strategy.balance.has(key)) {
+        this.openDeal(b.close, b.time, b.high, b.low, b.symbol, true)
+      }
     }
     if (checkPortfolio) {
       this.checkPortfolio(b.time, b.close, b.symbol)
@@ -4284,7 +4292,6 @@ export abstract class Strategy implements StrategyInterface {
       (acc, d) => (acc += d.profit.totalUsd),
       0,
     )
-    console.log(allDeals)
     const avgUsable =
       allDeals.length > 0
         ? this.math.round(
