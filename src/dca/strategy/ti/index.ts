@@ -622,7 +622,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
         }
       }
     }
-    const isProcess = bar.time >= Strategy.start
+    let isProcess = bar.time >= Strategy.start
+    if (Strategy.useFile) {
+      isProcess = isProcess && interval === Strategy.lowestInterval
+    }
     if (!isProcess) {
       return
     }
