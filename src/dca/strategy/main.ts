@@ -3413,7 +3413,7 @@ export abstract class Strategy implements StrategyInterface {
         d.initialBalance.quote
       usage = this.futures
         ? this.coinm
-          ? d.usage.current.quote / b.high
+          ? d.usage.current.base * b.high
           : d.usage.current.quote
         : d.usage.current.quote
     }
@@ -3436,7 +3436,18 @@ export abstract class Strategy implements StrategyInterface {
     ) {
       const trigger = +this.settings.moveSLTrigger / 100
       const value = +this.settings.moveSLValue / 100
-      if (unPnL / usage - this.userFee * 2 >= trigger) {
+      console.log(unPnL, usage, unPnL / usage)
+      const last = this.long ? b.low : b.high
+      const { avgPrice } = d
+      const diff = this.long
+        ? last - (avgPrice ?? last)
+        : (avgPrice ?? last) - last
+      const perc = diff / (avgPrice ?? 0)
+      if (
+        !isNaN(perc) &&
+        isFinite(perc) &&
+        perc - this.userFee * 2 >= trigger
+      ) {
         d.changed = true
         d.slPerc = value
         d.moveSlActivated = true
