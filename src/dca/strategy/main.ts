@@ -19,6 +19,7 @@ import {
   IndicatorAction,
   OrderSizeTypeEnum,
   ComboTpBase,
+  CooldownOptionsEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -258,6 +259,10 @@ export abstract class Strategy implements StrategyInterface {
 
   static lastClosedDeal = 0
 
+  static lastOpenedDealPerSymbol: Map<string, number> = new Map()
+
+  static lastClosedDealPerSymbol: Map<string, number> = new Map()
+
   static lowestInterval?: ExchangeIntervals
 
   static highestInterval?: ExchangeIntervals
@@ -362,6 +367,8 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.dealsBySymbolsStatusId = new Map()
     Strategy.lowestDataForBnHSymbol = ''
     Strategy.lowestDataForBnH = new Map()
+    Strategy.lastClosedDealPerSymbol = new Map()
+    Strategy.lastOpenedDealPerSymbol = new Map()
   }
 
   static position: Map<string, typeof Strategy.emptyPositon> = new Map()
@@ -675,10 +682,18 @@ export abstract class Strategy implements StrategyInterface {
     )
   }
 
-  private checkCooldownStart(time: number) {
+  private checkCooldownStart(time: number, symbol: string) {
     if (this.settings.cooldownAfterDealStart) {
+      const cooldownAfterDealStartOption =
+        this.settings.cooldownAfterDealStartOption && this.settings.useMulti
+          ? this.settings.cooldownAfterDealStartOption
+          : CooldownOptionsEnum.bot
+      const lastTime =
+        cooldownAfterDealStartOption === CooldownOptionsEnum.bot
+          ? Strategy.lastOpenedDeal
+          : Strategy.lastOpenedDealPerSymbol.get(symbol) ?? 0
       return (
-        time - Strategy.lastOpenedDeal >=
+        time - lastTime >=
         this.convertCooldown(
           this.settings.cooldownAfterDealStartInterval,
           this.settings.cooldownAfterDealStartUnits,
@@ -688,10 +703,17 @@ export abstract class Strategy implements StrategyInterface {
     return true
   }
 
-  private checkCooldownStop(time: number) {
+  private checkCooldownStop(time: number, symbol: string) {
     if (this.settings.cooldownAfterDealStop) {
+      const cooldownAfterDealStartOption =
+        this.settings.cooldownAfterDealStopOption && this.settings.useMulti
+          ? this.settings.cooldownAfterDealStopOption
+          : CooldownOptionsEnum.bot
       return (
-        time - Strategy.lastClosedDeal >=
+        time -
+          (cooldownAfterDealStartOption === CooldownOptionsEnum.bot
+            ? Strategy.lastClosedDeal
+            : Strategy.lastClosedDealPerSymbol.get(symbol) ?? 0) >=
         this.convertCooldown(
           this.settings.cooldownAfterDealStopInterval,
           this.settings.cooldownAfterDealStopUnits,
@@ -1071,10 +1093,10 @@ export abstract class Strategy implements StrategyInterface {
     if (!this.checkCloseAfterX()) {
       return
     }
-    if (!this.checkCooldownStart(startTime)) {
+    if (!this.checkCooldownStart(startTime, s)) {
       return
     }
-    if (!this.checkCooldownStop(startTime)) {
+    if (!this.checkCooldownStop(startTime, s)) {
       return
     }
     if (!this.checkInRange(price, startTime)) {
@@ -1090,6 +1112,7 @@ export abstract class Strategy implements StrategyInterface {
     }
     if (!onlyReturn) {
       Strategy.lastOpenedDeal = startTime
+      Strategy.lastOpenedDealPerSymbol.set(s, startTime)
     }
     let orderPrice = this.slippage
       ? price * (1 + ((this.long ? 1 : -1) * this.slippage) / 100)
@@ -2907,6 +2930,7 @@ export abstract class Strategy implements StrategyInterface {
     }
     Strategy.previousDeal = d
     Strategy.lastClosedDeal = b.time
+    Strategy.lastClosedDealPerSymbol.set(d.symbol.pair, b.time)
     return { deal: d, closePrice }
   }
 
@@ -3404,29 +3428,6 @@ export abstract class Strategy implements StrategyInterface {
     if (botFunctions.isTrailingSl /* || botFunctions.isTrailingTp */) {
       return d
     }
-    let unPnL = 0
-    let usage = 0
-    if (this.long) {
-      unPnL =
-        d.currentBalance.base * b.high +
-        d.currentBalance.quote -
-        d.initialBalance.quote
-      usage = this.futures
-        ? this.coinm
-          ? d.usage.current.base * b.high
-          : d.usage.current.quote
-        : d.usage.current.quote
-    }
-    if (!this.long) {
-      unPnL =
-        d.currentBalance.quote -
-        (d.initialBalance.base - d.currentBalance.base) * b.low
-      usage = this.futures
-        ? this.coinm
-          ? d.usage.current.base * b.low
-          : d.usage.current.quote
-        : d.usage.current.base * b.low
-    }
     if (
       this.settings.moveSL &&
       typeof this.settings.moveSLTrigger !== 'undefined' &&
@@ -3436,7 +3437,6 @@ export abstract class Strategy implements StrategyInterface {
     ) {
       const trigger = +this.settings.moveSLTrigger / 100
       const value = +this.settings.moveSLValue / 100
-      console.log(unPnL, usage, unPnL / usage)
       const last = this.long ? b.low : b.high
       const { avgPrice } = d
       const diff = this.long

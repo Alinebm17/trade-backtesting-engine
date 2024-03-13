@@ -537,6 +537,11 @@ export type DCACustom = {
   uuid: string
 }
 
+export enum CooldownOptionsEnum {
+  symbol = 'symbol',
+  bot = 'bot',
+}
+
 export interface DCABotSettings extends BaseSettings {
   dcaCondition?: DCAConditionEnum
   dcaCustom?: DCACustom[]
@@ -573,9 +578,11 @@ export interface DCABotSettings extends BaseSettings {
   cooldownAfterDealStart?: boolean
   cooldownAfterDealStartUnits?: CooldownUnits
   cooldownAfterDealStartInterval?: number
+  cooldownAfterDealStartOption?: CooldownOptionsEnum
   cooldownAfterDealStop?: boolean
   cooldownAfterDealStopUnits?: CooldownUnits
   cooldownAfterDealStopInterval?: number
+  cooldownAfterDealStopOption?: CooldownOptionsEnum
   moveSL?: boolean
   moveSLTrigger?: string
   moveSLValue?: string
