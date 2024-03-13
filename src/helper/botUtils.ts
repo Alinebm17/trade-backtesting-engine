@@ -306,6 +306,7 @@ class BotUtils {
     all = false,
     nosplice = false,
     feeToSell = false,
+    overrideRound?: boolean,
   ): Grid[] {
     const useStart =
       !forceLocal &&
@@ -319,7 +320,8 @@ class BotUtils {
     const B = updatedBudget
       ? +budget
       : parseFloat(`${budget}`) / (1 + userFee * 100)
-    const f = 1 + userFee
+    const f =
+      typeof overrideRound !== 'undefined' ? 1 : futures ? 1 : 1 + userFee
     let grids: Grid[] = []
     const quotedAssetPrecision = this.getBaseAssetPrecision(symbol)
     let qty = 0
@@ -438,14 +440,14 @@ class BotUtils {
             (quoteAmount / p) * f,
             quotedAssetPrecision,
             false,
-            !futures,
+            overrideRound ?? !futures,
           )
           if (buyQty < symbol.baseAsset.minAmount) {
             buyQty = this.math.round(
               symbol.baseAsset.minAmount * f,
               quotedAssetPrecision,
               false,
-              !futures,
+              overrideRound ?? !futures,
             )
           }
           if (i !== 0) {
@@ -453,7 +455,7 @@ class BotUtils {
               quoteAmount / prices[i - 1].buy,
               quotedAssetPrecision,
               false,
-              !futures,
+              overrideRound ?? !futures,
             )
             sellQty = this.math.round(
               (prevBuyQty * prices[i - 1].buy) / p,
@@ -476,30 +478,30 @@ class BotUtils {
           buyQty = this.math.round(
             (quoteAmount / p) * (feeToSell ? 1 : f),
             quotedAssetPrecision,
-            !futures && feeToSell,
-            !futures,
+            overrideRound ?? (!futures && feeToSell),
+            overrideRound ?? !futures,
           )
           if (buyQty * p < symbol.quoteAsset.minAmount) {
             buyQty = this.math.round(
               (symbol.quoteAsset.minAmount / p) * (feeToSell ? 1 : f),
               quotedAssetPrecision,
-              !futures && feeToSell,
-              !futures,
+              overrideRound ?? (!futures && feeToSell),
+              overrideRound ?? !futures,
             )
           }
           if (buyQty < symbol.baseAsset.minAmount) {
             buyQty = this.math.round(
               symbol.baseAsset.minAmount * (feeToSell ? 1 : f),
               quotedAssetPrecision,
-              !futures && feeToSell,
-              !futures,
+              overrideRound ?? (!futures && feeToSell),
+              overrideRound ?? !futures,
             )
           }
           if (i !== 0) {
             sellQty = this.math.round(
               (quoteAmount / prices[i - 1].buy) * (feeToSell ? 2 - f : 1),
               quotedAssetPrecision,
-              !futures,
+              overrideRound ?? !futures,
             )
             if (sellQty * p < symbol.quoteAsset.minAmount) {
               sellQty = this.math.round(
@@ -514,7 +516,7 @@ class BotUtils {
               ((buyQty * (1 + gs)) / (feeToSell ? 1 : f)) *
                 (feeToSell ? 2 - f : 1),
               quotedAssetPrecision,
-              !futures,
+              overrideRound ?? !futures,
             )
           }
           if (sellQty < symbol.baseAsset.minAmount) {
@@ -528,7 +530,7 @@ class BotUtils {
             baseAmount,
             quotedAssetPrecision,
             combo,
-            !futures,
+            overrideRound ?? !futures,
           )
         }
       }
@@ -540,7 +542,12 @@ class BotUtils {
         qty = symbol.baseAsset.minAmount
       }
       if (side === 'BUY' && !futures) {
-        qty = this.math.round(qty * f, quotedAssetPrecision, false, !futures)
+        qty = this.math.round(
+          qty * f,
+          quotedAssetPrecision,
+          false,
+          overrideRound ?? !futures,
+        )
       }
       let gridQty = same ? (side === 'SELL' ? sellQty : buyQty) : qty
       const mod = this.tradesBacktest
@@ -551,7 +558,7 @@ class BotUtils {
           gridQty - mod + symbol.baseAsset.step,
           quotedAssetPrecision,
           false,
-          true,
+          overrideRound ?? true,
         )
       }
       const grid = {

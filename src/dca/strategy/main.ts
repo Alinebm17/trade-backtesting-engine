@@ -820,8 +820,13 @@ export abstract class Strategy implements StrategyInterface {
       combo: true,
       _side: side,
     }
+    const feeOrder = settings.futures
+      ? undefined
+      : typeof settings.feeOrder !== 'undefined' && settings.feeOrder
+      ? false
+      : undefined
     const grids: DCAGrid[] = botFunctions.utils
-      .createGridOrders(gridSettings, true, false, !long)
+      .createGridOrders(gridSettings, true, false, !long, feeOrder)
       .map((g) => ({
         ...g,
         type: DCAOrderTypeEnum.grid,
@@ -3071,9 +3076,10 @@ export abstract class Strategy implements StrategyInterface {
             [DCAOrderTypeEnum.tp, DCAOrderTypeEnum.sl].includes(fo.type),
         )
         const quote = this.combo
-          ? this.long
-            ? o.initialBalance.quote - o.currentBalance.quote
-            : o.currentBalance.quote
+          ? (this.long
+              ? o.initialBalance.quote - o.currentBalance.quote
+              : o.currentBalance.quote) +
+            (this.profitBase ? 0 : o.profit.total * (this.long ? 1 : -1))
           : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
             filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
         const base = this.combo
@@ -3082,7 +3088,9 @@ export abstract class Strategy implements StrategyInterface {
             : o.initialBalance.base - o.currentBalance.base
           : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
             filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
-        const comboBase = quote / tpPrice
+        const comboBase =
+          quote / tpPrice +
+          (this.profitBase ? o.profit.total * (this.long ? 1 : -1) : 0)
         const quoteTp = qty * tpPrice
         const commission = this.combo
           ? this.profitBase
@@ -4276,6 +4284,7 @@ export abstract class Strategy implements StrategyInterface {
       (acc, d) => (acc += d.profit.totalUsd),
       0,
     )
+    console.log(allDeals)
     const avgUsable =
       allDeals.length > 0
         ? this.math.round(
@@ -4329,9 +4338,10 @@ export abstract class Strategy implements StrategyInterface {
               [DCAOrderTypeEnum.tp, DCAOrderTypeEnum.sl].includes(fo.type),
           )
           const quote = this.combo
-            ? this.long
-              ? od.initialBalance.quote - od.currentBalance.quote
-              : od.currentBalance.quote
+            ? (this.long
+                ? od.initialBalance.quote - od.currentBalance.quote
+                : od.currentBalance.quote) +
+              (this.profitBase ? 0 : od.profit.total * (this.long ? 1 : -1))
             : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
           const base = this.combo
@@ -4340,7 +4350,9 @@ export abstract class Strategy implements StrategyInterface {
               : od.initialBalance.base - od.currentBalance.base
             : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) -
               filledTPOrders.reduce((acc, fo) => (acc += fo.qty), 0)
-          const comboBase = quote / tpPrice
+          const comboBase =
+            quote / tpPrice +
+            (this.profitBase ? od.profit.total * (this.long ? 1 : -1) : 0)
           const quoteTp = qty * tpPrice
           const commission = this.combo
             ? this.profitBase

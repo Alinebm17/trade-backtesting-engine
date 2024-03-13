@@ -619,6 +619,7 @@ export interface DCABotSettings extends BaseSettings {
   closeByTimerUnits?: CooldownUnits
   maxDealsPerHigherTimeframe?: string
   useMaxDealsPerHigherTimeframe?: boolean
+  feeOrder?: boolean
 }
 
 export enum ComboTpBase {

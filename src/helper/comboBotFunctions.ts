@@ -60,6 +60,11 @@ class ComboBotFunctions extends DcaBotFunctions {
     ) {
       return []
     }
+    const feeOrder = settings.futures
+      ? undefined
+      : typeof settings.feeOrder !== 'undefined' && settings.feeOrder
+      ? false
+      : undefined
     let baseQty =
       orderSizeType === OrderSizeTypeEnum.base
         ? this.math.round(baseOrderSize, precision, true)
@@ -241,7 +246,7 @@ class ComboBotFunctions extends DcaBotFunctions {
       levels: `${+(settings.baseGridLevels ?? '1')}`,
     }
     let grids: DCAGrid[] = this.utils
-      .createGridOrders(baseGridSettings, true)
+      .createGridOrders(baseGridSettings, true, feeOrder)
       .map((g) => ({
         ...g,
         type: DCAOrderTypeEnum.grid,
@@ -313,6 +318,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                     }`,
                   },
                   true,
+                  feeOrder,
                 )
                 .map((g) => ({ ...g, type: DCAOrderTypeEnum.grid }))
         baseOrder.qty =
@@ -492,6 +498,7 @@ class ComboBotFunctions extends DcaBotFunctions {
               budget: `${minigridBudget}`,
             },
             true,
+            feeOrder,
           )
           .map((g) => ({
             ...g,
@@ -574,6 +581,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                         }`,
                       },
                       true,
+                      feeOrder,
                     )
                     .map((g) => ({
                       ...g,
