@@ -99,6 +99,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     Strategy.lowestInterval = lowest.interval
     Strategy.interval = lowest.interval
     await this.preTest()
+    const last: Map<string, FullBar> = new Map()
     if (Strategy.useFile) {
       const fs = require('fs')
       const path = require('path')
@@ -144,6 +145,15 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
               updateProgress,
               size,
             )
+            if (Strategy.lowestInterval === bar.interval) {
+              last.set(bar.symbol, bar)
+            }
+          }
+          for (const b of last.values()) {
+            if (Strategy.portfolio.has(b.time)) {
+              continue
+            }
+            this.checkPortfolio(b.time, b.close, b.symbol)
           }
           return
         }
@@ -158,6 +168,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
       if (checkPortfolio) {
         current.set(b.symbol, _current + step)
       }
+      last.set(b.symbol, b)
       await this.processBar(
         checkPortfolio,
         b,
@@ -165,6 +176,12 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
         updateProgress,
         lowest.bar.length,
       )
+    }
+    for (const b of last.values()) {
+      if (Strategy.portfolio.has(b.time)) {
+        continue
+      }
+      this.checkPortfolio(b.time, b.close, b.symbol)
     }
   }
 
