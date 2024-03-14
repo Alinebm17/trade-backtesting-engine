@@ -111,9 +111,12 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
         this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
       }
     } else {
-      await this.checkDeals(checkPortfolio, bar, (price: number) =>
-        this.openDeal(price, bar.time, bar.high, bar.low, bar.symbol),
-      )
+      await this.checkDeals(checkPortfolio, bar, (price: number) => {
+        this.openDeal(price, bar.time, bar.high, bar.low, bar.symbol)
+        if (Strategy.combo) {
+          this.checkDeals(false, bar)
+        }
+      })
     }
   }
 }
