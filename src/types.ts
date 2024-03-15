@@ -755,6 +755,14 @@ export enum ExchangeEnum {
   paperOkxSpot = 'paperOkxSpot',
   coinbase = 'coinbase',
   paperCoinbase = 'paperCoinbase',
+  kucoinInverse = 'kucoinInverse',
+  kucoinLinear = 'kucoinLinear',
+  paperKucoinInverse = 'paperKucoinInverse',
+  paperKucoinLinear = 'paperKucoinLinear',
+  kucoinAll = 'kucoinAll',
+  paperKucoinAll = 'paperKucoinAll',
+  kucoinSpot = 'kucoinSpot',
+  paperKucoinSpot = 'paperKucoinSpot',
 }
 
 export type DCAGrid = {
