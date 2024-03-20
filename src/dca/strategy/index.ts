@@ -1,4 +1,5 @@
 import {
+  BotStartTypeEnum,
   CloseConditionEnum,
   DCAConditionEnum,
   StartConditionEnum,
@@ -36,7 +37,9 @@ const getStrategyBySettings = (
       settings.startCondition !== StartConditionEnum.ti) ||
     (settings.dcaCondition === DCAConditionEnum.indicators &&
       settings.useDca &&
-      settings.startCondition !== StartConditionEnum.ti)
+      settings.startCondition !== StartConditionEnum.ti) ||
+    (settings.useBotController &&
+      settings.botStart === BotStartTypeEnum.indicators)
   ) {
     result.push(createStrategyFactory(TIStrategy))
   }

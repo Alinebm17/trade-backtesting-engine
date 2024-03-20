@@ -20,6 +20,7 @@ import {
   OrderSizeTypeEnum,
   ComboTpBase,
   CooldownOptionsEnum,
+  CloseDCATypeEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -290,7 +291,10 @@ export abstract class Strategy implements StrategyInterface {
 
   static fullResult?: boolean
 
+  static preventOpen = false
+
   static resetData() {
+    Strategy.preventOpen = false
     Strategy.useFile = false
     Strategy.fullResult = false
     Strategy.dataMap = new Map()
@@ -1090,6 +1094,9 @@ export abstract class Strategy implements StrategyInterface {
     s: string,
     onlyReturn = false,
   ) {
+    if (!onlyReturn && Strategy.preventOpen) {
+      return
+    }
     if (!this.checkCloseAfterX()) {
       return
     }
@@ -2742,16 +2749,30 @@ export abstract class Strategy implements StrategyInterface {
     return true
   }
 
-  closeAllDeals(b: FullBar, sl = false) {
+  closeAllDeals(b: FullBar, sl = false, ignoreTp = false) {
     const allDeals = Strategy.getDeals('open', b.symbol).filter(
       (d) => (!sl && this.checkMinTp(b.open, d)) || sl,
     )
     for (const d of allDeals) {
       const position = Strategy.emptyPositon
       Strategy.position.set(b.symbol, position)
-      const tp = this.getTP(d, b.open, true, false)[0]
+      const tp = ignoreTp ? undefined : this.getTP(d, b.open, true, false)[0]
       this.closeDeal(d, b, tp)
       this.processDealCloseFromMap(d)
+    }
+  }
+
+  stopByIndicator(b: FullBar) {
+    Strategy.preventOpen = true
+    const action = this.settings.stopType || CloseDCATypeEnum.closeByMarket
+    if (
+      action === CloseDCATypeEnum.closeByMarket ||
+      action === CloseDCATypeEnum.closeByLimit
+    ) {
+      return this.closeAllDeals(b, true)
+    }
+    if (action === CloseDCATypeEnum.cancel) {
+      this.closeAllDeals(b, true, true)
     }
   }
 

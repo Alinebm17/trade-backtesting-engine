@@ -63,9 +63,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
   private firstBar: Map<string, number> = new Map()
   private nextBarTime: Map<string, number> = new Map()
   constructor(input: StrategyInput) {
-    input.settings.indicators = input.settings.indicators.filter(
+    /* input.settings.indicators = input.settings.indicators.filter(
       (i) => i.indicatorAction !== IndicatorAction.stopBot,
-    )
+    ) */
     super(input)
     this.processBar = this.processBar.bind(this)
     const { indicators } = input.settings
@@ -655,9 +655,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
     const dcaIndicators = Strategy.indicators.filter(
       (ci) => ci.settings.indicatorAction === IndicatorAction.startDca,
     )
+    const stopIndicators = Strategy.indicators.filter(
+      (ci) => ci.settings.indicatorAction === IndicatorAction.stopBot,
+    )
     if (
       (startIndicators.filter((i) => i.data.length > 0).length ||
         closeIndicators.filter((i) => i.data.length > 0).length ||
+        stopIndicators.filter((i) => i.data.length > 0).length ||
         dcaIndicators.filter((i) => i.data.length > 0).length) &&
       nextBar
     ) {
@@ -1151,6 +1155,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
           !i.ignore &&
           i.symbol === nextBar.symbol,
       )
+      const stopBot = [...Strategy.indicators].filter(
+        (i) =>
+          i.settings.indicatorAction === IndicatorAction.stopBot &&
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
+      )
       const startDca = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.startDca &&
@@ -1164,6 +1174,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const closeDealSlStatus = closeDealSl.filter(filterFn)
       const closeDealTpStatus = closeDealTp.filter(filterFn)
       const startDealStatus = startDeal.filter(filterFn)
+      const stopBotStatus = stopBot.filter(filterFn)
       const startDcaStatus = startDca.filter(filterFn)
       if (
         closeDealSl.length === closeDealSlStatus.length &&
@@ -1196,6 +1207,42 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (closeDealSlStatus.map((ai) => ai.id).includes(i.id)) {
+            return {
+              ...i,
+              status: {
+                ...i.status,
+                status: i.status.statusTo ? i.status.status : false,
+              },
+            }
+          }
+          return i
+        })
+      }
+      if (stopBot.length === stopBotStatus.length && stopBotStatus.length) {
+        Strategy.indicatorEvents.push({
+          type: IndicatorAction.stopBot,
+          side:
+            this.settings.strategy === StrategyEnum.long
+              ? BotOrderSideEnum.sell
+              : BotOrderSideEnum.buy,
+          time: nextBar.time,
+          price:
+            this.settings.strategy === StrategyEnum.long
+              ? /* lowestBar?.high ?? */ nextBar.high
+              : /*  lowestBar?.low ?? */ nextBar.low,
+          symbol: nextBar.symbol,
+        })
+        this.stopByIndicator({
+          open: /* lowestBar?.open ?? */ nextBar.open,
+          time: nextBar.time,
+          high: /*  lowestBar?.open ??  */ nextBar.high,
+          low: /*  lowestBar?.low ?? */ nextBar.low,
+          close: /* lowestBar?.close ??  */ nextBar.close,
+          symbol: nextBar.symbol,
+        })
+
+        Strategy.indicators = Strategy.indicators.map((i) => {
+          if (stopBotStatus.map((ai) => ai.id).includes(i.id)) {
             return {
               ...i,
               status: {
