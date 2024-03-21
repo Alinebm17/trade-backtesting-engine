@@ -1315,6 +1315,7 @@ export abstract class Strategy implements StrategyInterface {
         complete: 1,
         max: 1,
       },
+      lastFilled: 1,
       usage: {
         current: {
           base: this.futures
@@ -2379,7 +2380,11 @@ export abstract class Strategy implements StrategyInterface {
       for (const o of filledDCA.sort((a, B) =>
         this.long ? B.price - a.price : a.price - B.price,
       )) {
-        d.lastFilled = o.levelNumber ?? d.lastFilled
+        d.lastFilled = Strategy.combo
+          ? o.levelNumber
+            ? o.levelNumber + 1
+            : d.lastFilled
+          : o.levelNumber ?? d.lastFilled
         if (Strategy.combo) {
           const m = this.createMinigrid(d, o, false, d.symbol.pair)
           if (m) {
@@ -2815,18 +2820,23 @@ export abstract class Strategy implements StrategyInterface {
         profit = d.profit
       }
     } else {
-      d.profit.perc = this.math.round(
-        (d.profit.total /
-          (this.futures
-            ? this.coinm
-              ? d.usage.max.base * d.startPrice
-              : d.usage.max.quote
-            : this.long
-            ? d.usage.max.quote * (this.profitBase ? 1 / d.startPrice : 1)
-            : d.usage.max.base * (this.profitBase ? 1 : d.startPrice))) *
-          100,
-        2,
-      )
+      const usageBase =
+        this.comboBasedOn === ComboTpBase.full
+          ? d.usage.max.base
+          : d.usage.current.base
+      const usageQuote =
+        this.comboBasedOn === ComboTpBase.full
+          ? d.usage.max.quote
+          : d.usage.current.quote
+      const denominator =
+        (this.futures
+          ? this.coinm
+            ? usageBase
+            : usageQuote
+          : this.long
+          ? usageQuote * (this.profitBase ? 1 / d.startPrice : 1)
+          : usageBase * (this.profitBase ? 1 : d.startPrice)) / this.leverage
+      d.profit.perc = this.math.round((d.profit.total / denominator) * 100, 2)
       const precision = this.precision.get(d.symbol.pair) ?? 8
       d.profit.total = this.math.round(d.profit.total, precision + 3)
       d.profit.totalUsd = this.math.round(d.profit.totalUsd, 2)
