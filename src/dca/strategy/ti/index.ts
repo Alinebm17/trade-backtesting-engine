@@ -22,6 +22,9 @@ import {
   DivTypeEnum,
   TrendFilterOperatorEnum,
   STConditionEnum,
+  StartConditionEnum,
+  CloseConditionEnum,
+  BotStartTypeEnum,
 } from '../../../types'
 
 import type {
@@ -128,7 +131,30 @@ class TIStrategy extends Strategy implements StrategyInterface {
           trendFilterValue,
           factor,
           atrLength,
+          indicatorAction,
+          section,
         } = i
+        if (
+          (this.settings.startCondition !== StartConditionEnum.ti &&
+            indicatorAction === IndicatorAction.startDeal) ||
+          ((!this.settings.useTp ||
+            this.settings.dealCloseCondition !== CloseConditionEnum.techInd) &&
+            indicatorAction === IndicatorAction.closeDeal &&
+            section !== IndicatorSection.sl) ||
+          ((!this.settings.useSl ||
+            this.settings.dealCloseConditionSL !==
+              CloseConditionEnum.techInd) &&
+            indicatorAction === IndicatorAction.closeDeal &&
+            section === IndicatorSection.sl) ||
+          ((!this.settings.useDca ||
+            this.settings.dcaCondition !== DCAConditionEnum.percentage) &&
+            indicatorAction === IndicatorAction.startDca) ||
+          ((!this.settings.useBotController ||
+            this.settings.botStart !== BotStartTypeEnum.indicators) &&
+            indicatorAction === IndicatorAction.stopBot)
+        ) {
+          continue
+        }
         const ind = new InternalIndicator(
           type === IndicatorEnum.macd
             ? {
