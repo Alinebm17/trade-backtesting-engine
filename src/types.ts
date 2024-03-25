@@ -5,6 +5,7 @@ import type {
   PivotResult,
   DIVResult,
   SuperTrendResult,
+  PCResult,
 } from '../indicators/src'
 
 export const DirName = `../../tmp-backtester`
@@ -38,6 +39,7 @@ export enum IndicatorEnum {
   bbpb = 'BBPB',
   div = 'DIV',
   st = 'ST',
+  pc = 'PC',
 }
 
 export enum ECDTriggerEnum {
@@ -192,6 +194,11 @@ export type IndicatorConfigBackTesting =
       atrPeriod: number
     }
   | {
+      type: IndicatorEnum.pc
+      pcUp: number
+      pcDown: number
+    }
+  | {
       type: IndicatorEnum.div
       oscillators: DivergenceOscillators[]
       leftBars?: number
@@ -331,6 +338,7 @@ export type IndicatorHistory = { time: number } & (
       type: IndicatorEnum.div
       value: DIVResult
     }
+  | { type: IndicatorEnum.pc; value: PCResult }
   | {
       type: IndicatorEnum.macd
       value: FasterMACDResult
@@ -435,8 +443,15 @@ export type SettingsIndicators = {
   factor?: number
   atrLength?: number
   stCondition?: STConditionEnum
+  pcUp?: string
+  pcDown?: string
+  pcCondition?: PCConditionEnum
 }
 
+export enum PCConditionEnum {
+  up = 'UP',
+  down = 'DOWN',
+}
 export enum STConditionEnum {
   up = 'up',
   down = 'down',

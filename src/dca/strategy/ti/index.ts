@@ -25,6 +25,7 @@ import {
   StartConditionEnum,
   CloseConditionEnum,
   BotStartTypeEnum,
+  PCConditionEnum,
 } from '../../../types'
 
 import type {
@@ -38,6 +39,7 @@ import type {
 import type { DataType, StrategyInput } from '../main'
 import {
   DIVResult,
+  PCResult,
   PercentileResult,
   SuperTrendResult,
 } from '../../../../indicators/src'
@@ -133,6 +135,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
           atrLength,
           indicatorAction,
           section,
+          pcDown,
+          pcUp,
         } = i
         if (
           (this.settings.startCondition !== StartConditionEnum.ti &&
@@ -174,6 +178,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 checkLevel,
                 useAsEntryExitPoints:
                   condition === TradingviewAnalysisConditionEnum.entry,
+              }
+            : type === IndicatorEnum.pc
+            ? {
+                type,
+                pcUp: +(pcUp ?? '5'),
+                pcDown: +(pcDown ?? '5'),
               }
             : type === IndicatorEnum.st
             ? {
@@ -730,10 +740,17 @@ class TIStrategy extends Strategy implements StrategyInterface {
             trendFilter,
             trendFilterType,
             stCondition,
+            pcCondition,
           },
           data,
         } = i
-        if (type === IndicatorEnum.st) {
+        if (type === IndicatorEnum.pc) {
+          const [last] = [...data].sort((a, b) => b.time - a.time)
+          action =
+            (pcCondition === PCConditionEnum.down &&
+              (last.value as PCResult).down) ||
+            (pcCondition === PCConditionEnum.up && (last.value as PCResult).up)
+        } else if (type === IndicatorEnum.st) {
           const [ld, pd] = [...data].sort((a, b) => b.time - a.time)
           const lastData = ld.value as SuperTrendResult
           const prevData = pd.value as SuperTrendResult
