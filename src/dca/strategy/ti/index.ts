@@ -135,8 +135,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           atrLength,
           indicatorAction,
           section,
-          pcDown,
-          pcUp,
+          pcValue,
         } = i
         if (
           (this.settings.startCondition !== StartConditionEnum.ti &&
@@ -182,8 +181,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
             : type === IndicatorEnum.pc
             ? {
                 type,
-                pcUp: +(pcUp ?? '5'),
-                pcDown: +(pcDown ?? '5'),
+                pcUp: Math.abs(+(pcValue ?? '5')),
+                pcDown: Math.abs(+(pcValue ?? '5')),
               }
             : type === IndicatorEnum.st
             ? {
@@ -740,12 +739,14 @@ class TIStrategy extends Strategy implements StrategyInterface {
             trendFilter,
             trendFilterType,
             stCondition,
-            pcCondition,
+            pcValue,
           },
           data,
         } = i
         if (type === IndicatorEnum.pc) {
           const [last] = [...data].sort((a, b) => b.time - a.time)
+          const pcCondition =
+            +(pcValue ?? '5') > 0 ? PCConditionEnum.up : PCConditionEnum.down
           action =
             (pcCondition === PCConditionEnum.down &&
               (last.value as PCResult).down) ||

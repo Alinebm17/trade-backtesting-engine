@@ -446,6 +446,7 @@ export type SettingsIndicators = {
   pcUp?: string
   pcDown?: string
   pcCondition?: PCConditionEnum
+  pcValue?: string
 }
 
 export enum PCConditionEnum {
