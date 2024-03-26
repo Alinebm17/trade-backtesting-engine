@@ -637,6 +637,7 @@ class ComboBotFunctions extends DcaBotFunctions {
         }
       }
       if (!all && useSmartOrders) {
+        const start = useActiveMinigrids ? +(comboActiveMinigrids ?? '0') : 0
         orders = [
           ...orders
             .sort((a, b) =>
@@ -644,7 +645,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                 ? b.price - a.price
                 : a.price - b.price,
             )
-            .slice(0, parseInt(`${activeOrdersCount}`)),
+            .slice(start, start + parseInt(`${activeOrdersCount}`)),
         ]
       }
     }
