@@ -4440,15 +4440,39 @@ export abstract class Strategy implements StrategyInterface {
               ? (this.profitBase ? base - comboBase : quoteTp - quote) *
                 (this.long ? 1 : -1)
               : (this.profitBase
-                  ? base -
-                    qty +
-                    ((qty * tpPrice - quote) / tpPrice) * (this.long ? 1 : -1)
-                  : qty * tpPrice -
-                    quote +
-                    (qty - base) * tpPrice * (this.long ? 1 : -1)) *
+                  ? base - qty + (qty * tpPrice - quote) / tpPrice
+                  : qty * tpPrice - quote + (qty - base) * tpPrice) *
                 (this.long ? 1 : -1)) -
             commission
+
           const usdRateCurrent = this.usdRate.get(od.symbol.pair) ?? 1
+          console.log(
+            unPnl,
+            od,
+            unPnl * usdRateCurrent,
+            tp,
+            base,
+            qty,
+            qty * tpPrice - quote,
+            quote,
+            ((Strategy.combo
+              ? this.futures
+                ? this.coinm
+                  ? od.usage.max.base /* * (this.profitBase ? 1 : tpPrice) */
+                  : od.usage.max.quote /* / (this.profitBase ? tpPrice : 1) */
+                : this.long
+                ? od.usage.max.quote /* / (this.profitBase ? tpPrice : 1) */
+                : od.usage.max.base /* * (this.profitBase ? 1 : tpPrice) */
+              : this.futures
+              ? this.coinm
+                ? od.usage.current.base /* * (this.profitBase ? 1 : tpPrice) */
+                : od.usage.current.quote /* / (this.profitBase ? tpPrice : 1) */
+              : this.long
+              ? od.usage.current.quote /*  / (this.profitBase ? tpPrice : 1) */
+              : od.usage.current.base) /* * (this.profitBase ? 1 : tpPrice) */ /
+              this.leverage) *
+              this.getRate(),
+          )
           unrealizedPnL += unPnl
           unrealizedPnLUsd += unPnl * usdRateCurrent
           unrealizedUsage +=
