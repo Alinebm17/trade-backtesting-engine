@@ -21,6 +21,7 @@ import {
   ComboTpBase,
   CooldownOptionsEnum,
   CloseDCATypeEnum,
+  DynamicPriceFilterPriceTypeEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -113,7 +114,7 @@ export interface StrategyInterface {
     b: FullBar,
     cbClose?: (price: number) => void,
   ): void
-  checkInRange(price: number, time: number): boolean
+  checkInRange(symbol: string, price: number, time: number): boolean
   returnResult(
     firstData: Map<string, FullBar>,
     lastData: Map<string, FullBar>,
@@ -266,6 +267,9 @@ export abstract class Strategy implements StrategyInterface {
 
   static lastClosedDealPerSymbol: Map<string, number> = new Map()
 
+  static lastPricesPerSymbol: Map<string, { avg: number; entry: number }> =
+    new Map()
+
   static lowestInterval?: ExchangeIntervals
 
   static highestInterval?: ExchangeIntervals
@@ -375,6 +379,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.lowestDataForBnH = new Map()
     Strategy.lastClosedDealPerSymbol = new Map()
     Strategy.lastOpenedDealPerSymbol = new Map()
+    Strategy.lastPricesPerSymbol = new Map()
   }
 
   static position: Map<string, typeof Strategy.emptyPositon> = new Map()
@@ -525,23 +530,59 @@ export abstract class Strategy implements StrategyInterface {
     candles: { candle: FullBar[] | null; interval: ExchangeIntervals }[],
   ): void
 
-  public checkInRange(price: number, time: number) {
-    const { maxOpenDeal, minOpenDeal, useMulti } = this.settings
-    if (useMulti) {
+  private checkInDynamicRange(symbol: string, price: number): boolean {
+    const { settings } = this
+    if (
+      !settings.useDynamicPriceFilter ||
+      !settings.dynamicPriceFilterDeviation ||
+      !settings.dynamicPriceFilterPriceType ||
+      isNaN(+settings.dynamicPriceFilterDeviation) ||
+      !isFinite(+settings.dynamicPriceFilterDeviation)
+    ) {
       return true
     }
-    let result = true
-    if (maxOpenDeal || minOpenDeal) {
-      if (maxOpenDeal && !minOpenDeal) {
-        result = price <= +maxOpenDeal
-      }
-      if (minOpenDeal && !maxOpenDeal) {
-        result = price >= +minOpenDeal
-      }
-      if (maxOpenDeal && minOpenDeal) {
-        result = price >= +minOpenDeal && price <= +maxOpenDeal
+    const lastData = Strategy.lastPricesPerSymbol.get(symbol)
+    if (!lastData) {
+      return true
+    }
+    const latestPrice = price
+    const referencePrice =
+      settings.dynamicPriceFilterPriceType ===
+      DynamicPriceFilterPriceTypeEnum.avg
+        ? lastData.avg
+        : lastData.entry
+    const currentDeviation =
+      (Math.abs(latestPrice - referencePrice) / referencePrice) * 100
+    return currentDeviation >= +settings.dynamicPriceFilterDeviation
+  }
+
+  public checkInRange(symbol: string, price: number, time: number) {
+    const {
+      maxOpenDeal,
+      minOpenDeal,
+      useMulti,
+      useStaticPriceFilter,
+      useDynamicPriceFilter,
+    } = this.settings
+    if (useMulti && !useDynamicPriceFilter) {
+      return true
+    }
+    const dynamic = this.checkInDynamicRange(symbol, price)
+    let staticResult = true
+    if (useStaticPriceFilter) {
+      if (maxOpenDeal || minOpenDeal) {
+        if (maxOpenDeal && !minOpenDeal) {
+          staticResult = price <= +maxOpenDeal
+        }
+        if (minOpenDeal && !maxOpenDeal) {
+          staticResult = price >= +minOpenDeal
+        }
+        if (maxOpenDeal && minOpenDeal) {
+          staticResult = price >= +minOpenDeal && price <= +maxOpenDeal
+        }
       }
     }
+    const result = dynamic && staticResult
     const last = Strategy.workingShift[Strategy.workingShift.length - 1]
     if (!result && Strategy.workingShift.length > 0 && !Strategy.rangeStatus) {
       if (!last.end) {
@@ -687,7 +728,7 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private checkCooldownStart(time: number, symbol: string) {
-    if (this.settings.cooldownAfterDealStart) {
+    if (this.settings.cooldownAfterDealStart && this.settings.useCooldown) {
       const cooldownAfterDealStartOption =
         this.settings.cooldownAfterDealStartOption && this.settings.useMulti
           ? this.settings.cooldownAfterDealStartOption
@@ -708,7 +749,7 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private checkCooldownStop(time: number, symbol: string) {
-    if (this.settings.cooldownAfterDealStop) {
+    if (this.settings.cooldownAfterDealStop && this.settings.useCooldown) {
       const cooldownAfterDealStartOption =
         this.settings.cooldownAfterDealStopOption && this.settings.useMulti
           ? this.settings.cooldownAfterDealStopOption
@@ -1106,7 +1147,7 @@ export abstract class Strategy implements StrategyInterface {
     if (!this.checkCooldownStop(startTime, s)) {
       return
     }
-    if (!this.checkInRange(price, startTime)) {
+    if (!this.checkInRange(s, price, startTime)) {
       return
     }
     if (!this.checkMaxDeals(s)) {
@@ -2982,6 +3023,10 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.previousDeal = d
     Strategy.lastClosedDeal = b.time
     Strategy.lastClosedDealPerSymbol.set(d.symbol.pair, b.time)
+    Strategy.lastPricesPerSymbol.set(d.symbol.pair, {
+      avg: d.avgPrice,
+      entry: d.startPrice,
+    })
     return { deal: d, closePrice }
   }
 

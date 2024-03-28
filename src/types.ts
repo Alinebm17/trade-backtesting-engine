@@ -643,6 +643,16 @@ export interface DCABotSettings extends BaseSettings {
   maxDealsPerHigherTimeframe?: string
   useMaxDealsPerHigherTimeframe?: boolean
   feeOrder?: boolean
+  useStaticPriceFilter?: boolean
+  useCooldown?: boolean
+  useDynamicPriceFilter?: boolean
+  dynamicPriceFilterDeviation?: string
+  dynamicPriceFilterPriceType?: DynamicPriceFilterPriceTypeEnum
+}
+
+export enum DynamicPriceFilterPriceTypeEnum {
+  avg = 'avg',
+  entry = 'entry',
 }
 
 export enum ComboTpBase {
