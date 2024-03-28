@@ -506,7 +506,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       this.startWorkingShift(trade.timestamp)
     }
     this.checkStatuses(trade.timestamp)
-    this.checkInRange(+trade.price, trade.timestamp)
+    this.checkInRange(trade.symbol, +trade.price, trade.timestamp)
     if (candles.length) {
       for (const c of candles) {
         if (!c.candle) {
@@ -561,7 +561,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       this.startWorkingShift(bar.time)
     }
     this.checkStatuses(bar.time)
-    this.checkInRange(bar.close, bar.time)
+    this.checkInRange(bar.symbol, bar.close, bar.time)
     if (Strategy.useFile && interval) {
       for (const i of Strategy.indicators.filter(
         (_i) => _i.interval === interval && _i.symbol === bar.symbol,
