@@ -1263,19 +1263,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
         })
       }
       if (stopBot.length === stopBotStatus.length && stopBotStatus.length) {
-        Strategy.indicatorEvents.push({
-          type: IndicatorAction.stopBot,
-          side:
-            this.settings.strategy === StrategyEnum.long
-              ? BotOrderSideEnum.sell
-              : BotOrderSideEnum.buy,
-          time: nextBar.time,
-          price:
-            this.settings.strategy === StrategyEnum.long
-              ? /* lowestBar?.high ?? */ nextBar.high
-              : /*  lowestBar?.low ?? */ nextBar.low,
-          symbol: nextBar.symbol,
-        })
         this.stopByIndicator({
           open: /* lowestBar?.open ?? */ nextBar.open,
           time: nextBar.time,
