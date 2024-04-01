@@ -645,6 +645,7 @@ export interface DCABotSettings extends BaseSettings {
   feeOrder?: boolean
   useStaticPriceFilter?: boolean
   useCooldown?: boolean
+  useVolumeFilterAll?: boolean
   useDynamicPriceFilter?: boolean
   dynamicPriceFilterDeviation?: string
   dynamicPriceFilterPriceType?: DynamicPriceFilterPriceTypeEnum
