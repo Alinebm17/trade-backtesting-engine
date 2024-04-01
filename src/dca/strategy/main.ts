@@ -22,6 +22,7 @@ import {
   CooldownOptionsEnum,
   CloseDCATypeEnum,
   DynamicPriceFilterPriceTypeEnum,
+  BotStartTypeEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -1118,11 +1119,17 @@ export abstract class Strategy implements StrategyInterface {
     if (Strategy.edge) {
       return true
     }
-    if (this.settings.useCloseAfterX && this.settings.closeAfterX) {
-      return Strategy.getDeals('closed').length < +this.settings.closeAfterX
-    }
-    if (this.settings.useCloseAfterXopen && this.settings.closeAfterXopen) {
-      return Strategy.getDeals().length < +this.settings.closeAfterXopen
+    if (
+      this.settings.useBotController &&
+      (this.settings.botStart === BotStartTypeEnum.webhook ||
+        this.settings.botStart === BotStartTypeEnum.manual)
+    ) {
+      if (this.settings.useCloseAfterX && this.settings.closeAfterX) {
+        return Strategy.getDeals('closed').length < +this.settings.closeAfterX
+      }
+      if (this.settings.useCloseAfterXopen && this.settings.closeAfterXopen) {
+        return Strategy.getDeals().length < +this.settings.closeAfterXopen
+      }
     }
     return true
   }
@@ -1356,7 +1363,7 @@ export abstract class Strategy implements StrategyInterface {
         complete: 1,
         max: 1,
       },
-      lastFilled: 1,
+      lastFilled: Strategy.combo ? 1 : 0,
       usage: {
         current: {
           base: this.futures

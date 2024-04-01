@@ -150,7 +150,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             indicatorAction === IndicatorAction.closeDeal &&
             section === IndicatorSection.sl) ||
           ((!this.settings.useDca ||
-            this.settings.dcaCondition !== DCAConditionEnum.percentage) &&
+            this.settings.dcaCondition !== DCAConditionEnum.indicators) &&
             indicatorAction === IndicatorAction.startDca) ||
           ((!this.settings.useBotController ||
             this.settings.botStart !== BotStartTypeEnum.indicators) &&
