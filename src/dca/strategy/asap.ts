@@ -78,9 +78,19 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
     checkPortfolio: boolean,
     bar: FullBar,
   ): Promise<void> {
+    const multi = this.settings.useMulti && Strategy.multi
+    const useDynamic = !!(
+      this.settings.useDynamicPriceFilter &&
+      this.settings.dynamicPriceFilterDeviation &&
+      this.settings.dynamicPriceFilterPriceType
+    )
+    const maxDeals =
+      this.settings.maxNumberOfOpenDeals &&
+      !isNaN(+this.settings.maxNumberOfOpenDeals)
+        ? +this.settings.maxNumberOfOpenDeals
+        : 1
     const maxPerSymbol =
-      this.settings.useMulti &&
-      Strategy.multi &&
+      multi &&
       this.settings.maxDealsPerPair &&
       +this.settings.maxDealsPerPair !== 0 &&
       !isNaN(+this.settings.maxDealsPerPair)
@@ -93,7 +103,7 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
         if (newShift) {
           this.startWorkingShift(bar.time)
         }
-        for (const _ of [...Array(maxPerSymbol).keys()]) {
+        for (const _ of [...Array(useDynamic ? 1 : maxPerSymbol).keys()]) {
           this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
         }
         if (newShift) {
@@ -105,9 +115,9 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
       (dealsPerSymbols.filter((d) => d.status === 'closed').length ===
         dealsPerSymbols.length ||
         dealsPerSymbols.filter((d) => d.status === 'open').length <
-          maxPerSymbol)
+          (multi ? maxPerSymbol : useDynamic && maxDeals ? maxDeals : 1))
     ) {
-      for (const _ of [...Array(maxPerSymbol).keys()]) {
+      for (const _ of [...Array(useDynamic ? 1 : maxPerSymbol).keys()]) {
         this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
       }
     } else {

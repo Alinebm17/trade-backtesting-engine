@@ -1427,6 +1427,7 @@ export abstract class Strategy implements StrategyInterface {
 
     if (!onlyReturn) {
       this.setDeal(deal, 'open', s)
+      this.setLastDealPerSymbol(s)
     }
     const key = this.futures
       ? this.coinm
@@ -2139,7 +2140,19 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  private updateDeal(d: Deal, b: BarTV, usage = true) {
+  private setLastDealPerSymbol(symbol: string) {
+    const deal = Strategy.getDeals('open', symbol).sort(
+      (a, b) => b.startTime - a.startTime,
+    )[0]
+    if (deal) {
+      Strategy.lastPricesPerSymbol.set(symbol, {
+        avg: deal.avgPrice,
+        entry: deal.startPrice,
+      })
+    }
+  }
+
+  private updateDeal(d: Deal, b: FullBar, usage = true) {
     d = this.updateDealBalances(d)
     if (usage) {
       d = this.updateDealUsage(d)
@@ -2147,6 +2160,7 @@ export abstract class Strategy implements StrategyInterface {
     d = this.updateDealAvgPrice(d, b.time)
     d = this.updateDealDuration(d, b)
     d = this.updateDealVolume(d)
+    this.setLastDealPerSymbol(b.symbol)
     return d
   }
 
@@ -3034,10 +3048,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.previousDeal = d
     Strategy.lastClosedDeal = b.time
     Strategy.lastClosedDealPerSymbol.set(d.symbol.pair, b.time)
-    Strategy.lastPricesPerSymbol.set(d.symbol.pair, {
-      avg: d.avgPrice,
-      entry: d.startPrice,
-    })
+    this.setLastDealPerSymbol(d.symbol.pair)
     return { deal: d, closePrice }
   }
 
