@@ -243,6 +243,7 @@ class Backtesting {
     periodParam?: PeriodParams,
     index?: number,
     total?: number,
+    random = false,
   ): Promise<FullBar[]> {
     const { symbols, interval, period } = this
     const resolution = tvIntervalMap[int ?? interval] as ResolutionString
@@ -274,7 +275,11 @@ class Backtesting {
       }
       return data.sort((a, b) => {
         if (a.time === b.time) {
-          return `${a.symbol}`.localeCompare(`${b.symbol}`)
+          return random
+            ? Math.random() > 0.5
+              ? 1
+              : -1
+            : `${a.symbol}`.localeCompare(`${b.symbol}`)
         }
         return a.time - b.time
       })

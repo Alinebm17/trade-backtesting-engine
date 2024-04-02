@@ -7,6 +7,7 @@ import {
   DCAConditionEnum,
   ExchangeIntervals,
   FullBar,
+  PairPrioritizationEnum,
   StartConditionEnum,
   timeIntervalMap,
 } from '../types'
@@ -154,7 +155,14 @@ class DCABacktesting extends Backtesting {
             this.settings.useDca)) &&
         this.edge !== EdgeBacktestEnum.random
       if (!isIndicators) {
-        const data = await this._loadData()
+        const data = await this._loadData(
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          this.settings.pairPrioritization === PairPrioritizationEnum.random,
+        )
         testData = [{ bar: data, interval: this.interval }]
       } else {
         let i = 0
@@ -173,6 +181,7 @@ class DCABacktesting extends Backtesting {
             },
             i,
             otherIntervals.length,
+            this.settings.pairPrioritization === PairPrioritizationEnum.random,
           ).then((res) => {
             testData.push({ bar: res, interval: oi.interval })
             i++

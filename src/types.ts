@@ -649,6 +649,12 @@ export interface DCABotSettings extends BaseSettings {
   useDynamicPriceFilter?: boolean
   dynamicPriceFilterDeviation?: string
   dynamicPriceFilterPriceType?: DynamicPriceFilterPriceTypeEnum
+  pairPrioritization?: PairPrioritizationEnum
+}
+
+export enum PairPrioritizationEnum {
+  alphabetical = 'alphabetical',
+  random = 'random',
 }
 
 export enum DynamicPriceFilterPriceTypeEnum {
