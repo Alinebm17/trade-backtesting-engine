@@ -24,6 +24,7 @@ type SaveFileFn = (
   interval?: ExchangeIntervals,
   sort?: boolean,
   updateProgress?: (value: number, text: string) => void,
+  random?: boolean,
 ) => Promise<void>
 
 let saveFile: SaveFileFn | undefined
@@ -75,6 +76,7 @@ if (typeof window === 'undefined') {
     interval?: ExchangeIntervals,
     sort?: boolean,
     updateProgress?: (value: number, text: string) => void,
+    random = false,
   ) => {
     const file = `${dir}/${fileName}.csv`
 
@@ -115,7 +117,9 @@ if (typeof window === 'undefined') {
       }).asc([
         (obj: SavedBar) => obj.time,
         (obj: SavedBar) =>
-          [...obj.symbol.toLowerCase()].map((c) => parseInt(c, 36)),
+          random
+            ? Math.random() - 0.5
+            : [...obj.symbol.toLowerCase()].map((c) => parseInt(c, 36)),
         (obj: SavedBar) => timeIntervalMap[obj.interval],
       ])
       fs.unlinkSync(file)
@@ -231,9 +235,10 @@ class Backtesting {
 
   public async sortData(
     updateProgress?: (value: number, text: string) => void,
+    random?: boolean,
   ) {
     if (this.useFile && saveFile) {
-      await saveFile(this.fileName, [], undefined, true, updateProgress)
+      await saveFile(this.fileName, [], undefined, true, updateProgress, random)
     }
   }
 

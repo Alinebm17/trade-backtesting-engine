@@ -193,7 +193,10 @@ class DCABacktesting extends Backtesting {
     if (loadDataCallBack) {
       loadDataCallBack()
     }
-    await this.sortData(updateProgress)
+    await this.sortData(
+      updateProgress,
+      this.settings.pairPrioritization === PairPrioritizationEnum.random,
+    )
     const loadingTime = (new Date().getTime() - startLoading) / 1000
 
     const startTime = /* bars
