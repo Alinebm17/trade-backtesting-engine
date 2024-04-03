@@ -490,15 +490,15 @@ class DCABotFunctions {
                     (settings.futures
                       ? settings.coinm
                         ? 1
-                        : latestPrice
+                        : price
                       : settings.terminalDealType ===
                         TerminalDealTypeEnum.import
                       ? settings.strategy === StrategyEnum.long
                         ? 1
-                        : latestPrice
+                        : price
                       : settings.strategy === StrategyEnum.short
                       ? 1
-                      : latestPrice)) *
+                      : price)) *
                     volumeVal,
                   precision,
                 )
