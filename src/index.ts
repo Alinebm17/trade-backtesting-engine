@@ -104,30 +104,39 @@ if (typeof window === 'undefined') {
       if (updateProgress) {
         updateProgress(0, `Start sorting of ${file}`)
       }
-      const sortOptions = {
-        deserializer,
-        serializer,
-        tempDir,
-        maxHeap: 10000,
+      let skip = false
+      if (!fs.existsSync(file)) {
+        fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
+        skip = true
       }
-      await esort({
-        ...sortOptions,
-        input: fs.createReadStream(file),
-        output: fs.createWriteStream(sortedFile),
-      }).asc([
-        (obj: SavedBar) => obj.time,
-        (obj: SavedBar) =>
-          random
-            ? Math.random() - 0.5
-            : [...obj.symbol.toLowerCase()].map((c) => parseInt(c, 36)),
-        (obj: SavedBar) => timeIntervalMap[obj.interval],
-      ])
-      fs.unlinkSync(file)
-      fs.renameSync(sortedFile, file)
-
+      if (!skip) {
+        const sortOptions = {
+          deserializer,
+          serializer,
+          tempDir,
+          maxHeap: 10000,
+        }
+        await esort({
+          ...sortOptions,
+          input: fs.createReadStream(file),
+          output: fs.createWriteStream(sortedFile),
+        }).asc([
+          (obj: SavedBar) => obj.time,
+          (obj: SavedBar) =>
+            random
+              ? Math.random() - 0.5
+              : [...obj.symbol.toLowerCase()].map((c) => parseInt(c, 36)),
+          (obj: SavedBar) => timeIntervalMap[obj.interval],
+        ])
+        fs.unlinkSync(file)
+        fs.renameSync(sortedFile, file)
+      }
       fs.rmSync(tempDir, { recursive: true, force: true })
       if (updateProgress) {
         updateProgress(0, `End sorting of ${file}`)
+      }
+      if (skip) {
+        throw 'No data to loaded, refund backtest'
       }
     }
   }
