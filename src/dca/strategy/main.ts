@@ -938,8 +938,14 @@ export abstract class Strategy implements StrategyInterface {
     )
     const fee = userFee
     const sellDisplacement = fee * 2 * 100
-    const profitCurrency = settings.profitCurrency
-    const orderFixedIn = settings.orderFixedIn
+    const profitCurrency = settings.futures ? 'quote' : settings.profitCurrency
+    const orderFixedIn = settings.futures
+      ? settings.coinm
+        ? ('quote' as const)
+        : ('base' as const)
+      : settings.profitCurrency === 'quote'
+      ? ('base' as const)
+      : ('quote' as const)
     let asset = {
       base: 0,
       quote: 0,
@@ -947,7 +953,6 @@ export abstract class Strategy implements StrategyInterface {
     const time = startOrder.filledTime ?? +new Date()
     const budget =
       startOrder.minigridBudget ?? startOrder.qty * startOrder.price
-
     let minigrid: Minigrid = {
       symbol,
       initialOrders: [],
