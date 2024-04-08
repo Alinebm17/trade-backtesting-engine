@@ -23,6 +23,7 @@ import {
   CloseDCATypeEnum,
   DynamicPriceFilterPriceTypeEnum,
   BotStartTypeEnum,
+  DynamicPriceFilterDirectionEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -552,9 +553,17 @@ export abstract class Strategy implements StrategyInterface {
       DynamicPriceFilterPriceTypeEnum.avg
         ? lastData.avg
         : lastData.entry
-    const currentDeviation =
-      (Math.abs(latestPrice - referencePrice) / referencePrice) * 100
-    return currentDeviation >= +settings.dynamicPriceFilterDeviation
+    const diff =
+      settings.dynamicPriceFilterDirection ===
+        DynamicPriceFilterDirectionEnum.overAndUnder ||
+      !settings.dynamicPriceFilterDirection
+        ? Math.abs(latestPrice - referencePrice)
+        : settings.dynamicPriceFilterDirection ===
+          DynamicPriceFilterDirectionEnum.over
+        ? latestPrice - referencePrice
+        : referencePrice - latestPrice
+    const currentDeviation = (diff / referencePrice) * 100
+    return currentDeviation >= Math.abs(+settings.dynamicPriceFilterDeviation)
   }
 
   public checkInRange(symbol: string, price: number, time: number) {
