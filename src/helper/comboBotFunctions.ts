@@ -28,6 +28,7 @@ class ComboBotFunctions extends DcaBotFunctions {
     const baseOrderSize = parseFloat(settings.orderSize)
     const orderSize = parseFloat(settings.orderSize)
     const precision = this.utils.getBaseAssetPrecision(symbol)
+    const quotePrecision = symbol ? symbol.priceAssetPrecision : 8
     const step = parseFloat(settings.step) / 100
     const baseStep = parseFloat(settings.baseStep ?? settings.step) / 100
     const stepScale = parseFloat(settings.stepScale)
@@ -293,7 +294,7 @@ class ComboBotFunctions extends DcaBotFunctions {
             )
           : this.math.round(
               grids.reduce((acc, v) => acc + v.qty * v.price, 0),
-              precision,
+              quotePrecision,
               false,
               true,
             )
@@ -553,7 +554,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                     (acc, v) => acc + v.qty * v.price,
                     0,
                   ),
-                  precision,
+                  quotePrecision,
                   false,
                   true,
                 )
