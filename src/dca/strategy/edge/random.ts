@@ -53,7 +53,7 @@ class EdgeRandomStrategy extends Strategy implements StrategyInterface {
         useSl: false,
         useTp: true,
         dealCloseCondition: CloseConditionEnum.webhook,
-        maxNumberOfOpenDeals: '0',
+        maxNumberOfOpenDeals: '-1',
         baseOrderSize: `${Strategy.previousResult.usage.avgRealUsage}`,
       }
     }
