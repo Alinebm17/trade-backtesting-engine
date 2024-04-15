@@ -2154,15 +2154,17 @@ export abstract class Strategy implements StrategyInterface {
     }
   }
 
-  private setLastDealPerSymbol(symbol: string) {
-    const deal = Strategy.getDeals('open', symbol).sort(
-      (a, b) => b.startTime - a.startTime,
-    )[0]
+  private setLastDealPerSymbol(symbol: string, ignoreId?: string) {
+    const deal = Strategy.getDeals('open', symbol)
+      .filter((d) => (ignoreId ? d.id !== ignoreId : true))
+      .sort((a, b) => b.startTime - a.startTime)[0]
     if (deal) {
       Strategy.lastPricesPerSymbol.set(symbol, {
         avg: deal.avgPrice,
         entry: deal.startPrice,
       })
+    } else {
+      Strategy.lastPricesPerSymbol.delete(symbol)
     }
   }
 
@@ -3062,7 +3064,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.previousDeal = d
     Strategy.lastClosedDeal = b.time
     Strategy.lastClosedDealPerSymbol.set(d.symbol.pair, b.time)
-    this.setLastDealPerSymbol(d.symbol.pair)
+    this.setLastDealPerSymbol(d.symbol.pair, d.id)
     return { deal: d, closePrice }
   }
 
