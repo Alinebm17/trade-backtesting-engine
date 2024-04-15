@@ -136,7 +136,7 @@ if (typeof window === 'undefined') {
         updateProgress(0, `End sorting of ${file}`)
       }
       if (skip) {
-        throw 'No data to loaded, refund backtest'
+        throw 'No data downloaded, refund backtest'
       }
     }
   }
