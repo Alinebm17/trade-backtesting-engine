@@ -432,8 +432,9 @@ class BotUtils {
         pr.buy > lastPrice ? BotOrderSideEnum.sell : BotOrderSideEnum.buy
       const p = side === BotOrderSideEnum.buy ? pr.buy : pr.sell
       const same =
-        profitCurrency === orderFixedIn ||
-        (profitCurrency === 'base' && orderFixedIn === 'quote')
+        (combo ? !futures : true) &&
+        (profitCurrency === orderFixedIn ||
+          (profitCurrency === 'base' && orderFixedIn === 'quote'))
       if (profitCurrency === 'base') {
         if (orderFixedIn === 'quote') {
           buyQty = this.math.round(
