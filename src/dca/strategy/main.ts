@@ -3159,11 +3159,11 @@ export abstract class Strategy implements StrategyInterface {
         this.processDealCloseFromMap(d)
       }
       current = Strategy.emptyPositon
+      Strategy.position.set(b.symbol, current)
       if (this.settings.startCondition === StartConditionEnum.asap) {
         this.openDeal(current.liquidationPrice, b.time, b.high, b.low, b.symbol)
       }
     }
-    Strategy.position.set(b.symbol, current)
   }
 
   private checkCloseTimer(d: Deal, b: FullBar) {
