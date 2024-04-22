@@ -2718,8 +2718,8 @@ export abstract class Strategy implements StrategyInterface {
               ? usageBase
               : usageQuote
             : this.long
-            ? usageQuote * (this.profitBase ? 1 / d.startPrice : 1)
-            : usageBase * (this.profitBase ? 1 : d.startPrice)) / this.leverage
+            ? usageQuote * (this.profitBase ? 1 / price : 1)
+            : usageBase * (this.profitBase ? 1 : price)) / this.leverage
         const perc = total / denominator
         if (
           isFinite(Math.abs(perc)) &&
@@ -2916,8 +2916,8 @@ export abstract class Strategy implements StrategyInterface {
             ? usageBase
             : usageQuote
           : this.long
-          ? usageQuote * (this.profitBase ? 1 / d.startPrice : 1)
-          : usageBase * (this.profitBase ? 1 : d.startPrice)) / this.leverage
+          ? usageQuote * (this.profitBase ? 1 / d.lastPrice : 1)
+          : usageBase * (this.profitBase ? 1 : d.lastPrice)) / this.leverage
       d.profit.perc = this.math.round((d.profit.total / denominator) * 100, 2)
       const precision = this.precision.get(d.symbol.pair) ?? 8
       d.profit.total = this.math.round(d.profit.total, precision + 3)
@@ -3958,8 +3958,8 @@ export abstract class Strategy implements StrategyInterface {
           ? usageBase
           : usageQuote
         : this.long
-        ? usageQuote * (this.profitBase ? 1 / d.startPrice : 1)
-        : usageBase * (this.profitBase ? 1 : d.startPrice)
+        ? usageQuote * (this.profitBase ? 1 / d.lastPrice : 1)
+        : usageBase * (this.profitBase ? 1 : d.lastPrice)
       : this.profitBase
       ? base
       : quote
