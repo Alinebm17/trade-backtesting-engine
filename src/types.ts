@@ -40,6 +40,7 @@ export enum IndicatorEnum {
   div = 'DIV',
   st = 'ST',
   pc = 'PC',
+  atr = 'ATR',
 }
 
 export enum ECDTriggerEnum {
@@ -233,6 +234,7 @@ export type IndicatorConfigBackTesting =
         | IndicatorEnum.mfi
         | IndicatorEnum.cci
         | IndicatorEnum.wr
+        | IndicatorEnum.atr
       interval: number
     } & Percentile)
   | ({
@@ -330,7 +332,11 @@ export type IndicatorHistory = { time: number } & (
       value: PercentileResult
     }
   | {
-      type: IndicatorEnum.xo | IndicatorEnum.bbwp | IndicatorEnum.ecd
+      type:
+        | IndicatorEnum.xo
+        | IndicatorEnum.bbwp
+        | IndicatorEnum.ecd
+        | IndicatorEnum.atr
       value: number
     }
   | { type: IndicatorEnum.st; value: SuperTrendResult }

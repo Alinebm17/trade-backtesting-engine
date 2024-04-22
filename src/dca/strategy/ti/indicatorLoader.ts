@@ -33,6 +33,7 @@ import {
   DIVUsableOscillators,
   SuperTrend,
   FasterPC,
+  FasterATRTV,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -76,6 +77,7 @@ export default class InternalIndicator {
     | FasterDIV
     | SuperTrend
     | FasterPC
+    | FasterATRTV
   private data: IndicatorHistory[] = []
 
   private readonly type: IndicatorEnum
@@ -126,6 +128,10 @@ export default class InternalIndicator {
           ? indicatorConfig.percentileLookback ?? 0
           : 0) +
         add
+    }
+    if (indicatorConfig.type === IndicatorEnum.atr) {
+      this.indicator = new FasterATRTV(indicatorConfig.interval)
+      this.length = indicatorConfig.interval + add
     }
     if (indicatorConfig.type === IndicatorEnum.mar) {
       this.indicator = new FasterMAR(
@@ -528,7 +534,8 @@ export default class InternalIndicator {
         this.indicator instanceof QFL ||
         this.indicator instanceof FasterCCI ||
         this.indicator instanceof FasterPSAR ||
-        this.indicator instanceof SuperTrend)
+        this.indicator instanceof SuperTrend ||
+        this.indicator instanceof FasterATRTV)
     ) {
       this.indicator?.update({
         high: +value.h,

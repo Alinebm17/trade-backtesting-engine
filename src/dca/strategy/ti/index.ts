@@ -306,6 +306,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 percentileLookback,
                 percentilePercentage,
               }
+            : type === IndicatorEnum.atr
+            ? {
+                type,
+                interval: indicatorLength ?? 14,
+              }
             : type === IndicatorEnum.qfl
             ? {
                 type,
@@ -920,6 +925,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
           if (
             lastData.type === IndicatorEnum.bbwp &&
             prevData.type === IndicatorEnum.bbwp
+          ) {
+            last = lastData.value
+            prev = prevData.value
+          }
+          if (
+            lastData.type === IndicatorEnum.atr &&
+            prevData.type === IndicatorEnum.atr
           ) {
             last = lastData.value
             prev = prevData.value
