@@ -1120,11 +1120,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : ppValue === ppValueEnum.ll
                 ? prevData.ll
                 : prevData.lh
-            console.log(
-              new Date(nextBar.time).toISOString(),
-              lastData,
-              prevData,
-            )
             if (isNaN(value) || isNaN(prevValue)) {
               last = 0
               prev = 0
