@@ -6,6 +6,7 @@ import type {
   DIVResult,
   SuperTrendResult,
   PCResult,
+  PriorPivotResult,
 } from '../indicators/src'
 
 export const DirName = `../../tmp-backtester`
@@ -41,6 +42,7 @@ export enum IndicatorEnum {
   st = 'ST',
   pc = 'PC',
   atr = 'ATR',
+  pp = 'PP',
 }
 
 export enum ECDTriggerEnum {
@@ -195,6 +197,14 @@ export type IndicatorConfigBackTesting =
       atrPeriod: number
     }
   | {
+      type: IndicatorEnum.pp
+      ppHighLeft: number
+      ppHighRight: number
+      ppLowLeft: number
+      ppLowRight: number
+      ppMult: number
+    }
+  | {
       type: IndicatorEnum.pc
       pcUp: number
       pcDown: number
@@ -315,6 +325,7 @@ type PercentileResult = {
 }
 
 export type IndicatorHistory = { time: number } & (
+  | { type: IndicatorEnum.pp; value: PriorPivotResult }
   | {
       type:
         | IndicatorEnum.rsi
@@ -453,6 +464,25 @@ export type SettingsIndicators = {
   pcDown?: string
   pcCondition?: PCConditionEnum
   pcValue?: string
+  ppHighLeft?: number
+  ppHighRight?: number
+  ppLowLeft?: number
+  ppLowRight?: number
+  ppMult?: number
+  ppValue?: ppValueEnum
+  showHH?: boolean
+  showHL?: boolean
+  showLH?: boolean
+  showLL?: boolean
+}
+
+export enum ppValueEnum {
+  hh = 'HH',
+  hl = 'HL',
+  lh = 'LH',
+  ll = 'LL',
+  anyH = 'Any High',
+  anyL = 'Any Low',
 }
 
 export enum PCConditionEnum {

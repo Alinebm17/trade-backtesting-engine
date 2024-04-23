@@ -26,6 +26,7 @@ import {
   CloseConditionEnum,
   BotStartTypeEnum,
   PCConditionEnum,
+  ppValueEnum,
 } from '../../../types'
 
 import type {
@@ -41,6 +42,7 @@ import {
   DIVResult,
   PCResult,
   PercentileResult,
+  PriorPivotResult,
   SuperTrendResult,
 } from '../../../../indicators/src'
 
@@ -136,6 +138,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
           indicatorAction,
           section,
           pcValue,
+          ppHighLeft,
+          ppHighRight,
+          ppLowLeft,
+          ppLowRight,
+          ppMult,
         } = i
         if (
           (this.settings.startCondition !== StartConditionEnum.ti &&
@@ -177,6 +184,15 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 checkLevel,
                 useAsEntryExitPoints:
                   condition === TradingviewAnalysisConditionEnum.entry,
+              }
+            : type === IndicatorEnum.pp
+            ? {
+                type,
+                ppHighLeft: +(ppHighLeft ?? 5),
+                ppHighRight: +(ppHighRight ?? 5),
+                ppLowLeft: +(ppLowLeft ?? 5),
+                ppLowRight: +(ppLowRight ?? 5),
+                ppMult: +(ppMult ?? 0),
               }
             : type === IndicatorEnum.pc
             ? {
@@ -745,6 +761,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             trendFilterType,
             stCondition,
             pcValue,
+            ppValue,
           },
           data,
         } = i
@@ -1064,6 +1081,56 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : bbCrossingValue === BBCrossingEnum.middle
                 ? prevData.value.result.middle
                 : prevData.value.result.upper
+          }
+          if (type === IndicatorEnum.pp) {
+            const [ld, pd] = [...data].sort((a, b) => b.time - a.time)
+            const lastData = ld.value as PriorPivotResult
+            const prevData = pd.value as PriorPivotResult
+            last = lastData.price
+            prev = prevData.price
+            value =
+              ppValue === ppValueEnum.anyH
+                ? isNaN(lastData.hh)
+                  ? lastData.lh
+                  : lastData.hh
+                : ppValue === ppValueEnum.anyL
+                ? isNaN(lastData.ll)
+                  ? lastData.hl
+                  : lastData.ll
+                : ppValue === ppValueEnum.hh
+                ? lastData.hh
+                : ppValue === ppValueEnum.hl
+                ? lastData.hl
+                : ppValue === ppValueEnum.ll
+                ? lastData.ll
+                : lastData.lh
+            prevValue =
+              ppValue === ppValueEnum.anyH
+                ? isNaN(prevData.hh)
+                  ? prevData.lh
+                  : prevData.hh
+                : ppValue === ppValueEnum.anyL
+                ? isNaN(prevData.ll)
+                  ? prevData.hl
+                  : prevData.ll
+                : ppValue === ppValueEnum.hh
+                ? prevData.hh
+                : ppValue === ppValueEnum.hl
+                ? prevData.hl
+                : ppValue === ppValueEnum.ll
+                ? prevData.ll
+                : prevData.lh
+            console.log(
+              new Date(nextBar.time).toISOString(),
+              lastData,
+              prevData,
+            )
+            if (isNaN(value) || isNaN(prevValue)) {
+              last = 0
+              prev = 0
+              value = 0
+              prevValue = 0
+            }
           }
           if (
             (lastData.type === IndicatorEnum.stoch &&
