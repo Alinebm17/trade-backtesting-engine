@@ -192,7 +192,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 ppHighRight: +(ppHighRight ?? 5),
                 ppLowLeft: +(ppLowLeft ?? 5),
                 ppLowRight: +(ppLowRight ?? 5),
-                ppMult: +(ppMult ?? 0),
+                ppMult: +(ppMult ?? 1),
               }
             : type === IndicatorEnum.pc
             ? {
