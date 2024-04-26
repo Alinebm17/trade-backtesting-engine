@@ -154,6 +154,7 @@ export enum IndicatorAction {
   closeDeal = 'closeDeal',
   startDca = 'startDca',
   stopBot = 'stopBot',
+  riskReward = 'riskReward',
 }
 
 export type MAResult = {
