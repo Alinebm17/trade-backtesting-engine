@@ -120,7 +120,8 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
       for (const _ of [...Array(useDynamic ? 1 : maxPerSymbol).keys()]) {
         this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
       }
-    } else {
+    }
+    if (dealsPerSymbols.filter((d) => d.status === 'open').length) {
       await this.checkDeals(checkPortfolio, bar, (price: number) => {
         this.openDeal(price, bar.time, bar.high, bar.low, bar.symbol)
         if (Strategy.combo) {
