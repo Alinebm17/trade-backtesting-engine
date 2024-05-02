@@ -471,10 +471,17 @@ export type SettingsIndicators = {
   ppLowRight?: number
   ppMult?: number
   ppValue?: ppValueEnum
+  ppType?: ppValueTypeEnum
   showHH?: boolean
   showHL?: boolean
   showLH?: boolean
   showLL?: boolean
+}
+
+export enum ppValueTypeEnum {
+  price = 'Price Based',
+  event = 'Event Based',
+  market = 'Market Based',
 }
 
 export enum ppValueEnum {
@@ -484,6 +491,30 @@ export enum ppValueEnum {
   ll = 'LL',
   anyH = 'Any High',
   anyL = 'Any Low',
+  sl = 'SL',
+  wl = 'WL',
+  sh = 'SH',
+  wh = 'WH',
+  anySWL = 'anyL',
+  anySWH = 'anyH',
+  bullMarket = 'BullM',
+  bearMarket = 'BearM',
+  sBullBoS = 'SBullBoS',
+  sBearBoS = 'SBearBoS',
+  sBullCHoCH = 'SBullCHoCH',
+  sBearCHoCH = 'SBearCHoCH',
+  iBullBoS = 'IBullBoS',
+  iBearBoS = 'IBearBoS',
+  iBullCHoCH = 'IBullCHoCH',
+  iBearCHoCH = 'IBearCHoCH',
+  IanyBull = 'IAnyBull',
+  IanyBear = 'IAnyBear',
+  SanyBull = 'SAnyBull',
+  SanyBear = 'SAnyBear',
+  bullAnyBoS = 'BullAnyBoS',
+  bearAnyBoS = 'BearAnyBoS',
+  bullAnyCHoCH = 'BullAnyCHoCH',
+  bearAnyCHoCH = 'BearAnyCHoCH',
 }
 
 export enum PCConditionEnum {

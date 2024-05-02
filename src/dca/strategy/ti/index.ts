@@ -27,6 +27,7 @@ import {
   BotStartTypeEnum,
   PCConditionEnum,
   ppValueEnum,
+  ppValueTypeEnum,
 } from '../../../types'
 
 import type {
@@ -731,6 +732,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
       for (const i of currentState) {
         let action = false
+        let skipAction = false
         let trendFilterAction = false
         const {
           settings: {
@@ -762,6 +764,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             stCondition,
             pcValue,
             ppValue,
+            ppType,
           },
           data,
         } = i
@@ -1086,45 +1089,91 @@ class TIStrategy extends Strategy implements StrategyInterface {
             const [ld, pd] = [...data].sort((a, b) => b.time - a.time)
             const lastData = ld.value as PriorPivotResult
             const prevData = pd.value as PriorPivotResult
-            last = lastData.price
-            prev = prevData.price
-            value =
-              ppValue === ppValueEnum.anyH
-                ? isNaN(lastData.hh)
-                  ? lastData.lh
-                  : lastData.hh
-                : ppValue === ppValueEnum.anyL
-                ? isNaN(lastData.ll)
+            if (!ppType || ppType === ppValueTypeEnum.price) {
+              last = lastData.price
+              prev = prevData.price
+              value =
+                ppValue === ppValueEnum.anyH
+                  ? isNaN(lastData.hh)
+                    ? lastData.lh
+                    : lastData.hh
+                  : ppValue === ppValueEnum.anyL
+                  ? isNaN(lastData.ll)
+                    ? lastData.hl
+                    : lastData.ll
+                  : ppValue === ppValueEnum.hh
+                  ? lastData.hh
+                  : ppValue === ppValueEnum.hl
                   ? lastData.hl
-                  : lastData.ll
-                : ppValue === ppValueEnum.hh
-                ? lastData.hh
-                : ppValue === ppValueEnum.hl
-                ? lastData.hl
-                : ppValue === ppValueEnum.ll
-                ? lastData.ll
-                : lastData.lh
-            prevValue =
-              ppValue === ppValueEnum.anyH
-                ? isNaN(prevData.hh)
-                  ? prevData.lh
-                  : prevData.hh
-                : ppValue === ppValueEnum.anyL
-                ? isNaN(prevData.ll)
+                  : ppValue === ppValueEnum.ll
+                  ? lastData.ll
+                  : lastData.lh
+              prevValue =
+                ppValue === ppValueEnum.anyH
+                  ? isNaN(prevData.hh)
+                    ? prevData.lh
+                    : prevData.hh
+                  : ppValue === ppValueEnum.anyL
+                  ? isNaN(prevData.ll)
+                    ? prevData.hl
+                    : prevData.ll
+                  : ppValue === ppValueEnum.hh
+                  ? prevData.hh
+                  : ppValue === ppValueEnum.hl
                   ? prevData.hl
-                  : prevData.ll
-                : ppValue === ppValueEnum.hh
-                ? prevData.hh
-                : ppValue === ppValueEnum.hl
-                ? prevData.hl
-                : ppValue === ppValueEnum.ll
-                ? prevData.ll
-                : prevData.lh
-            if (isNaN(value) || isNaN(prevValue)) {
-              last = 0
-              prev = 0
-              value = 0
-              prevValue = 0
+                  : ppValue === ppValueEnum.ll
+                  ? prevData.ll
+                  : prevData.lh
+              if (isNaN(value) || isNaN(prevValue)) {
+                last = 0
+                prev = 0
+                value = 0
+                prevValue = 0
+              }
+            }
+            if (ppType === ppValueTypeEnum.event) {
+              skipAction = true
+              action =
+                ((ppValue === ppValueEnum.sBullCHoCH ||
+                  ppValue === ppValueEnum.SanyBull ||
+                  ppValue === ppValueEnum.bullAnyCHoCH) &&
+                  lastData.sBullCHoCH) ||
+                ((ppValue === ppValueEnum.sBearCHoCH ||
+                  ppValue === ppValueEnum.SanyBear ||
+                  ppValue === ppValueEnum.bearAnyCHoCH) &&
+                  lastData.sBearCHoCH) ||
+                ((ppValue === ppValueEnum.sBullBoS ||
+                  ppValue === ppValueEnum.SanyBull ||
+                  ppValue === ppValueEnum.bullAnyBoS) &&
+                  lastData.sBullBoS) ||
+                ((ppValue === ppValueEnum.sBearBoS ||
+                  ppValue === ppValueEnum.SanyBear ||
+                  ppValue === ppValueEnum.bearAnyBoS) &&
+                  lastData.sBearBoS) ||
+                ((ppValue === ppValueEnum.iBullCHoCH ||
+                  ppValue === ppValueEnum.IanyBull ||
+                  ppValue === ppValueEnum.bullAnyCHoCH) &&
+                  lastData.iBullCHoCH) ||
+                ((ppValue === ppValueEnum.iBearCHoCH ||
+                  ppValue === ppValueEnum.IanyBear ||
+                  ppValue === ppValueEnum.bearAnyCHoCH) &&
+                  lastData.iBearCHoCH) ||
+                ((ppValue === ppValueEnum.iBullBoS ||
+                  ppValue === ppValueEnum.IanyBull ||
+                  ppValue === ppValueEnum.bullAnyBoS) &&
+                  lastData.iBullBoS) ||
+                ((ppValue === ppValueEnum.iBearBoS ||
+                  ppValue === ppValueEnum.IanyBear ||
+                  ppValue === ppValueEnum.bearAnyBoS) &&
+                  lastData.iBearBoS)
+            }
+            if (ppType === ppValueTypeEnum.market) {
+              skipAction = true
+              action =
+                (ppValue === ppValueEnum.bullMarket &&
+                  lastData.market === 'bull') ||
+                (ppValue === ppValueEnum.bearMarket &&
+                  lastData.market === 'bear')
             }
           }
           if (
@@ -1156,7 +1205,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
           if (
             (indicatorCondition === IndicatorStartConditionEnum.cu ||
               indicatorCondition === IndicatorStartConditionEnum.cd) &&
-            data.length >= 2
+            data.length >= 2 &&
+            !skipAction
           ) {
             if (indicatorCondition === IndicatorStartConditionEnum.cd) {
               action =
