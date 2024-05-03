@@ -2574,7 +2574,8 @@ export abstract class Strategy implements StrategyInterface {
       this.settings.useMultiSl &&
       this.settings.multiSl &&
       this.settings.multiSl.length > 0 &&
-      !Strategy.combo
+      !Strategy.combo &&
+      this.settings.dealCloseConditionSL === CloseConditionEnum.tp
     ) {
       const slOrders = this.getTP(d, undefined, false, true)
       const filledSl = slOrders.filter((o) =>
@@ -3776,7 +3777,11 @@ export abstract class Strategy implements StrategyInterface {
           }
         })
     }
-    if (sl && useMultiSl) {
+    if (
+      sl &&
+      useMultiSl &&
+      this.settings.dealCloseConditionSL === CloseConditionEnum.tp
+    ) {
       let restQty = tpOrder.qty
       let end = false
       tpOrders = []
