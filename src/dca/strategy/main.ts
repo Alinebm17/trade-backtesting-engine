@@ -65,7 +65,7 @@ import {
   PriorPivotResult,
   QFLResult,
   SuperTrendResult,
-} from 'indicators/src'
+} from '../../../indicators/src'
 
 export type Bar = BarTV
 
