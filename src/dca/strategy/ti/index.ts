@@ -44,6 +44,7 @@ import {
   PCResult,
   PercentileResult,
   PriorPivotResult,
+  QFLResult,
   SuperTrendResult,
 } from '../../../../indicators/src'
 
@@ -148,6 +149,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
         if (
           (this.settings.startCondition !== StartConditionEnum.ti &&
             indicatorAction === IndicatorAction.startDeal) ||
+          (!this.settings.useRiskReward &&
+            indicatorAction === IndicatorAction.riskReward) ||
           ((!this.settings.useTp ||
             this.settings.dealCloseCondition !== CloseConditionEnum.techInd) &&
             indicatorAction === IndicatorAction.closeDeal &&
@@ -379,7 +382,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
           maCrossingInterval &&
           maCrossingLength &&
           maUUID &&
-          maCrossingValue
+          maCrossingValue &&
+          indicatorAction !== IndicatorAction.riskReward
         ) {
           const indicatorChild = new InternalIndicator({
             type,
@@ -402,7 +406,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
           type === IndicatorEnum.xo &&
           xOscillator2 &&
           xOscillator2Interval &&
-          xOscillator2length
+          xOscillator2length &&
+          indicatorAction !== IndicatorAction.riskReward
         ) {
           const indicatorChild = new InternalIndicator({
             type: xOscillator2 || IndicatorEnum.mfi,
@@ -715,6 +720,27 @@ class TIStrategy extends Strategy implements StrategyInterface {
     const stopIndicators = Strategy.indicators.filter(
       (ci) => ci.settings.indicatorAction === IndicatorAction.stopBot,
     )
+    const riskIndicators = Strategy.indicators.filter(
+      (ci) => ci.settings.indicatorAction === IndicatorAction.riskReward,
+    )
+    if (
+      this.settings.useRiskReward &&
+      this.settings.startCondition === StartConditionEnum.asap &&
+      !this.settings.useStaticPriceFilter &&
+      !this.settings.useDynamicPriceFilter &&
+      riskIndicators.filter((i) => i.data.length > 0).length
+    ) {
+      const dealsPerSymbols = Strategy.getDeals(undefined, nextBar.symbol)
+      if (!dealsPerSymbols.length) {
+        this.openDeal(
+          nextBar.open,
+          nextBar.time,
+          nextBar.high,
+          nextBar.low,
+          nextBar.symbol,
+        )
+      }
+    }
     if (
       (startIndicators.filter((i) => i.data.length > 0).length ||
         closeIndicators.filter((i) => i.data.length > 0).length ||
@@ -805,7 +831,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               result.posdivergencehidden >= min)
         } else if (type === IndicatorEnum.qfl) {
           const [lastData] = [...data].sort((a, b) => b.time - a.time)
-          action = lastData.value as boolean
+          action = (lastData.value as QFLResult).action
         } else if (type === IndicatorEnum.tv && checkLevel && signal) {
           /**
            * TradingViews Technical Analysis

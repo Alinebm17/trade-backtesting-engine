@@ -40,6 +40,8 @@ const getStrategyBySettings = (
       settings.startCondition !== StartConditionEnum.ti) ||
     (settings.useBotController &&
       settings.botStart === BotStartTypeEnum.indicators &&
+      settings.startCondition !== StartConditionEnum.ti) ||
+    (settings.useRiskReward &&
       settings.startCondition !== StartConditionEnum.ti)
   ) {
     result.push(createStrategyFactory(TIStrategy))

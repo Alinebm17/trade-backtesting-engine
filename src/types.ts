@@ -7,6 +7,7 @@ import type {
   SuperTrendResult,
   PCResult,
   PriorPivotResult,
+  QFLResult,
 } from '../indicators/src'
 
 export const DirName = `../../tmp-backtester`
@@ -378,7 +379,7 @@ export type IndicatorHistory = { time: number } & (
       type: IndicatorEnum.sr
       value: PivotResult
     }
-  | { type: IndicatorEnum.qfl; value: boolean }
+  | { type: IndicatorEnum.qfl; value: QFLResult }
   | { type: IndicatorEnum.psar; value: { psar: number; price: number } }
 )
 
@@ -719,6 +720,21 @@ export interface DCABotSettings extends BaseSettings {
   dynamicPriceFilterPriceType?: DynamicPriceFilterPriceTypeEnum
   pairPrioritization?: PairPrioritizationEnum
   dynamicPriceFilterDirection?: DynamicPriceFilterDirectionEnum
+  useRiskReward?: boolean
+  riskSlType?: RiskSlTypeEnum
+  riskSlAmountPerc?: string
+  riskSlAmountValue?: string
+  riskUseTpRatio?: boolean
+  riskTpRatio?: string
+  comboUseSmartGrids?: boolean
+  comboSmartGridsCount?: string
+  riskMinPositionSize?: string
+  riskMaxPositionSize?: string
+}
+
+export enum RiskSlTypeEnum {
+  perc = 'perc',
+  fixed = 'fixed',
 }
 
 export enum DynamicPriceFilterDirectionEnum {

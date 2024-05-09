@@ -23,6 +23,9 @@ class ComboBotFunctions extends DcaBotFunctions {
     outsideSl = false,
     _tpSlTargetFilled: string[] = [],
     updatedComboAdjustments = true,
+    _fixSl = 0,
+    _fixTp = 0,
+    _fixSize = 0,
   ): DCAGrid[] {
     const { settings, symbol } = this
     const baseOrderSize = parseFloat(settings.orderSize)
