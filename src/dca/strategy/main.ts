@@ -24,6 +24,12 @@ import {
   DynamicPriceFilterPriceTypeEnum,
   BotStartTypeEnum,
   DynamicPriceFilterDirectionEnum,
+  IndicatorEnum,
+  ppValueEnum,
+  SRCrossingEnum,
+  BBCrossingEnum,
+  STConditionEnum,
+  RiskSlTypeEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -51,7 +57,15 @@ import type {
   PeriodicStats,
   PreparedDeal,
   ExchangeEnum,
+  MAResult,
 } from '../../types'
+import {
+  FasterBandsResult,
+  PivotResult,
+  PriorPivotResult,
+  QFLResult,
+  SuperTrendResult,
+} from 'indicators/src'
 
 export type Bar = BarTV
 
@@ -721,6 +735,190 @@ export abstract class Strategy implements StrategyInterface {
     return this.checkMaxDealsPerPair(symbol)
   }
 
+  private checkRiskRewardCondition(
+    pair: string,
+    price: number,
+  ): { tp?: number; sl: number; size: number } | null {
+    const {
+      riskTpRatio,
+      riskSlAmountValue,
+      riskSlType,
+      riskSlAmountPerc,
+      riskMaxPositionSize,
+      riskMinPositionSize,
+      useRiskReward,
+    } = this.settings
+    const indicator = Strategy.indicators.find(
+      (i) =>
+        i.symbol === pair &&
+        i.settings.indicatorAction === IndicatorAction.riskReward,
+    )
+    if (indicator) {
+      const [last] = [...indicator.data].sort((a, b) => b.time - a.time)
+      if (last) {
+        const { type, ppValue, srCrossingValue, bbCrossingValue, stCondition } =
+          indicator.settings
+        let value = NaN
+        if (type === IndicatorEnum.pp) {
+          const data = last.value as PriorPivotResult
+          if (ppValue === ppValueEnum.anyH) {
+            value = isNaN(data.hh) ? data.lh : data.hh
+          }
+          if (ppValue === ppValueEnum.hh) {
+            value = data.all.hh
+          }
+          if (ppValue === ppValueEnum.lh) {
+            value = data.all.lh
+          }
+          if (ppValue === ppValueEnum.anyL) {
+            value = isNaN(data.ll) ? data.hl : data.ll
+          }
+          if (ppValue === ppValueEnum.hl) {
+            value = data.all.hl
+          }
+          if (ppValue === ppValueEnum.ll) {
+            value = data.all.ll
+          }
+          if (ppValue === ppValueEnum.anySWH) {
+            value = isNaN(data.wh) ? data.sh : data.wh
+          }
+          if (ppValue === ppValueEnum.wh) {
+            value = data.all.wh
+          }
+          if (ppValue === ppValueEnum.sh) {
+            value = data.all.sh
+          }
+          if (ppValue === ppValueEnum.anySWL) {
+            value = isNaN(data.wl) ? data.sl : data.wl
+          }
+          if (ppValue === ppValueEnum.wl) {
+            value = data.all.wl
+          }
+          if (ppValue === ppValueEnum.sl) {
+            value = data.all.sl
+          }
+        }
+        if (type === IndicatorEnum.qfl) {
+          const data = last.value as QFLResult
+          value = data.base
+        }
+        if (type === IndicatorEnum.sr) {
+          const data = last.value as PivotResult
+          value =
+            srCrossingValue === SRCrossingEnum.resistance ? data.high : data.low
+        }
+        if (type === IndicatorEnum.bb) {
+          const data = last.value as {
+            result: FasterBandsResult
+            price: number
+          }
+          value =
+            bbCrossingValue === BBCrossingEnum.lower
+              ? data.result.lower
+              : bbCrossingValue === BBCrossingEnum.middle
+              ? data.result.middle
+              : data.result.upper
+        }
+        if (type === IndicatorEnum.ma) {
+          const data = last.value as MAResult
+          value = data.ma
+        }
+        if (type === IndicatorEnum.st) {
+          const data = last.value as SuperTrendResult
+          value =
+            stCondition === STConditionEnum.down ? data.all.down : data.all.up
+        }
+        if (type === IndicatorEnum.psar) {
+          const data = last.value as { psar: number; price: number }
+          value = data.psar
+        }
+        if (type === IndicatorEnum.atr) {
+          const data = last.value as number
+          value = this.long ? price - data : price + data
+        }
+        if (!isNaN(value)) {
+          const symbol = this.symbols.get(pair)
+          const precisionPrice = symbol?.priceAssetPrecision
+          const precisionQuote = this.precisionQuote.get(pair) ?? 8
+          const precisionBase = this.precisionBase.get(pair) ?? 8
+          const currentRiskSlPrice = this.math.round(value, precisionPrice)
+          const riskSlPerc =
+            ((currentRiskSlPrice - price) / price) * (this.long ? 1 : -1)
+          const rewardTpPerc = Math.abs(riskSlPerc) * +(riskTpRatio ?? '1')
+          const rewardTpPrice = this.math.round(
+            price * (1 + rewardTpPerc),
+            precisionPrice,
+          )
+          const riskPrecision = this.futures
+            ? this.coinm
+              ? precisionBase
+              : precisionQuote
+            : this.long
+            ? precisionQuote
+            : precisionBase
+
+          let riskBalance = symbol
+            ? Strategy.balance.get(
+                this.futures
+                  ? this.coinm
+                    ? symbol.quoteAsset.name
+                    : symbol.baseAsset.name
+                  : this.long
+                  ? symbol.quoteAsset.name
+                  : symbol.baseAsset.name,
+              )
+            : 0
+          if ((riskBalance ?? 0) < 0) {
+            return null
+          }
+          if (!riskBalance) {
+            riskBalance =
+              ((this.futures
+                ? this.coinm
+                  ? symbol?.baseAsset.minAmount
+                  : symbol?.quoteAsset.minAmount
+                : this.long
+                ? symbol?.quoteAsset.minAmount
+                : symbol?.baseAsset.minAmount) ?? 0) * 10
+          }
+          const riskSize = this.math.round(
+            riskSlType === RiskSlTypeEnum.fixed
+              ? +(riskSlAmountValue ?? 0)
+              : (riskBalance ?? 0) * (+(riskSlAmountPerc ?? '0') / 100),
+            riskPrecision,
+          )
+          const positionSize =
+            riskSlPerc >= 0 || riskSize === 0
+              ? 0
+              : this.math.round(
+                  riskSize / (Math.abs(riskSlPerc) / 100) / this.leverage,
+                  riskPrecision,
+                )
+          if (positionSize <= 0) {
+            return null
+          }
+          let min = +(riskMinPositionSize ?? '0')
+          if (min === -1) {
+            min = 0
+          }
+          let max = +(riskMaxPositionSize ?? '0')
+          if (max === -1 || max === 0) {
+            max = Infinity
+          }
+          if (positionSize < min || positionSize > max) {
+            return null
+          }
+          return {
+            size: positionSize,
+            sl: currentRiskSlPrice,
+            tp: useRiskReward ? rewardTpPrice : undefined,
+          }
+        }
+      }
+    }
+    return null
+  }
+
   private convertCooldown(interval?: number, units?: CooldownUnits) {
     if (!interval || !units) {
       return 0
@@ -1174,6 +1372,18 @@ export abstract class Strategy implements StrategyInterface {
     if (!this.checkMaxDeals(s)) {
       return
     }
+    let fixSl = 0
+    let fixTp = 0
+    let fixSize = 0
+    if (this.settings.useRiskReward) {
+      const riskReward = this.checkRiskRewardCondition(s, price)
+      if (!riskReward) {
+        return
+      }
+      fixSl = riskReward.sl
+      fixTp = riskReward.tp ?? 0
+      fixSize = riskReward.size
+    }
     const symbol = this.symbols.get(s)
     const botFunctions = this.botFunctions.get(s)
     if (!symbol || !botFunctions) {
@@ -1198,10 +1408,17 @@ export abstract class Strategy implements StrategyInterface {
         undefined,
         this.getBalances(s),
         true,
+        [],
+        true,
+        fixSl,
+        fixTp,
+        fixSize,
       )
       .filter(
         (o) =>
-          o.type !== DCAOrderTypeEnum.sl && o.type !== DCAOrderTypeEnum.grid,
+          (!this.settings.useRiskReward
+            ? o.type !== DCAOrderTypeEnum.sl
+            : true) && o.type !== DCAOrderTypeEnum.grid,
       )
     const allInitialOrder = [...initialOrders]
     initialOrders = initialOrders.filter((o) =>
@@ -1224,9 +1441,9 @@ export abstract class Strategy implements StrategyInterface {
     if (!onlyReturn) {
       this.updatePositionWithOrder(baseOrder, s)
     }
-    initialOrders = [
-      ...initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp),
-    ]
+    initialOrders = this.settings.useRiskReward
+      ? []
+      : [...initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp)]
 
     const step = baseOrder.price * (+this.settings.step / 100)
     let deal: Deal = {
@@ -1339,11 +1556,17 @@ export abstract class Strategy implements StrategyInterface {
     const initialBase = this.long
       ? 0
       : allInitialOrder
-          .filter((o) => o.type !== DCAOrderTypeEnum.tp)
+          .filter(
+            (o) =>
+              o.type !== DCAOrderTypeEnum.tp && o.type !== DCAOrderTypeEnum.sl,
+          )
           .reduce((acc, o) => acc + o.qty, 0)
     const initialQuote = this.long
       ? allInitialOrder
-          .filter((o) => o.type !== DCAOrderTypeEnum.tp)
+          .filter(
+            (o) =>
+              o.type !== DCAOrderTypeEnum.tp && o.type !== DCAOrderTypeEnum.sl,
+          )
           .reduce((acc, o) => acc + o.qty * o.price, 0)
       : 0
     const currentBase = filledOrders.reduce((acc, o) => acc + o.qty, 0)
@@ -2558,6 +2781,7 @@ export abstract class Strategy implements StrategyInterface {
   private getSLOrder(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
     if (
       this.settings.dealCloseConditionSL !== CloseConditionEnum.tp &&
+      !this.settings.useRiskReward &&
       !Strategy.combo &&
       !this.settings.moveSLForAll
     ) {
@@ -2570,6 +2794,8 @@ export abstract class Strategy implements StrategyInterface {
     }
     let close = false
     let closePrice = 0
+    let slOrder: FullGrid | undefined
+    let lock = false
     if (
       this.settings.useMultiSl &&
       this.settings.multiSl &&
@@ -2675,6 +2901,18 @@ export abstract class Strategy implements StrategyInterface {
       if (diff / d.avgPrice - this.userFee * 2 <= sl) {
         close = true
         closePrice = d.avgPrice * (this.long ? 1 - -sl : 1 + -sl)
+      }
+    } else if (this.settings.useRiskReward && !Strategy.combo) {
+      const order = d.activeOrders.find((o) => o.type === DCAOrderTypeEnum.sl)
+      if (order) {
+        close = this.long
+          ? order.price >= Math.min(b.low, b.close, b.open)
+          : order.price <= Math.max(b.high, b.close, b.open)
+        if (close) {
+          closePrice = order.price
+          slOrder = order
+          lock = true
+        }
       }
     } else if (Strategy.combo) {
       if (this.settings.useSl || this.settings.useTp) {
@@ -2790,29 +3028,34 @@ export abstract class Strategy implements StrategyInterface {
       }
     }
     if (close) {
-      let slOrder = this.getTP(
-        d,
-        Strategy.combo && this.profitBase ? b.close : undefined,
-        false,
-        true,
-      )[0]
-      slOrder.price =
-        closePrice *
-        (Strategy.combo || (d.trailingLevel && d.trailingMode)
-          ? 1
-          : this.long
-          ? 1 + this.userFee * 2
-          : 1 - this.userFee * 2)
+      slOrder =
+        lock && slOrder
+          ? slOrder
+          : this.getTP(
+              d,
+              Strategy.combo && this.profitBase ? b.close : undefined,
+              false,
+              true,
+            )[0]
+      slOrder.price = lock
+        ? closePrice
+        : closePrice *
+          (Strategy.combo || (d.trailingLevel && d.trailingMode)
+            ? 1
+            : this.long
+            ? 1 + this.userFee * 2
+            : 1 - this.userFee * 2)
       const min = Math.min(b.low, b.close, b.open)
       const max = Math.max(b.high, b.close, b.open)
-      slOrder.price =
-        slOrder.price >= min && slOrder.price <= max
-          ? slOrder.price
-          : slOrder.price >= max
-          ? max
-          : slOrder.price <= min
-          ? min
-          : min
+      slOrder.price = lock
+        ? closePrice
+        : slOrder.price >= min && slOrder.price <= max
+        ? slOrder.price
+        : slOrder.price >= max
+        ? max
+        : slOrder.price <= min
+        ? min
+        : min
       if (Strategy.combo && this.profitBase) {
         slOrder = this.getTP(d, slOrder.price, false, true)[0]
       }
