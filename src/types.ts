@@ -720,6 +720,21 @@ export interface DCABotSettings extends BaseSettings {
   dynamicPriceFilterPriceType?: DynamicPriceFilterPriceTypeEnum
   pairPrioritization?: PairPrioritizationEnum
   dynamicPriceFilterDirection?: DynamicPriceFilterDirectionEnum
+  useRiskReward?: boolean
+  riskSlType?: RiskSlTypeEnum
+  riskSlAmountPerc?: string
+  riskSlAmountValue?: string
+  riskUseTpRatio?: boolean
+  riskTpRatio?: string
+  comboUseSmartGrids?: boolean
+  comboSmartGridsCount?: string
+  riskMinPositionSize?: string
+  riskMaxPositionSize?: string
+}
+
+export enum RiskSlTypeEnum {
+  perc = 'perc',
+  fixed = 'fixed',
 }
 
 export enum DynamicPriceFilterDirectionEnum {

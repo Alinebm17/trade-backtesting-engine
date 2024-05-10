@@ -79,9 +79,13 @@ class DCABotFunctions {
     balances: Asset[] | null = [],
     outsideSl = false,
     tpSlTargetFilled: string[] = [],
+    _updatedComboAdjustments = true,
+    fixSl = 0,
+    fixTp = 0,
+    fixSize = 0,
   ): DCAGrid[] {
     const { settings, symbol } = this
-    const baseOrderSize = parseFloat(settings.baseOrderSize)
+    const baseOrderSize = fixSize || parseFloat(settings.baseOrderSize)
     const _orderSize = parseFloat(settings.orderSize)
     const tpPerc = parseFloat(settings.tpPerc) / 100
     const slPerc = parseFloat(settings.slPerc) / 100
@@ -100,9 +104,18 @@ class DCABotFunctions {
       useSmartOrders,
       useSl: _useSl,
       dealCloseConditionSL,
-      orderSizeType,
       coinm,
     } = settings
+    let { orderSizeType: _orderSizeType } = settings
+    const orderSizeType = fixSize
+      ? settings.futures
+        ? settings.coinm
+          ? OrderSizeTypeEnum.base
+          : OrderSizeTypeEnum.quote
+        : settings.strategy === StrategyEnum.long
+        ? OrderSizeTypeEnum.quote
+        : OrderSizeTypeEnum.base
+      : _orderSizeType
     const useTp = _useTp && dealCloseCondition === CloseConditionEnum.tp
     const useSl = _useSl && dealCloseConditionSL === CloseConditionEnum.tp
     const latestPrice = this.math.round(
@@ -188,8 +201,9 @@ class DCABotFunctions {
     const long = settings.strategy === StrategyEnum.long
     const ordersSide = long ? BotOrderSideEnum.buy : BotOrderSideEnum.sell
     let tpPrice = this.math.round(
-      latestPrice *
-        (1 + (settings.strategy === StrategyEnum.long ? 1 : -1) * tpPerc),
+      fixTp ||
+        latestPrice *
+          (1 + (settings.strategy === StrategyEnum.long ? 1 : -1) * tpPerc),
       symbol.priceAssetPrecision,
     )
     if (tpPrice === latestPrice) {
@@ -612,16 +626,17 @@ class DCABotFunctions {
     const slOrder: DCAGrid = {
       ...tpOrder,
       price: this.math.round(
-        finalBreakeven *
-          (1 +
-            (settings.strategy === StrategyEnum.long ? 1 : -1) * slPerc +
-            this.userFee * 2),
+        fixSl ||
+          finalBreakeven *
+            (1 +
+              (settings.strategy === StrategyEnum.long ? 1 : -1) * slPerc +
+              this.userFee * 2),
         symbol?.priceAssetPrecision ?? 8,
       ),
       type: DCAOrderTypeEnum.sl,
       id: this.utils.id(20),
     }
-    if (orders.length && useOutsideSl && outsideSl) {
+    if (orders.length && useOutsideSl && outsideSl && !fixSl) {
       /*  const tempOrders = [...orders] */
       let i = 0
       for (const o of orders) {
@@ -760,8 +775,8 @@ class DCABotFunctions {
     const result = [...orders, baseOrder, ...tpOrders, ...slOrders]
       .filter(
         (o) =>
-          (!useTp ? o.type !== DCAOrderTypeEnum.tp : true) &&
-          (!useSl ? o.type !== DCAOrderTypeEnum.sl : true),
+          (!useTp && !fixTp ? o.type !== DCAOrderTypeEnum.tp : true) &&
+          (!useSl && !fixSl ? o.type !== DCAOrderTypeEnum.sl : true),
       )
       .flat()
       .sort((a, b) =>
