@@ -44,6 +44,7 @@ import {
   PCResult,
   PercentileResult,
   PriorPivotResult,
+  QFLResult,
   SuperTrendResult,
 } from '../../../../indicators/src'
 
@@ -805,7 +806,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               result.posdivergencehidden >= min)
         } else if (type === IndicatorEnum.qfl) {
           const [lastData] = [...data].sort((a, b) => b.time - a.time)
-          action = lastData.value as boolean
+          action = (lastData.value as QFLResult).action
         } else if (type === IndicatorEnum.tv && checkLevel && signal) {
           /**
            * TradingViews Technical Analysis
