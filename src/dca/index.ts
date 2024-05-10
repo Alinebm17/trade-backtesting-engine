@@ -149,6 +149,7 @@ class DCABacktesting extends Backtesting {
         (this.settings.startCondition === StartConditionEnum.ti ||
           (this.settings.dealCloseCondition === CloseConditionEnum.techInd &&
             this.settings.useTp) ||
+          this.settings.useRiskReward ||
           (this.settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
             this.settings.useSl) ||
           (this.settings.dcaCondition === DCAConditionEnum.indicators &&

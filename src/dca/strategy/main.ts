@@ -746,7 +746,7 @@ export abstract class Strategy implements StrategyInterface {
       riskSlAmountPerc,
       riskMaxPositionSize,
       riskMinPositionSize,
-      useRiskReward,
+      riskUseTpRatio,
     } = this.settings
     const indicator = Strategy.indicators.find(
       (i) =>
@@ -858,14 +858,16 @@ export abstract class Strategy implements StrategyInterface {
             : precisionBase
 
           let riskBalance = symbol
-            ? Strategy.balance.get(
-                this.futures
-                  ? this.coinm
+            ? +(
+                this.getBalances(
+                  this.futures
+                    ? this.coinm
+                      ? symbol.baseAsset.name
+                      : symbol.quoteAsset.name
+                    : this.long
                     ? symbol.quoteAsset.name
-                    : symbol.baseAsset.name
-                  : this.long
-                  ? symbol.quoteAsset.name
-                  : symbol.baseAsset.name,
+                    : symbol.baseAsset.name,
+                )?.[0]?.free || '0'
               )
             : 0
           if ((riskBalance ?? 0) < 0) {
@@ -891,7 +893,7 @@ export abstract class Strategy implements StrategyInterface {
             riskSlPerc >= 0 || riskSize === 0
               ? 0
               : this.math.round(
-                  riskSize / (Math.abs(riskSlPerc) / 100) / this.leverage,
+                  riskSize / Math.abs(riskSlPerc) / this.leverage,
                   riskPrecision,
                 )
           if (positionSize <= 0) {
@@ -911,7 +913,7 @@ export abstract class Strategy implements StrategyInterface {
           return {
             size: positionSize,
             sl: currentRiskSlPrice,
-            tp: useRiskReward ? rewardTpPrice : undefined,
+            tp: riskUseTpRatio ? rewardTpPrice : undefined,
           }
         }
       }
@@ -1442,7 +1444,7 @@ export abstract class Strategy implements StrategyInterface {
       this.updatePositionWithOrder(baseOrder, s)
     }
     initialOrders = this.settings.useRiskReward
-      ? []
+      ? initialOrders
       : [...initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp)]
 
     const step = baseOrder.price * (+this.settings.step / 100)

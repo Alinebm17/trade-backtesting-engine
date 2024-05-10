@@ -121,7 +121,9 @@ export default class InternalIndicator {
         Math.max(
           indicatorConfig.ppHighLeft + indicatorConfig.ppHighRight,
           indicatorConfig.ppLowLeft + indicatorConfig.ppLowRight,
-        ) + add
+        ) +
+        add +
+        1000
     }
     if (indicatorConfig.type === IndicatorEnum.pc) {
       this.indicator = new FasterPC(

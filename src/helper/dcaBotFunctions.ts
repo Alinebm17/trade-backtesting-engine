@@ -85,7 +85,7 @@ class DCABotFunctions {
     fixSize = 0,
   ): DCAGrid[] {
     const { settings, symbol } = this
-    const baseOrderSize = parseFloat(settings.baseOrderSize)
+    const baseOrderSize = fixSize || parseFloat(settings.baseOrderSize)
     const _orderSize = parseFloat(settings.orderSize)
     const tpPerc = parseFloat(settings.tpPerc) / 100
     const slPerc = parseFloat(settings.slPerc) / 100
@@ -104,7 +104,6 @@ class DCABotFunctions {
       useSmartOrders,
       useSl: _useSl,
       dealCloseConditionSL,
-
       coinm,
     } = settings
     let { orderSizeType: _orderSizeType } = settings
@@ -130,8 +129,7 @@ class DCABotFunctions {
       return []
     }
     let baseQty =
-      fixSize ||
-      (orderSizeType === OrderSizeTypeEnum.base
+      orderSizeType === OrderSizeTypeEnum.base
         ? this.math.round(baseOrderSize, precision, true)
         : orderSizeType === OrderSizeTypeEnum.quote
         ? this.math.round(
@@ -146,7 +144,7 @@ class DCABotFunctions {
               : symbol.baseAsset.minAmount,
             precision,
             true,
-          ))
+          )
     let qtyToUse = 0
     if (
       orderSizeType === OrderSizeTypeEnum.percFree ||

@@ -791,9 +791,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
             pcValue,
             ppValue,
             ppType,
+            indicatorAction,
           },
           data,
         } = i
+        if (
+          indicatorAction === IndicatorAction.riskReward &&
+          Strategy.indicators.length > 1
+        ) {
+          continue
+        }
         if (type === IndicatorEnum.pc) {
           const [last] = [...data].sort((a, b) => b.time - a.time)
           const pcCondition =
