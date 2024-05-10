@@ -797,7 +797,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         } = i
         if (
           indicatorAction === IndicatorAction.riskReward &&
-          Strategy.indicators.length > 1
+          Strategy.indicators.length > this.settings.pair.length
         ) {
           continue
         }
