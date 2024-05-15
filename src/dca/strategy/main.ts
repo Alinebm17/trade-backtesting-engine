@@ -1443,9 +1443,10 @@ export abstract class Strategy implements StrategyInterface {
     if (!onlyReturn) {
       this.updatePositionWithOrder(baseOrder, s)
     }
-    initialOrders = this.settings.useRiskReward
-      ? initialOrders
-      : [...initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp)]
+    initialOrders =
+      this.settings.useRiskReward && this.settings.riskUseTpRatio
+        ? initialOrders
+        : [...initialOrders.filter((o) => o.type !== DCAOrderTypeEnum.tp)]
 
     const step = baseOrder.price * (+this.settings.step / 100)
     let deal: Deal = {
