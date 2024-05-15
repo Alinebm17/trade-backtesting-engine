@@ -477,6 +477,7 @@ export type SettingsIndicators = {
   showHL?: boolean
   showLH?: boolean
   showLL?: boolean
+  riskAtrMult?: string
 }
 
 export enum ppValueTypeEnum {
@@ -726,6 +727,8 @@ export interface DCABotSettings extends BaseSettings {
   riskSlAmountValue?: string
   riskUseTpRatio?: boolean
   riskTpRatio?: string
+  riskMaxSl?: string
+  riskMinSl?: string
   comboUseSmartGrids?: boolean
   comboSmartGridsCount?: string
   riskMinPositionSize?: string

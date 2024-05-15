@@ -747,6 +747,8 @@ export abstract class Strategy implements StrategyInterface {
       riskMaxPositionSize,
       riskMinPositionSize,
       riskUseTpRatio,
+      riskMaxSl,
+      riskMinSl,
     } = this.settings
     const indicator = Strategy.indicators.find(
       (i) =>
@@ -833,8 +835,11 @@ export abstract class Strategy implements StrategyInterface {
           value = data.psar
         }
         if (type === IndicatorEnum.atr) {
+          const atrMultiplier = +(indicator?.settings.riskAtrMult ?? '1')
           const data = last.value as number
-          value = this.long ? price - data : price + data
+          value = this.long
+            ? price - data * atrMultiplier
+            : price + data * atrMultiplier
         }
         if (!isNaN(value)) {
           const symbol = this.symbols.get(pair)
@@ -889,6 +894,17 @@ export abstract class Strategy implements StrategyInterface {
               : (riskBalance ?? 0) * (+(riskSlAmountPerc ?? '1') / 100),
             riskPrecision,
           )
+          let minSl = +(riskMinSl ?? '0')
+          if (minSl === -1) {
+            minSl = 0
+          }
+          let maxSl = +(riskMaxSl ?? '0')
+          if (maxSl === -1 || maxSl === 0) {
+            maxSl = Infinity
+          }
+          if (riskSize < minSl || riskSize > maxSl) {
+            return null
+          }
           const positionSize =
             riskSlPerc >= 0 || riskSize === 0
               ? 0
