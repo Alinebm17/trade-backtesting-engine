@@ -886,7 +886,7 @@ export abstract class Strategy implements StrategyInterface {
           const riskSize = this.math.round(
             riskSlType === RiskSlTypeEnum.fixed
               ? +(riskSlAmountValue ?? 0)
-              : (riskBalance ?? 0) * (+(riskSlAmountPerc ?? '0') / 100),
+              : (riskBalance ?? 0) * (+(riskSlAmountPerc ?? '1') / 100),
             riskPrecision,
           )
           const positionSize =
