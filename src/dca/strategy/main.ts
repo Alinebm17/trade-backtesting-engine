@@ -846,9 +846,27 @@ export abstract class Strategy implements StrategyInterface {
           const precisionPrice = symbol?.priceAssetPrecision
           const precisionQuote = this.precisionQuote.get(pair) ?? 8
           const precisionBase = this.precisionBase.get(pair) ?? 8
-          const currentRiskSlPrice = this.math.round(value, precisionPrice)
-          const riskSlPerc =
-            ((currentRiskSlPrice - price) / price) * (this.long ? 1 : -1)
+          let currentRiskSlPrice = this.math.round(value, precisionPrice)
+          const minSl =
+            typeof riskMinSl !== 'undefined' && `${riskMinSl}` !== 'null'
+              ? Math.abs(+riskMinSl) / 100
+              : riskSlType === RiskSlTypeEnum.perc && riskSlAmountPerc
+              ? Math.abs(+riskSlAmountPerc) / 100
+              : null
+          const maxSl = riskMaxSl ? Math.abs(+riskMaxSl) / 100 : 1
+          let currentSl = Math.abs((currentRiskSlPrice - price) / price)
+          if (minSl && currentSl < minSl) {
+            currentSl = minSl * -1
+          } else if (maxSl && currentSl > maxSl) {
+            currentSl = maxSl * -1
+          } else {
+            currentSl *= -1
+          }
+          const riskSlPerc = currentSl * (this.long ? 1 : -1)
+          currentRiskSlPrice = this.math.round(
+            price * (1 + riskSlPerc),
+            symbol?.priceAssetPrecision,
+          )
           const rewardTpPerc = Math.abs(riskSlPerc) * +(riskTpRatio ?? '1')
           const rewardTpPrice = this.math.round(
             price * (1 + rewardTpPerc),
@@ -892,19 +910,8 @@ export abstract class Strategy implements StrategyInterface {
             riskSlType === RiskSlTypeEnum.fixed
               ? +(riskSlAmountValue ?? 0)
               : (riskBalance ?? 0) * (+(riskSlAmountPerc ?? '1') / 100),
-            riskPrecision,
+            riskPrecision + 2,
           )
-          let minSl = +(riskMinSl ?? '0')
-          if (minSl === -1) {
-            minSl = 0
-          }
-          let maxSl = +(riskMaxSl ?? '0')
-          if (maxSl === -1 || maxSl === 0) {
-            maxSl = Infinity
-          }
-          if (riskSize < minSl || riskSize > maxSl) {
-            return null
-          }
           const positionSize =
             riskSlPerc >= 0 || riskSize === 0
               ? 0
