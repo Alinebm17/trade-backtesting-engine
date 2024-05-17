@@ -1349,6 +1349,7 @@ export type DCABacktestingResult = {
   multiPairs?: number
   symbolStats?: SymbolStats[]
   periodicStats?: PeriodicStats[]
+  messages?: string[]
 }
 
 export enum FuturesStrategyEnum {

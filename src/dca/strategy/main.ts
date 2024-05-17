@@ -148,6 +148,9 @@ enum CandleTypeEnum {
   bear = 'bear',
 }
 
+const fundsWarning =
+  'The bot used more funds than allocated, this might not be accurate in live trading. Please check your settings.'
+
 export abstract class Strategy implements StrategyInterface {
   static combo = false
 
@@ -167,6 +170,8 @@ export abstract class Strategy implements StrategyInterface {
   static workingShift: { start: number; end?: number }[] = []
 
   static rangeStatus = false
+
+  static messages: string[] = []
 
   static maxUsage: {
     deal: number
@@ -396,6 +401,7 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.lastClosedDealPerSymbol = new Map()
     Strategy.lastOpenedDealPerSymbol = new Map()
     Strategy.lastPricesPerSymbol = new Map()
+    Strategy.messages = []
   }
 
   static position: Map<string, typeof Strategy.emptyPositon> = new Map()
@@ -933,6 +939,9 @@ export abstract class Strategy implements StrategyInterface {
           if (positionSize < min || positionSize > max) {
             return null
           }
+          if (positionSize > riskBalance) {
+            Strategy.messages.push(fundsWarning)
+          }
           return {
             size: positionSize,
             sl: currentRiskSlPrice,
@@ -1346,6 +1355,9 @@ export abstract class Strategy implements StrategyInterface {
       asset,
       free: `${free}`,
       locked: balanceAsset?.locked ?? '0',
+    }
+    if (+balance.free < 0) {
+      Strategy.messages.push(fundsWarning)
     }
     return this.balances
       ? this.balances.filter((b) => b.asset !== asset).concat(balance)
@@ -5251,6 +5263,7 @@ export abstract class Strategy implements StrategyInterface {
       )
     } */
     const result: DCABacktestingResult = {
+      messages: [...new Set(Strategy.messages)],
       portfolio: Array.from(Strategy.portfolio, (v) => ({ x: v[0], y: v[1] })),
       buyAndHoldEquity: buyAndHold?.buyAndHoldEquity ?? [],
       indicatorsEvents: [...Strategy.indicatorEvents],
