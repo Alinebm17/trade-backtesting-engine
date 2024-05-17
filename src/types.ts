@@ -618,6 +618,7 @@ export enum DCAConditionEnum {
   percentage = 'percentage',
   indicators = 'indicators',
   custom = 'custom',
+  dynamicAr = 'dynamicAr',
 }
 
 export type DCACustom = {
