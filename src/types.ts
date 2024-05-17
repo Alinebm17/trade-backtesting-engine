@@ -44,6 +44,7 @@ export enum IndicatorEnum {
   pc = 'PC',
   atr = 'ATR',
   pp = 'PP',
+  adr = 'ADR',
 }
 
 export enum ECDTriggerEnum {
@@ -247,6 +248,7 @@ export type IndicatorConfigBackTesting =
         | IndicatorEnum.cci
         | IndicatorEnum.wr
         | IndicatorEnum.atr
+        | IndicatorEnum.adr
       interval: number
     } & Percentile)
   | ({
@@ -350,6 +352,7 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.bbwp
         | IndicatorEnum.ecd
         | IndicatorEnum.atr
+        | IndicatorEnum.adr
       value: number
     }
   | { type: IndicatorEnum.st; value: SuperTrendResult }

@@ -35,6 +35,7 @@ import {
   FasterPC,
   FasterATRTV,
   PriorPivot,
+  FasterADR,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -80,6 +81,7 @@ export default class InternalIndicator {
     | FasterPC
     | FasterATRTV
     | PriorPivot
+    | FasterADR
   private data: IndicatorHistory[] = []
 
   private readonly type: IndicatorEnum
@@ -149,6 +151,10 @@ export default class InternalIndicator {
     }
     if (indicatorConfig.type === IndicatorEnum.atr) {
       this.indicator = new FasterATRTV(indicatorConfig.interval)
+      this.length = indicatorConfig.interval + add
+    }
+    if (indicatorConfig.type === IndicatorEnum.adr) {
+      this.indicator = new FasterADR(indicatorConfig.interval)
       this.length = indicatorConfig.interval + add
     }
     if (indicatorConfig.type === IndicatorEnum.mar) {
@@ -554,6 +560,7 @@ export default class InternalIndicator {
         this.indicator instanceof FasterPSAR ||
         this.indicator instanceof SuperTrend ||
         this.indicator instanceof FasterATRTV ||
+        this.indicator instanceof FasterADR ||
         this.indicator instanceof PriorPivot)
     ) {
       this.indicator?.update({

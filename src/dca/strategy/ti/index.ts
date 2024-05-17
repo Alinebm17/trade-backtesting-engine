@@ -331,6 +331,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 type,
                 interval: indicatorLength ?? 14,
               }
+            : type === IndicatorEnum.adr
+            ? {
+                type,
+                interval: indicatorLength ?? 14,
+              }
             : type === IndicatorEnum.qfl
             ? {
                 type,
@@ -370,7 +375,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
           data: [],
           id: `${uuid}@${s.pair}`,
           settings: i,
-          interval: indicatorInterval,
+          interval:
+            type === IndicatorEnum.adr
+              ? ExchangeIntervals.oneD
+              : indicatorInterval,
           statuses: [],
           status: { status: false, statusSince: 0, statusTo: 0 },
           ignore: false,
@@ -985,6 +993,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
           if (
             lastData.type === IndicatorEnum.atr &&
             prevData.type === IndicatorEnum.atr
+          ) {
+            last = lastData.value
+            prev = prevData.value
+          }
+          if (
+            lastData.type === IndicatorEnum.adr &&
+            prevData.type === IndicatorEnum.adr
           ) {
             last = lastData.value
             prev = prevData.value
