@@ -614,7 +614,16 @@ export abstract class Strategy implements StrategyInterface {
     }
     const result = dynamic && staticResult
     const last = Strategy.workingShift[Strategy.workingShift.length - 1]
-    if (!result && Strategy.workingShift.length > 0 && !Strategy.rangeStatus) {
+    const notSetRange =
+      useDynamicPriceFilter &&
+      !useStaticPriceFilter &&
+      (dynamic || (!dynamic && Strategy.getDeals('open', symbol).length > 0))
+    if (
+      !result &&
+      Strategy.workingShift.length > 0 &&
+      !Strategy.rangeStatus &&
+      !notSetRange
+    ) {
       if (!last.end) {
         last.end = time
         Strategy.workingShift = [
