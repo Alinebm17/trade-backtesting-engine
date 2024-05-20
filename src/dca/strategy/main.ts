@@ -1036,6 +1036,9 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private updatePositionWithOrder(order: DCAGrid, s: string) {
+    if (!order) {
+      return
+    }
     if (this.futures) {
       let position = Strategy.position.get(s)
       if (!position) {
@@ -1484,6 +1487,9 @@ export abstract class Strategy implements StrategyInterface {
         dealId: id,
       }))
     const baseOrder = filledOrders[0]
+    if (!baseOrder) {
+      return
+    }
     if (!onlyReturn) {
       this.updatePositionWithOrder(baseOrder, s)
     }
