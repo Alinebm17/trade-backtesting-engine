@@ -58,6 +58,7 @@ import type {
   PreparedDeal,
   ExchangeEnum,
   MAResult,
+  DynamicArPrices,
 } from '../../types'
 import {
   FasterBandsResult,
@@ -962,6 +963,31 @@ export abstract class Strategy implements StrategyInterface {
     return null
   }
 
+  private getDynamicLevels(pair: string): DynamicArPrices[] {
+    if (this.settings.dcaCondition === DCAConditionEnum.dynamicAr) {
+      return []
+    }
+    const indicators = Strategy.indicators.filter(
+      (i) =>
+        i.symbol === pair &&
+        i.settings.indicatorAction === IndicatorAction.startDca,
+    )
+    const result: DynamicArPrices[] = []
+    for (const i of indicators) {
+      if (!i.data || !i.data.length) {
+        continue
+      }
+      const id = i.id.split('@')[0]
+      if (!id) {
+        continue
+      }
+      const [last] = [...i.data].sort((a, b) => b.time - a.time)
+
+      result.push({ id, value: last.value as number })
+    }
+    return result
+  }
+
   private convertCooldown(interval?: number, units?: CooldownUnits) {
     if (!interval || !units) {
       return 0
@@ -1433,6 +1459,14 @@ export abstract class Strategy implements StrategyInterface {
       fixTp = riskReward.tp ?? 0
       fixSize = riskReward.size
     }
+    let dynamicAr: DynamicArPrices[] = []
+    if (this.settings.dcaCondition === DCAConditionEnum.dynamicAr) {
+      const dynamic = this.getDynamicLevels(s)
+      if (!dynamic.length) {
+        return
+      }
+      dynamicAr = dynamic
+    }
     const symbol = this.symbols.get(s)
     const botFunctions = this.botFunctions.get(s)
     if (!symbol || !botFunctions) {
@@ -1462,6 +1496,7 @@ export abstract class Strategy implements StrategyInterface {
         fixSl,
         fixTp,
         fixSize,
+        dynamicAr,
       )
       .filter(
         (o) =>

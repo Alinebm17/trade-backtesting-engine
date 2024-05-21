@@ -161,7 +161,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
             indicatorAction === IndicatorAction.closeDeal &&
             section === IndicatorSection.sl) ||
           ((!this.settings.useDca ||
-            this.settings.dcaCondition !== DCAConditionEnum.indicators) &&
+            !(
+              this.settings.dcaCondition === DCAConditionEnum.indicators ||
+              this.settings.dcaCondition === DCAConditionEnum.dynamicAr
+            )) &&
             indicatorAction === IndicatorAction.startDca) ||
           ((!this.settings.useBotController ||
             this.settings.botStart !== BotStartTypeEnum.indicators) &&
@@ -391,7 +394,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
           maCrossingLength &&
           maUUID &&
           maCrossingValue &&
-          indicatorAction !== IndicatorAction.riskReward
+          indicatorAction !== IndicatorAction.riskReward &&
+          !(
+            this.settings.dcaCondition === DCAConditionEnum.dynamicAr &&
+            indicatorAction === IndicatorAction.startDca
+          )
         ) {
           const indicatorChild = new InternalIndicator({
             type,
@@ -415,7 +422,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
           xOscillator2 &&
           xOscillator2Interval &&
           xOscillator2length &&
-          indicatorAction !== IndicatorAction.riskReward
+          indicatorAction !== IndicatorAction.riskReward &&
+          !(
+            this.settings.dcaCondition === DCAConditionEnum.dynamicAr &&
+            indicatorAction === IndicatorAction.startDca
+          )
         ) {
           const indicatorChild = new InternalIndicator({
             type: xOscillator2 || IndicatorEnum.mfi,
@@ -806,6 +817,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
         if (
           indicatorAction === IndicatorAction.riskReward &&
           Strategy.indicators.length > this.settings.pair.length
+        ) {
+          continue
+        }
+        if (
+          indicatorAction === IndicatorAction.startDca &&
+          this.settings.dcaCondition === DCAConditionEnum.dynamicAr
         ) {
           continue
         }

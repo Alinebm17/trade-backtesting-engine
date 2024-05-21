@@ -481,6 +481,7 @@ export type SettingsIndicators = {
   showLH?: boolean
   showLL?: boolean
   riskAtrMult?: string
+  dynamicArFactor?: string
 }
 
 export enum ppValueTypeEnum {
@@ -1624,3 +1625,5 @@ export declare type ResolutionString = Nominal<string, 'ResolutionString'>
 export type FullBar = Bar & { symbol: string }
 
 export type SavedBar = FullBar & { interval: ExchangeIntervals }
+
+export type DynamicArPrices = { id: string; value: number }

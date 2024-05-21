@@ -9,6 +9,7 @@ import {
   DCAConditionEnum,
   IndicatorAction,
   BotMarginTypeEnum,
+  DynamicArPrices,
 } from '../types'
 import BotUtils from './botUtils'
 import { checkNumber } from './utils'
@@ -83,6 +84,7 @@ class DCABotFunctions {
     fixSl = 0,
     fixTp = 0,
     fixSize = 0,
+    dcaArValues: DynamicArPrices[] = [],
   ): DCAGrid[] {
     const { settings, symbol } = this
     const baseOrderSize = fixSize || parseFloat(settings.baseOrderSize)
@@ -387,7 +389,8 @@ class DCABotFunctions {
     let orders: DCAGrid[] = []
     if (settings.useDca) {
       const ordersCount =
-        settings.dcaCondition === DCAConditionEnum.indicators
+        settings.dcaCondition === DCAConditionEnum.indicators ||
+        settings.dcaCondition === DCAConditionEnum.dynamicAr
           ? settings.indicators.filter(
               (i) => i.indicatorAction === IndicatorAction.startDca,
             ).length
@@ -395,14 +398,24 @@ class DCABotFunctions {
           ? (settings.dcaCustom ?? []).length
           : parseInt(`${settings.ordersCount}`)
       for (let i = 1; i <= ordersCount; i++) {
+        if (
+          settings.dcaCondition === DCAConditionEnum.dynamicAr &&
+          settings.indicators.filter(
+            (_i) => _i.indicatorAction === IndicatorAction.startDca,
+          ).length !== dcaArValues.length
+        ) {
+          continue
+        }
         const stepVal =
           settings.dcaCondition === DCAConditionEnum.indicators ||
-          settings.dcaCondition === DCAConditionEnum.custom
+          settings.dcaCondition === DCAConditionEnum.custom ||
+          settings.dcaCondition === DCAConditionEnum.dynamicAr
             ? 1
             : stepScale ** (i - 1)
         const volumeVal =
           settings.dcaCondition === DCAConditionEnum.indicators ||
-          settings.dcaCondition === DCAConditionEnum.custom
+          settings.dcaCondition === DCAConditionEnum.custom ||
+          settings.dcaCondition === DCAConditionEnum.dynamicAr
             ? 1
             : volumeScale ** (i - 1)
         let price = this.math.round(
@@ -439,6 +452,25 @@ class DCABotFunctions {
 
             symbol.priceAssetPrecision,
           )
+        }
+        if (settings.dcaCondition === DCAConditionEnum.dynamicAr) {
+          const indicator = settings.indicators.filter(
+            (ind) => ind.indicatorAction === IndicatorAction.startDca,
+          )[i - 1]
+          if (indicator) {
+            let value = dcaArValues.find((d) => d.id === indicator.uuid)?.value
+            if (value && !isNaN(value) && isFinite(value)) {
+              value *= +(indicator.dynamicArFactor || '1')
+              price = this.math.round(
+                latestPrice +
+                  value * (settings.strategy === StrategyEnum.long ? -1 : 1),
+
+                symbol.priceAssetPrecision,
+              )
+            }
+          } else {
+            continue
+          }
         }
         if (i === 1) {
           if (price === baseOrder.price) {

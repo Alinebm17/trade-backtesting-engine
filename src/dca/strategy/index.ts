@@ -35,7 +35,8 @@ const getStrategyBySettings = (
     (settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
       settings.useSl &&
       settings.startCondition !== StartConditionEnum.ti) ||
-    (settings.dcaCondition === DCAConditionEnum.indicators &&
+    ((settings.dcaCondition === DCAConditionEnum.indicators ||
+      settings.dcaCondition === DCAConditionEnum.dynamicAr) &&
       settings.useDca &&
       settings.startCondition !== StartConditionEnum.ti) ||
     (settings.useBotController &&
