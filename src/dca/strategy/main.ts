@@ -964,7 +964,7 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private getDynamicLevels(pair: string): DynamicArPrices[] {
-    if (this.settings.dcaCondition === DCAConditionEnum.dynamicAr) {
+    if (this.settings.dcaCondition !== DCAConditionEnum.dynamicAr) {
       return []
     }
     const indicators = Strategy.indicators.filter(
