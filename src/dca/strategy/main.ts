@@ -30,6 +30,7 @@ import {
   BBCrossingEnum,
   STConditionEnum,
   RiskSlTypeEnum,
+  ScaleDcaTypeEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -963,8 +964,19 @@ export abstract class Strategy implements StrategyInterface {
     return null
   }
 
+  get scaleAr() {
+    return (
+      (this.settings.dcaCondition === DCAConditionEnum.percentage ||
+        !this.settings.dcaCondition) &&
+      [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
+        this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
+      ) &&
+      this.settings.useDca
+    )
+  }
+
   private getDynamicLevels(pair: string): DynamicArPrices[] {
-    if (this.settings.dcaCondition !== DCAConditionEnum.dynamicAr) {
+    if (!this.scaleAr) {
       return []
     }
     const indicators = Strategy.indicators.filter(
@@ -1460,7 +1472,7 @@ export abstract class Strategy implements StrategyInterface {
       fixSize = riskReward.size
     }
     let dynamicAr: DynamicArPrices[] = []
-    if (this.settings.dcaCondition === DCAConditionEnum.dynamicAr) {
+    if (this.scaleAr) {
       const dynamic = this.getDynamicLevels(s)
       if (!dynamic.length) {
         return

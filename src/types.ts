@@ -738,6 +738,13 @@ export interface DCABotSettings extends BaseSettings {
   comboSmartGridsCount?: string
   riskMinPositionSize?: string
   riskMaxPositionSize?: string
+  scaleDcaType?: ScaleDcaTypeEnum
+}
+
+export enum ScaleDcaTypeEnum {
+  percentage = 'percentage',
+  atr = 'atr',
+  adr = 'adr',
 }
 
 export enum RiskSlTypeEnum {

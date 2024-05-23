@@ -28,6 +28,7 @@ import {
   PCConditionEnum,
   ppValueEnum,
   ppValueTypeEnum,
+  ScaleDcaTypeEnum,
 } from '../../../types'
 
 import type {
@@ -146,6 +147,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ppLowRight,
           ppMult,
         } = i
+        const scaleAr =
+          (this.settings.dcaCondition === DCAConditionEnum.percentage ||
+            !this.settings.dcaCondition) &&
+          [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
+            this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
+          ) &&
+          this.settings.useDca
         if (
           (this.settings.startCondition !== StartConditionEnum.ti &&
             indicatorAction === IndicatorAction.startDeal) ||
@@ -163,7 +171,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ((!this.settings.useDca ||
             !(
               this.settings.dcaCondition === DCAConditionEnum.indicators ||
-              this.settings.dcaCondition === DCAConditionEnum.dynamicAr
+              scaleAr
             )) &&
             indicatorAction === IndicatorAction.startDca) ||
           ((!this.settings.useBotController ||
@@ -395,10 +403,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           maUUID &&
           maCrossingValue &&
           indicatorAction !== IndicatorAction.riskReward &&
-          !(
-            this.settings.dcaCondition === DCAConditionEnum.dynamicAr &&
-            indicatorAction === IndicatorAction.startDca
-          )
+          !scaleAr
         ) {
           const indicatorChild = new InternalIndicator({
             type,
@@ -423,10 +428,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           xOscillator2Interval &&
           xOscillator2length &&
           indicatorAction !== IndicatorAction.riskReward &&
-          !(
-            this.settings.dcaCondition === DCAConditionEnum.dynamicAr &&
-            indicatorAction === IndicatorAction.startDca
-          )
+          !scaleAr
         ) {
           const indicatorChild = new InternalIndicator({
             type: xOscillator2 || IndicatorEnum.mfi,
@@ -822,7 +824,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
         }
         if (
           indicatorAction === IndicatorAction.startDca &&
-          this.settings.dcaCondition === DCAConditionEnum.dynamicAr
+          (this.settings.dcaCondition === DCAConditionEnum.percentage ||
+            !this.settings.dcaCondition) &&
+          [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
+            this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
+          )
         ) {
           continue
         }

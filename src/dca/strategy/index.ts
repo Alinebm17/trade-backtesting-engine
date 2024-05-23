@@ -2,6 +2,7 @@ import {
   BotStartTypeEnum,
   CloseConditionEnum,
   DCAConditionEnum,
+  ScaleDcaTypeEnum,
   StartConditionEnum,
 } from '../../types'
 import createStrategyFactory from './factory'
@@ -36,7 +37,11 @@ const getStrategyBySettings = (
       settings.useSl &&
       settings.startCondition !== StartConditionEnum.ti) ||
     ((settings.dcaCondition === DCAConditionEnum.indicators ||
-      settings.dcaCondition === DCAConditionEnum.dynamicAr) &&
+      ((settings.dcaCondition === DCAConditionEnum.percentage ||
+        !settings.dcaCondition) &&
+        [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
+          settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
+        ))) &&
       settings.useDca &&
       settings.startCondition !== StartConditionEnum.ti) ||
     (settings.useBotController &&
