@@ -996,15 +996,15 @@ export abstract class Strategy implements StrategyInterface {
     }
     const indicators = Strategy.indicators.filter(
       (i) =>
-        (i.symbol === pair &&
-          this.scaleAr &&
+        i.symbol === pair &&
+        ((this.scaleAr &&
           i.settings.indicatorAction === IndicatorAction.startDca) ||
-        (this.tpAr &&
-          i.settings.indicatorAction === IndicatorAction.closeDeal &&
-          i.settings.section !== IndicatorSection.sl) ||
-        (this.slAr &&
-          i.settings.indicatorAction === IndicatorAction.closeDeal &&
-          i.settings.section === IndicatorSection.sl),
+          (this.tpAr &&
+            i.settings.indicatorAction === IndicatorAction.closeDeal &&
+            i.settings.section !== IndicatorSection.sl) ||
+          (this.slAr &&
+            i.settings.indicatorAction === IndicatorAction.closeDeal &&
+            i.settings.section === IndicatorSection.sl)),
     )
     const result: DynamicArPrices[] = []
     for (const i of indicators) {
@@ -1019,7 +1019,9 @@ export abstract class Strategy implements StrategyInterface {
 
       result.push({ id, value: last.value as number })
     }
-
+    if (indicators.length !== result.length) {
+      return []
+    }
     return result
   }
 
@@ -4061,7 +4063,6 @@ export abstract class Strategy implements StrategyInterface {
           value *= +(indicator.dynamicArFactor || '1')
           tpOrder.price = this.math.round(
             deal.startPrice + value * (this.long ? 1 : -1),
-
             symbol?.priceAssetPrecision ?? 8,
           )
         }
@@ -4081,7 +4082,6 @@ export abstract class Strategy implements StrategyInterface {
           value *= +(indicator.dynamicArFactor || '1')
           tpOrder.price = this.math.round(
             deal.startPrice + value * (this.long ? -1 : 1),
-
             symbol?.priceAssetPrecision ?? 8,
           )
         }

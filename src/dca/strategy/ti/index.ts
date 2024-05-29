@@ -153,7 +153,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
           [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
             this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
           ) &&
-          this.settings.useDca
+          this.settings.useDca &&
+          indicatorAction === IndicatorAction.startDca
+        const tpAr =
+          indicatorAction === IndicatorAction.closeDeal &&
+          section !== IndicatorSection.sl &&
+          this.settings.dealCloseCondition === CloseConditionEnum.dynamicAr &&
+          this.settings.useTp
+        const slAr =
+          indicatorAction === IndicatorAction.closeDeal &&
+          section === IndicatorSection.sl &&
+          this.settings.dealCloseConditionSL === CloseConditionEnum.dynamicAr &&
+          this.settings.useSl
         if (
           (this.settings.startCondition !== StartConditionEnum.ti &&
             indicatorAction === IndicatorAction.startDeal) ||
@@ -407,7 +418,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
           maUUID &&
           maCrossingValue &&
           indicatorAction !== IndicatorAction.riskReward &&
-          !scaleAr
+          !scaleAr &&
+          !tpAr &&
+          !slAr
         ) {
           const indicatorChild = new InternalIndicator({
             type,
@@ -432,7 +445,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
           xOscillator2Interval &&
           xOscillator2length &&
           indicatorAction !== IndicatorAction.riskReward &&
-          !scaleAr
+          !scaleAr &&
+          !tpAr &&
+          !slAr
         ) {
           const indicatorChild = new InternalIndicator({
             type: xOscillator2 || IndicatorEnum.mfi,
