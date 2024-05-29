@@ -117,7 +117,7 @@ class DCABotFunctions {
         settings?.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
       ) &&
       settings?.useDca
-    let { orderSizeType: _orderSizeType } = settings
+    const { orderSizeType: _orderSizeType } = settings
     const orderSizeType = fixSize
       ? settings.futures
         ? settings.coinm

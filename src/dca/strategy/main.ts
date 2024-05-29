@@ -1503,7 +1503,6 @@ export abstract class Strategy implements StrategyInterface {
         return
       }
       dynamicAr = dynamic
-      console.log(dynamicAr)
     }
     const symbol = this.symbols.get(s)
     const botFunctions = this.botFunctions.get(s)

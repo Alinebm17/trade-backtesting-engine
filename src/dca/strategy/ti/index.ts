@@ -1194,43 +1194,43 @@ class TIStrategy extends Strategy implements StrategyInterface {
           }
           if (type === IndicatorEnum.pp) {
             const [ld, pd] = [...data].sort((a, b) => b.time - a.time)
-            const lastData = ld.value as PriorPivotResult
-            const prevData = pd.value as PriorPivotResult
+            const _lastData = ld.value as PriorPivotResult
+            const _prevData = pd.value as PriorPivotResult
             if (!ppType || ppType === ppValueTypeEnum.price) {
-              last = lastData.price
-              prev = prevData.price
+              last = _lastData.price
+              prev = _prevData.price
               value =
                 ppValue === ppValueEnum.anyH
-                  ? isNaN(lastData.hh)
-                    ? lastData.lh
-                    : lastData.hh
+                  ? isNaN(_lastData.hh)
+                    ? _lastData.lh
+                    : _lastData.hh
                   : ppValue === ppValueEnum.anyL
-                  ? isNaN(lastData.ll)
-                    ? lastData.hl
-                    : lastData.ll
+                  ? isNaN(_lastData.ll)
+                    ? _lastData.hl
+                    : _lastData.ll
                   : ppValue === ppValueEnum.hh
-                  ? lastData.hh
+                  ? _lastData.hh
                   : ppValue === ppValueEnum.hl
-                  ? lastData.hl
+                  ? _lastData.hl
                   : ppValue === ppValueEnum.ll
-                  ? lastData.ll
-                  : lastData.lh
+                  ? _lastData.ll
+                  : _lastData.lh
               prevValue =
                 ppValue === ppValueEnum.anyH
-                  ? isNaN(prevData.hh)
-                    ? prevData.lh
-                    : prevData.hh
+                  ? isNaN(_prevData.hh)
+                    ? _prevData.lh
+                    : _prevData.hh
                   : ppValue === ppValueEnum.anyL
-                  ? isNaN(prevData.ll)
-                    ? prevData.hl
-                    : prevData.ll
+                  ? isNaN(_prevData.ll)
+                    ? _prevData.hl
+                    : _prevData.ll
                   : ppValue === ppValueEnum.hh
-                  ? prevData.hh
+                  ? _prevData.hh
                   : ppValue === ppValueEnum.hl
-                  ? prevData.hl
+                  ? _prevData.hl
                   : ppValue === ppValueEnum.ll
-                  ? prevData.ll
-                  : prevData.lh
+                  ? _prevData.ll
+                  : _prevData.lh
               if (isNaN(value) || isNaN(prevValue)) {
                 last = 0
                 prev = 0
@@ -1244,43 +1244,43 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 ((ppValue === ppValueEnum.sBullCHoCH ||
                   ppValue === ppValueEnum.SanyBull ||
                   ppValue === ppValueEnum.bullAnyCHoCH) &&
-                  lastData.sBullCHoCH) ||
+                  _lastData.sBullCHoCH) ||
                 ((ppValue === ppValueEnum.sBearCHoCH ||
                   ppValue === ppValueEnum.SanyBear ||
                   ppValue === ppValueEnum.bearAnyCHoCH) &&
-                  lastData.sBearCHoCH) ||
+                  _lastData.sBearCHoCH) ||
                 ((ppValue === ppValueEnum.sBullBoS ||
                   ppValue === ppValueEnum.SanyBull ||
                   ppValue === ppValueEnum.bullAnyBoS) &&
-                  lastData.sBullBoS) ||
+                  _lastData.sBullBoS) ||
                 ((ppValue === ppValueEnum.sBearBoS ||
                   ppValue === ppValueEnum.SanyBear ||
                   ppValue === ppValueEnum.bearAnyBoS) &&
-                  lastData.sBearBoS) ||
+                  _lastData.sBearBoS) ||
                 ((ppValue === ppValueEnum.iBullCHoCH ||
                   ppValue === ppValueEnum.IanyBull ||
                   ppValue === ppValueEnum.bullAnyCHoCH) &&
-                  lastData.iBullCHoCH) ||
+                  _lastData.iBullCHoCH) ||
                 ((ppValue === ppValueEnum.iBearCHoCH ||
                   ppValue === ppValueEnum.IanyBear ||
                   ppValue === ppValueEnum.bearAnyCHoCH) &&
-                  lastData.iBearCHoCH) ||
+                  _lastData.iBearCHoCH) ||
                 ((ppValue === ppValueEnum.iBullBoS ||
                   ppValue === ppValueEnum.IanyBull ||
                   ppValue === ppValueEnum.bullAnyBoS) &&
-                  lastData.iBullBoS) ||
+                  _lastData.iBullBoS) ||
                 ((ppValue === ppValueEnum.iBearBoS ||
                   ppValue === ppValueEnum.IanyBear ||
                   ppValue === ppValueEnum.bearAnyBoS) &&
-                  lastData.iBearBoS)
+                  _lastData.iBearBoS)
             }
             if (ppType === ppValueTypeEnum.market) {
               skipAction = true
               action =
                 (ppValue === ppValueEnum.bullMarket &&
-                  lastData.market === 'bull') ||
+                  _lastData.market === 'bull') ||
                 (ppValue === ppValueEnum.bearMarket &&
-                  lastData.market === 'bear')
+                  _lastData.market === 'bear')
             }
           }
           if (
