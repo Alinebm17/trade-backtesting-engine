@@ -11,6 +11,7 @@ import {
   BotMarginTypeEnum,
   DynamicArPrices,
   ScaleDcaTypeEnum,
+  IndicatorSection,
 } from '../types'
 import BotUtils from './botUtils'
 import { checkNumber } from './utils'
@@ -127,7 +128,11 @@ class DCABotFunctions {
         : OrderSizeTypeEnum.base
       : _orderSizeType
     const useTp = _useTp && dealCloseCondition === CloseConditionEnum.tp
+    const useArTp =
+      _useTp && dealCloseCondition === CloseConditionEnum.dynamicAr
     const useSl = _useSl && dealCloseConditionSL === CloseConditionEnum.tp
+    const useArSl =
+      _useTp && dealCloseConditionSL === CloseConditionEnum.dynamicAr
     const latestPrice = this.math.round(
       inputLatestPrice,
       symbol.priceAssetPrecision,
@@ -223,6 +228,25 @@ class DCABotFunctions {
             Number(`${1}e-${symbol.priceAssetPrecision}`),
         symbol.priceAssetPrecision,
       )
+    }
+    if (useArTp) {
+      const indicator = settings.indicators.find(
+        (ind) =>
+          ind.indicatorAction === IndicatorAction.closeDeal &&
+          ind.section !== IndicatorSection.sl,
+      )
+      if (indicator) {
+        let value = dcaArValues.find((d) => d.id === indicator.uuid)?.value
+        if (value && !isNaN(value) && isFinite(value)) {
+          value *= +(indicator.dynamicArFactor || '1')
+          tpPrice = this.math.round(
+            latestPrice +
+              value * (settings.strategy === StrategyEnum.long ? 1 : -1),
+
+            symbol?.priceAssetPrecision ?? 8,
+          )
+        }
+      }
     }
     const baseOrder: DCAGrid = {
       qty: baseQty,
@@ -669,6 +693,25 @@ class DCABotFunctions {
       type: DCAOrderTypeEnum.sl,
       id: this.utils.id(20),
     }
+    if (useArSl) {
+      const indicator = settings.indicators.find(
+        (ind) =>
+          ind.indicatorAction === IndicatorAction.closeDeal &&
+          ind.section === IndicatorSection.sl,
+      )
+      if (indicator) {
+        let value = dcaArValues.find((d) => d.id === indicator.uuid)?.value
+        if (value && !isNaN(value) && isFinite(value)) {
+          value *= +(indicator.dynamicArFactor || '1')
+          slOrder.price = this.math.round(
+            latestPrice +
+              value * (settings.strategy === StrategyEnum.long ? -1 : 1),
+
+            symbol?.priceAssetPrecision ?? 8,
+          )
+        }
+      }
+    }
     if (orders.length && useOutsideSl && outsideSl && !fixSl) {
       /*  const tempOrders = [...orders] */
       let i = 0
@@ -676,10 +719,12 @@ class DCABotFunctions {
         const order = orders[i]
         finalBreakeven = order.avgPrice ?? latestPrice
         slOrder.price = this.math.round(
-          finalBreakeven *
-            (1 +
-              (settings.strategy === StrategyEnum.long ? 1 : -1) * slPerc +
-              this.userFee * 2),
+          useArSl
+            ? slOrder.price
+            : finalBreakeven *
+                (1 +
+                  (settings.strategy === StrategyEnum.long ? 1 : -1) * slPerc +
+                  this.userFee * 2),
           symbol?.priceAssetPrecision ?? 8,
         )
         const leftOrders = orders.filter(
@@ -808,8 +853,12 @@ class DCABotFunctions {
     const result = [...orders, baseOrder, ...tpOrders, ...slOrders]
       .filter(
         (o) =>
-          (!useTp && !fixTp ? o.type !== DCAOrderTypeEnum.tp : true) &&
-          (!useSl && !fixSl ? o.type !== DCAOrderTypeEnum.sl : true),
+          (!useTp && !fixTp && !useArTp
+            ? o.type !== DCAOrderTypeEnum.tp
+            : true) &&
+          (!useSl && !fixSl && !useArSl
+            ? o.type !== DCAOrderTypeEnum.sl
+            : true),
       )
       .flat()
       .sort((a, b) =>
@@ -817,7 +866,7 @@ class DCABotFunctions {
           ? b.price - a.price
           : a.price - b.price,
       )
-    if (useOutsideSl && outsideSl) {
+    if ((useOutsideSl && outsideSl) || useArSl) {
       const slLevel = result
         .filter((o) => o.type === DCAOrderTypeEnum.sl)
         .sort((a, b) =>

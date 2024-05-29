@@ -31,6 +31,7 @@ import {
   STConditionEnum,
   RiskSlTypeEnum,
   ScaleDcaTypeEnum,
+  IndicatorSection,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -975,14 +976,35 @@ export abstract class Strategy implements StrategyInterface {
     )
   }
 
+  get tpAr() {
+    return (
+      this.settings.dealCloseCondition === CloseConditionEnum.dynamicAr &&
+      this.settings.useTp
+    )
+  }
+
+  get slAr() {
+    return (
+      this.settings.dealCloseConditionSL === CloseConditionEnum.dynamicAr &&
+      this.settings.useSl
+    )
+  }
+
   private getDynamicLevels(pair: string): DynamicArPrices[] {
-    if (!this.scaleAr) {
+    if (!this.scaleAr && !this.tpAr && !this.slAr) {
       return []
     }
     const indicators = Strategy.indicators.filter(
       (i) =>
-        i.symbol === pair &&
-        i.settings.indicatorAction === IndicatorAction.startDca,
+        (i.symbol === pair &&
+          this.scaleAr &&
+          i.settings.indicatorAction === IndicatorAction.startDca) ||
+        (this.tpAr &&
+          i.settings.indicatorAction === IndicatorAction.closeDeal &&
+          i.settings.section !== IndicatorSection.sl) ||
+        (this.slAr &&
+          i.settings.indicatorAction === IndicatorAction.closeDeal &&
+          i.settings.section === IndicatorSection.sl),
     )
     const result: DynamicArPrices[] = []
     for (const i of indicators) {
@@ -997,6 +1019,7 @@ export abstract class Strategy implements StrategyInterface {
 
       result.push({ id, value: last.value as number })
     }
+
     return result
   }
 
@@ -1472,12 +1495,13 @@ export abstract class Strategy implements StrategyInterface {
       fixSize = riskReward.size
     }
     let dynamicAr: DynamicArPrices[] = []
-    if (this.scaleAr) {
+    if (this.scaleAr || this.tpAr || this.slAr) {
       const dynamic = this.getDynamicLevels(s)
       if (!dynamic.length) {
         return
       }
       dynamicAr = dynamic
+      console.log(dynamicAr)
     }
     const symbol = this.symbols.get(s)
     const botFunctions = this.botFunctions.get(s)
@@ -1512,7 +1536,7 @@ export abstract class Strategy implements StrategyInterface {
       )
       .filter(
         (o) =>
-          (!this.settings.useRiskReward
+          (!this.settings.useRiskReward && !this.slAr
             ? o.type !== DCAOrderTypeEnum.sl
             : true) && o.type !== DCAOrderTypeEnum.grid,
       )
@@ -1611,12 +1635,14 @@ export abstract class Strategy implements StrategyInterface {
         base: 0,
         quote: 0,
       },
+      dynamicAr,
     }
 
     if (
       this.settings.useTp &&
       !botFunctions.isTrailingTp &&
-      this.settings.dealCloseCondition === CloseConditionEnum.tp &&
+      (this.settings.dealCloseCondition === CloseConditionEnum.tp ||
+        this.tpAr) &&
       !Strategy.combo
     ) {
       const tp = this.getTP(deal)
@@ -2810,7 +2836,8 @@ export abstract class Strategy implements StrategyInterface {
       d = this.updateDeal(d, b)
       if (
         this.settings.useTp &&
-        this.settings.dealCloseCondition === CloseConditionEnum.tp &&
+        (this.settings.dealCloseCondition === CloseConditionEnum.tp ||
+          this.tpAr) &&
         !Strategy.combo
       ) {
         const tpOrdersCurrent = this.getTP(d)
@@ -2880,7 +2907,8 @@ export abstract class Strategy implements StrategyInterface {
 
   private getSLOrder(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
     if (
-      this.settings.dealCloseConditionSL !== CloseConditionEnum.tp &&
+      (this.settings.dealCloseConditionSL !== CloseConditionEnum.tp ||
+        !this.slAr) &&
       !this.settings.useRiskReward &&
       !Strategy.combo &&
       !this.settings.moveSLForAll
@@ -3004,6 +3032,18 @@ export abstract class Strategy implements StrategyInterface {
       }
     } else if (this.settings.useRiskReward && !Strategy.combo) {
       const order = d.activeOrders.find((o) => o.type === DCAOrderTypeEnum.sl)
+      if (order) {
+        close = this.long
+          ? order.price >= Math.min(b.low, b.close, b.open)
+          : order.price <= Math.max(b.high, b.close, b.open)
+        if (close) {
+          closePrice = order.price
+          slOrder = order
+          lock = true
+        }
+      }
+    } else if (this.slAr) {
+      const order = this.getTP(d, undefined, true, true)[0]
       if (order) {
         close = this.long
           ? order.price >= Math.min(b.low, b.close, b.open)
@@ -4006,6 +4046,46 @@ export abstract class Strategy implements StrategyInterface {
       side: this.long ? BotOrderSideEnum.sell : BotOrderSideEnum.buy,
       id: botFunctions.utils.id(20),
       filledTime: time,
+    }
+    if (this.tpAr && !sl) {
+      const indicator = this.settings.indicators.find(
+        (ind) =>
+          ind.indicatorAction === IndicatorAction.closeDeal &&
+          ind.section !== IndicatorSection.sl,
+      )
+      if (indicator) {
+        let value = (deal.dynamicAr ?? []).find(
+          (d) => d.id === indicator.uuid,
+        )?.value
+        if (value && !isNaN(value) && isFinite(value)) {
+          value *= +(indicator.dynamicArFactor || '1')
+          tpOrder.price = this.math.round(
+            deal.startPrice + value * (this.long ? 1 : -1),
+
+            symbol?.priceAssetPrecision ?? 8,
+          )
+        }
+      }
+    }
+    if (this.slAr && sl) {
+      const indicator = this.settings.indicators.find(
+        (ind) =>
+          ind.indicatorAction === IndicatorAction.closeDeal &&
+          ind.section === IndicatorSection.sl,
+      )
+      if (indicator) {
+        let value = (deal.dynamicAr ?? []).find(
+          (d) => d.id === indicator.uuid,
+        )?.value
+        if (value && !isNaN(value) && isFinite(value)) {
+          value *= +(indicator.dynamicArFactor || '1')
+          tpOrder.price = this.math.round(
+            deal.startPrice + value * (this.long ? -1 : 1),
+
+            symbol?.priceAssetPrecision ?? 8,
+          )
+        }
+      }
     }
     if (qty < 0 && Strategy.combo) {
       return [{ ...tpOrder, qty: 0 }]

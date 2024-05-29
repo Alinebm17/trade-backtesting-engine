@@ -568,6 +568,7 @@ export enum CloseConditionEnum {
   techInd = 'techInd',
   manual = 'manual',
   webhook = 'webhook',
+  dynamicAr = 'dynamicAr',
 }
 
 export enum StartConditionEnum {
@@ -1084,6 +1085,7 @@ export type Deal = {
     quote: number
   }
   lastIndex: number
+  dynamicAr?: DynamicArPrices[]
 }
 
 export type PreparedGrid = {

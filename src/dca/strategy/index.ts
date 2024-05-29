@@ -30,10 +30,12 @@ const getStrategyBySettings = (
     result = [createStrategyFactory(TimerStrategy)]
   }
   if (
-    (settings.dealCloseCondition === CloseConditionEnum.techInd &&
+    ((settings.dealCloseCondition === CloseConditionEnum.techInd ||
+      settings.dealCloseCondition === CloseConditionEnum.dynamicAr) &&
       settings.useTp &&
       settings.startCondition !== StartConditionEnum.ti) ||
-    (settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
+    ((settings.dealCloseConditionSL === CloseConditionEnum.techInd ||
+      settings.dealCloseCondition === CloseConditionEnum.dynamicAr) &&
       settings.useSl &&
       settings.startCondition !== StartConditionEnum.ti) ||
     ((settings.dcaCondition === DCAConditionEnum.indicators ||

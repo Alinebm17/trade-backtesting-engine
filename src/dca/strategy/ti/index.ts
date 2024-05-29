@@ -160,12 +160,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
           (!this.settings.useRiskReward &&
             indicatorAction === IndicatorAction.riskReward) ||
           ((!this.settings.useTp ||
-            this.settings.dealCloseCondition !== CloseConditionEnum.techInd) &&
+            (this.settings.dealCloseCondition !== CloseConditionEnum.techInd &&
+              this.settings.dealCloseCondition !==
+                CloseConditionEnum.dynamicAr)) &&
             indicatorAction === IndicatorAction.closeDeal &&
             section !== IndicatorSection.sl) ||
           ((!this.settings.useSl ||
-            this.settings.dealCloseConditionSL !==
-              CloseConditionEnum.techInd) &&
+            (this.settings.dealCloseConditionSL !==
+              CloseConditionEnum.techInd &&
+              this.settings.dealCloseConditionSL !==
+                CloseConditionEnum.dynamicAr)) &&
             indicatorAction === IndicatorAction.closeDeal &&
             section === IndicatorSection.sl) ||
           ((!this.settings.useDca ||
@@ -813,6 +817,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             ppValue,
             ppType,
             indicatorAction,
+            section,
           },
           data,
         } = i
@@ -829,6 +834,22 @@ class TIStrategy extends Strategy implements StrategyInterface {
           [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
             this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
           )
+        ) {
+          continue
+        }
+        if (
+          indicatorAction === IndicatorAction.closeDeal &&
+          section !== IndicatorSection.sl &&
+          this.settings.dealCloseCondition === CloseConditionEnum.dynamicAr &&
+          this.settings.useTp
+        ) {
+          continue
+        }
+        if (
+          indicatorAction === IndicatorAction.closeDeal &&
+          section === IndicatorSection.sl &&
+          this.settings.dealCloseConditionSL === CloseConditionEnum.dynamicAr &&
+          this.settings.useSl
         ) {
           continue
         }
