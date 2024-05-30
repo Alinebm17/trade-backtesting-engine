@@ -1070,13 +1070,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
             prev = prevData.value
             value = Math.abs(+(indicatorValue ?? '70')) * -1
             prevValue = value
-            console.log(
-              last,
-              prev,
-              value,
-              prevValue,
-              new Date(lastData.time).toISOString(),
-            )
           }
           if (
             lastData.type === IndicatorEnum.adr &&
