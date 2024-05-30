@@ -45,6 +45,7 @@ export enum IndicatorEnum {
   atr = 'ATR',
   pp = 'PP',
   adr = 'ADR',
+  ath = 'ATH',
 }
 
 export enum ECDTriggerEnum {
@@ -200,6 +201,10 @@ export type IndicatorConfigBackTesting =
       atrPeriod: number
     }
   | {
+      type: IndicatorEnum.ath
+      lookback: number
+    }
+  | {
       type: IndicatorEnum.pp
       ppHighLeft: number
       ppHighRight: number
@@ -353,6 +358,7 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.ecd
         | IndicatorEnum.atr
         | IndicatorEnum.adr
+        | IndicatorEnum.ath
       value: number
     }
   | { type: IndicatorEnum.st; value: SuperTrendResult }
@@ -482,6 +488,7 @@ export type SettingsIndicators = {
   showLL?: boolean
   riskAtrMult?: string
   dynamicArFactor?: string
+  athLookback?: number
 }
 
 export enum ppValueTypeEnum {

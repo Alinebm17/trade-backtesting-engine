@@ -36,6 +36,7 @@ import {
   FasterATRTV,
   PriorPivot,
   FasterADR,
+  FasterATH,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum } from '../../../types'
 
@@ -82,6 +83,7 @@ export default class InternalIndicator {
     | FasterATRTV
     | PriorPivot
     | FasterADR
+    | FasterATH
   private data: IndicatorHistory[] = []
 
   private readonly type: IndicatorEnum
@@ -103,6 +105,10 @@ export default class InternalIndicator {
         indicatorConfig.max,
       )
       this.length = add
+    }
+    if (indicatorConfig.type === IndicatorEnum.ath) {
+      this.indicator = new FasterATH(indicatorConfig.lookback)
+      this.length = add + indicatorConfig.lookback
     }
     if (indicatorConfig.type === IndicatorEnum.st) {
       this.indicator = new SuperTrend(
@@ -561,7 +567,8 @@ export default class InternalIndicator {
         this.indicator instanceof SuperTrend ||
         this.indicator instanceof FasterATRTV ||
         this.indicator instanceof FasterADR ||
-        this.indicator instanceof PriorPivot)
+        this.indicator instanceof PriorPivot ||
+        this.indicator instanceof FasterATH)
     ) {
       this.indicator?.update({
         high: +value.h,

@@ -146,6 +146,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ppLowLeft,
           ppLowRight,
           ppMult,
+          athLookback,
         } = i
         const scaleAr =
           (this.settings.dcaCondition === DCAConditionEnum.percentage ||
@@ -265,6 +266,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 percentile,
                 percentileLookback,
                 percentilePercentage,
+              }
+            : type === IndicatorEnum.ath
+            ? {
+                type,
+                lookback: athLookback ?? 100,
               }
             : type === IndicatorEnum.bbpb
             ? {
@@ -1055,6 +1061,22 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ) {
             last = lastData.value
             prev = prevData.value
+          }
+          if (
+            lastData.type === IndicatorEnum.ath &&
+            prevData.type === IndicatorEnum.ath
+          ) {
+            last = lastData.value
+            prev = prevData.value
+            value = Math.abs(+(indicatorValue ?? '70')) * -1
+            prevValue = value
+            console.log(
+              last,
+              prev,
+              value,
+              prevValue,
+              new Date(lastData.time).toISOString(),
+            )
           }
           if (
             lastData.type === IndicatorEnum.adr &&
