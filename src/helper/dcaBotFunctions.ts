@@ -132,7 +132,7 @@ class DCABotFunctions {
       _useTp && dealCloseCondition === CloseConditionEnum.dynamicAr
     const useSl = _useSl && dealCloseConditionSL === CloseConditionEnum.tp
     const useArSl =
-      _useTp && dealCloseConditionSL === CloseConditionEnum.dynamicAr
+      _useSl && dealCloseConditionSL === CloseConditionEnum.dynamicAr
     const latestPrice = this.math.round(
       inputLatestPrice,
       symbol.priceAssetPrecision,
