@@ -2908,11 +2908,11 @@ export abstract class Strategy implements StrategyInterface {
 
   private getSLOrder(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
     if (
-      (this.settings.dealCloseConditionSL !== CloseConditionEnum.tp ||
-        !this.slAr) &&
+      this.settings.dealCloseConditionSL !== CloseConditionEnum.tp &&
+      !this.slAr &&
       !this.settings.useRiskReward &&
       !Strategy.combo &&
-      !this.settings.moveSLForAll
+      !d.moveSlActivated
     ) {
       return { deal: d }
     }
@@ -3019,14 +3019,11 @@ export abstract class Strategy implements StrategyInterface {
       this.settings.useSl &&
       typeof d.slPerc !== 'undefined' &&
       (this.settings.dealCloseConditionSL === CloseConditionEnum.tp ||
-        (this.settings.moveSL &&
-          this.settings.moveSLForAll &&
-          d.moveSlActivated)) &&
+        (this.settings.moveSL && d.moveSlActivated)) &&
       !Strategy.combo
     ) {
       const sl = d.slPerc
       const diff = this.long ? b.low - d.avgPrice : d.avgPrice - b.high
-
       if (diff / d.avgPrice - this.userFee * 2 <= sl) {
         close = true
         closePrice = d.avgPrice * (this.long ? 1 - -sl : 1 + -sl)
@@ -3952,7 +3949,7 @@ export abstract class Strategy implements StrategyInterface {
       typeof this.settings.moveSLTrigger !== 'undefined' &&
       typeof this.settings.moveSLValue !== 'undefined' &&
       (this.settings.dealCloseConditionSL === CloseConditionEnum.tp ||
-        (this.settings.moveSLForAll && !d.moveSlActivated))
+        !d.moveSlActivated)
     ) {
       const trigger = +this.settings.moveSLTrigger / 100
       const value = +this.settings.moveSLValue / 100
