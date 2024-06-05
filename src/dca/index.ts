@@ -8,6 +8,7 @@ import {
   ExchangeIntervals,
   FullBar,
   PairPrioritizationEnum,
+  ScaleDcaTypeEnum,
   StartConditionEnum,
   timeIntervalMap,
 } from '../types'
@@ -147,13 +148,21 @@ class DCABacktesting extends Backtesting {
     } else {
       const isIndicators =
         (this.settings.startCondition === StartConditionEnum.ti ||
-          (this.settings.dealCloseCondition === CloseConditionEnum.techInd &&
+          ((this.settings.dealCloseCondition === CloseConditionEnum.techInd ||
+            this.settings.dealCloseCondition ===
+              CloseConditionEnum.dynamicAr) &&
             this.settings.useTp) ||
           this.settings.useRiskReward ||
-          (this.settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
+          ((this.settings.dealCloseConditionSL === CloseConditionEnum.techInd ||
+            this.settings.dealCloseConditionSL ===
+              CloseConditionEnum.dynamicAr) &&
             this.settings.useSl) ||
           (this.settings.dcaCondition === DCAConditionEnum.indicators &&
-            this.settings.useDca)) &&
+            this.settings.useDca) ||
+          this.settings.useDca ||
+          [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
+            this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
+          )) &&
         this.edge !== EdgeBacktestEnum.random
       if (!isIndicators) {
         const data = await this._loadData(
