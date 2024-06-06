@@ -159,10 +159,10 @@ class DCABacktesting extends Backtesting {
             this.settings.useSl) ||
           (this.settings.dcaCondition === DCAConditionEnum.indicators &&
             this.settings.useDca) ||
-          this.settings.useDca ||
-          [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
-            this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
-          )) &&
+          (this.settings.useDca &&
+            [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
+              this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
+            ))) &&
         this.edge !== EdgeBacktestEnum.random
       if (!isIndicators) {
         const data = await this._loadData(
