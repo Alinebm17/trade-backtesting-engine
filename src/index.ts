@@ -85,13 +85,12 @@ if (typeof window === 'undefined') {
       if (!fs.existsSync(file)) {
         fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
       }
-      const ws = fs.createWriteStream(file, 'utf-8')
       for (const d of data) {
-        ws.write(
+        fs.appendFileSync(
+          file,
           `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${interval}\n`,
         )
       }
-      ws.close()
     }
 
     if (sort) {
