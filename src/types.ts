@@ -641,8 +641,14 @@ export enum CooldownOptionsEnum {
   bot = 'bot',
 }
 
+export enum BaseSlOnEnum {
+  start = 'start',
+  avg = 'avg',
+}
+
 export interface DCABotSettings extends BaseSettings {
   dcaCondition?: DCAConditionEnum
+  baseSlOn?: BaseSlOnEnum
   dcaCustom?: DCACustom[]
   strategy: StrategyEnum
   baseOrderSize: string

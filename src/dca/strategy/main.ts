@@ -32,6 +32,7 @@ import {
   RiskSlTypeEnum,
   ScaleDcaTypeEnum,
   IndicatorSection,
+  BaseSlOnEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -983,6 +984,16 @@ export abstract class Strategy implements StrategyInterface {
     )
   }
 
+  get baseSlOn() {
+    if (Strategy.combo) {
+      return BaseSlOnEnum.avg
+    }
+    if (this.settings.trailingSl || this.settings.moveSL) {
+      return BaseSlOnEnum.avg
+    }
+    return this.settings.baseSlOn ?? BaseSlOnEnum.avg
+  }
+
   get slAr() {
     return (
       this.settings.dealCloseConditionSL === CloseConditionEnum.dynamicAr &&
@@ -1352,7 +1363,9 @@ export abstract class Strategy implements StrategyInterface {
         typeof deal.slPerc !== 'undefined'
       ) {
         const price =
-          deal.avgPrice *
+          (this.baseSlOn === BaseSlOnEnum.avg
+            ? deal.avgPrice
+            : deal.startPrice) *
           (1 - (deal.slPerc * -1 - this.userFee * 2) * (this.long ? 1 : -1))
         return [
           {
@@ -3023,10 +3036,12 @@ export abstract class Strategy implements StrategyInterface {
       !Strategy.combo
     ) {
       const sl = d.slPerc
-      const diff = this.long ? b.low - d.avgPrice : d.avgPrice - b.high
-      if (diff / d.avgPrice - this.userFee * 2 <= sl) {
+      const refPrice =
+        this.baseSlOn === BaseSlOnEnum.avg ? d.avgPrice : d.startPrice
+      const diff = this.long ? b.low - refPrice : refPrice - b.high
+      if (diff / refPrice - this.userFee * 2 <= sl) {
         close = true
-        closePrice = d.avgPrice * (this.long ? 1 - -sl : 1 + -sl)
+        closePrice = refPrice * (this.long ? 1 - -sl : 1 + -sl)
       }
     } else if (this.settings.useRiskReward && !Strategy.combo) {
       const order = d.activeOrders.find((o) => o.type === DCAOrderTypeEnum.sl)
@@ -4021,7 +4036,9 @@ export abstract class Strategy implements StrategyInterface {
       : 1 - sellDisplacement
     const price = Strategy.combo
       ? deal.avgPrice * priceDisplacement
-      : (quote / qty) * priceDisplacement
+      : (sl && this.baseSlOn === BaseSlOnEnum.start
+          ? deal.startPrice
+          : quote / qty) * priceDisplacement
     let tpPrice = this.math.round(
       _price ??
         price *
