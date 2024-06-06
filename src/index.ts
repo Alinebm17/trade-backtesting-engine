@@ -85,15 +85,12 @@ if (typeof window === 'undefined') {
       if (!fs.existsSync(file)) {
         fs.writeFileSync(file, 'o;h;l;c;v;t;s;i\n')
       }
-      fs.appendFileSync(
-        file,
-        data
-          .map(
-            (d) =>
-              `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${interval}\n`,
-          )
-          .join(''),
-      )
+      for (const d of data) {
+        fs.appendFileSync(
+          file,
+          `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time};${d.symbol};${interval}\n`,
+        )
+      }
     }
 
     if (sort) {
