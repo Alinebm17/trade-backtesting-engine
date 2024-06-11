@@ -37,8 +37,10 @@ import {
   PriorPivot,
   FasterADR,
   FasterATH,
+  FasterKeltnerChannel,
+  FasterKeltnerChannelPB,
 } from '../../../../indicators/src'
-import { MAEnum, IndicatorEnum } from '../../../types'
+import { MAEnum, IndicatorEnum, RangeType } from '../../../types'
 
 import type {
   IndicatorHistory,
@@ -84,6 +86,8 @@ export default class InternalIndicator {
     | PriorPivot
     | FasterADR
     | FasterATH
+    | FasterKeltnerChannel
+    | FasterKeltnerChannelPB
   private data: IndicatorHistory[] = []
 
   private readonly type: IndicatorEnum
@@ -359,6 +363,39 @@ export default class InternalIndicator {
           : 0) +
         add
     }
+    if (indicatorConfig.type === IndicatorEnum.kcpb) {
+      const kc = new FasterKeltnerChannel(
+        indicatorConfig.interval,
+        indicatorConfig.multiplier ?? 2,
+        indicatorConfig.ma ?? MAEnum.ema,
+        indicatorConfig.range ?? RangeType.atr,
+        indicatorConfig.rangeLength ?? 10,
+      )
+      this.indicator = new FasterKeltnerChannelPB(
+        kc,
+        indicatorConfig.percentile,
+        indicatorConfig.percentileLookback,
+        indicatorConfig.percentilePercentage,
+      )
+      this.length =
+        indicatorConfig.interval +
+        (indicatorConfig.rangeLength ?? 10) +
+        (indicatorConfig.percentile
+          ? indicatorConfig.percentileLookback ?? 0
+          : 0) +
+        add
+    }
+    if (indicatorConfig.type === IndicatorEnum.kc) {
+      this.indicator = new FasterKeltnerChannel(
+        indicatorConfig.interval,
+        indicatorConfig.multiplier ?? 2,
+        indicatorConfig.ma ?? MAEnum.ema,
+        indicatorConfig.range ?? RangeType.atr,
+        indicatorConfig.rangeLength ?? 10,
+      )
+      this.length =
+        indicatorConfig.interval + (indicatorConfig.rangeLength ?? 10) + add
+    }
     if (indicatorConfig.type === IndicatorEnum.bbpb) {
       const bb = new FasterBollingerBands(
         indicatorConfig.interval,
@@ -583,6 +620,8 @@ export default class InternalIndicator {
         this.indicator instanceof FasterTVTA ||
         this.indicator instanceof FasterMAR ||
         this.indicator instanceof FasterBollingerBandsWidth ||
+        this.indicator instanceof FasterKeltnerChannel ||
+        this.indicator instanceof FasterKeltnerChannelPB ||
         this.indicator instanceof FasterBBWP ||
         this.indicator instanceof FasterBBPB ||
         this.indicator instanceof FasterBollingerBands ||

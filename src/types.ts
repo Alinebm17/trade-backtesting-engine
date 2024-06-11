@@ -46,6 +46,8 @@ export enum IndicatorEnum {
   pp = 'PP',
   adr = 'ADR',
   ath = 'ATH',
+  kc = 'KC',
+  kcpb = 'KCPB',
 }
 
 export enum ECDTriggerEnum {
@@ -194,6 +196,12 @@ type DivergenceOscillators =
   | IndicatorEnum.bbpb
   | IndicatorEnum.stoch
 
+export enum RangeType {
+  atr = 'ATR',
+  tr = 'TR',
+  r = 'R',
+}
+
 export type IndicatorConfigBackTesting =
   | {
       type: IndicatorEnum.st
@@ -233,6 +241,14 @@ export type IndicatorConfigBackTesting =
     }
   | ({
       type: IndicatorEnum.ao
+    } & Percentile)
+  | ({
+      type: IndicatorEnum.kc | IndicatorEnum.kcpb
+      interval: number
+      multiplier?: number
+      ma?: MAEnum
+      range?: RangeType
+      rangeLength?: number
     } & Percentile)
   | ({
       type: IndicatorEnum.mom
@@ -349,6 +365,7 @@ export type IndicatorHistory = { time: number } & (
         | IndicatorEnum.mom
         | IndicatorEnum.mar
         | IndicatorEnum.bbpb
+        | IndicatorEnum.kcpb
       value: PercentileResult
     }
   | {
@@ -377,7 +394,7 @@ export type IndicatorHistory = { time: number } & (
     }
   | { type: IndicatorEnum.tv; value: number }
   | {
-      type: IndicatorEnum.bb
+      type: IndicatorEnum.bb | IndicatorEnum.kc
       value: { result: FasterBandsResult; price: number }
     }
   | {
@@ -489,6 +506,9 @@ export type SettingsIndicators = {
   riskAtrMult?: string
   dynamicArFactor?: string
   athLookback?: number
+  kcMa?: MAEnum
+  kcRange?: RangeType
+  kcRangeLength?: number
 }
 
 export enum ppValueTypeEnum {

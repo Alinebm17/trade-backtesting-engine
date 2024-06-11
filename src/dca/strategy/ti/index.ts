@@ -29,6 +29,7 @@ import {
   ppValueEnum,
   ppValueTypeEnum,
   ScaleDcaTypeEnum,
+  RangeType,
 } from '../../../types'
 
 import type {
@@ -147,6 +148,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ppLowRight,
           ppMult,
           athLookback,
+          kcMa,
+          kcRange,
+          kcRangeLength,
         } = i
         const scaleAr =
           (this.settings.dcaCondition === DCAConditionEnum.percentage ||
@@ -224,6 +228,27 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 ppLowLeft: +(ppLowLeft ?? 5),
                 ppLowRight: +(ppLowRight ?? 5),
                 ppMult: +(ppMult ?? 1),
+              }
+            : type === IndicatorEnum.kc
+            ? {
+                type,
+                interval: indicatorLength,
+                ma: kcMa || MAEnum.ema,
+                multiplier: bbwMult || 2,
+                range: kcRange || RangeType.atr,
+                rangeLength: kcRangeLength || 10,
+              }
+            : type === IndicatorEnum.kcpb
+            ? {
+                type,
+                interval: indicatorLength,
+                ma: kcMa || MAEnum.ema,
+                multiplier: bbwMult || 2,
+                range: kcRange || RangeType.atr,
+                rangeLength: kcRangeLength || 10,
+                percentile,
+                percentileLookback,
+                percentilePercentage,
               }
             : type === IndicatorEnum.pc
             ? {
@@ -1005,6 +1030,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               lastData.type === IndicatorEnum.adx ||
               lastData.type === IndicatorEnum.bbw ||
               lastData.type === IndicatorEnum.bbpb ||
+              lastData.type === IndicatorEnum.kcpb ||
               lastData.type === IndicatorEnum.vo ||
               lastData.type === IndicatorEnum.mar) &&
             (prevData.type === IndicatorEnum.rsi ||
@@ -1017,6 +1043,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               prevData.type === IndicatorEnum.adx ||
               prevData.type === IndicatorEnum.bbw ||
               prevData.type === IndicatorEnum.bbpb ||
+              prevData.type === IndicatorEnum.kcpb ||
               prevData.type === IndicatorEnum.vo ||
               prevData.type === IndicatorEnum.mar)
           ) {
@@ -1155,8 +1182,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
             prevValue = prevData.value.psar
           }
           if (
-            lastData.type === IndicatorEnum.bb &&
-            prevData.type === IndicatorEnum.bb
+            (lastData.type === IndicatorEnum.bb ||
+              lastData.type === IndicatorEnum.kc) &&
+            (prevData.type === IndicatorEnum.bb ||
+              prevData.type === IndicatorEnum.kc)
           ) {
             last = lastData.value.price
             prev = prevData.value.price
