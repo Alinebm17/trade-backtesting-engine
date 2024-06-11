@@ -828,7 +828,7 @@ export abstract class Strategy implements StrategyInterface {
           value =
             srCrossingValue === SRCrossingEnum.resistance ? data.high : data.low
         }
-        if (type === IndicatorEnum.bb) {
+        if (type === IndicatorEnum.bb || type === IndicatorEnum.kc) {
           const data = last.value as {
             result: FasterBandsResult
             price: number

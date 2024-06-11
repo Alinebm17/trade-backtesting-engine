@@ -668,7 +668,7 @@ export default class InternalIndicator {
                   price: value.c,
                 }
               : this.type !== IndicatorEnum.ma
-              ? this.type !== IndicatorEnum.bb
+              ? this.type !== IndicatorEnum.bb && this.type !== IndicatorEnum.kc
                 ? result
                 : {
                     result,
