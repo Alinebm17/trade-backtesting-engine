@@ -4062,7 +4062,7 @@ export abstract class Strategy implements StrategyInterface {
       id: botFunctions.utils.id(20),
       filledTime: time,
     }
-    if (this.tpAr && !sl) {
+    if (this.tpAr && !sl && !_price) {
       const indicator = this.settings.indicators.find(
         (ind) =>
           ind.indicatorAction === IndicatorAction.closeDeal &&
@@ -4081,7 +4081,7 @@ export abstract class Strategy implements StrategyInterface {
         }
       }
     }
-    if (this.slAr && sl) {
+    if (this.slAr && sl && !_price) {
       const indicator = this.settings.indicators.find(
         (ind) =>
           ind.indicatorAction === IndicatorAction.closeDeal &&
