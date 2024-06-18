@@ -4331,7 +4331,12 @@ export abstract class Strategy implements StrategyInterface {
   private getProfit(d: Deal, time: number) {
     const { filledOrders } = d
     const { userFee } = this
-    const usdRate = this.usdRate.get(d.symbol.pair) ?? 1
+    const usdRate =
+      this.getUsdRate(
+        d.symbol.pair,
+        d.lastPrice,
+        this.profitBase ? 'base' : 'quote',
+      ) ?? 1
     const precision = this.precision.get(d.symbol.pair) ?? 8
     const commission = filledOrders
       .filter((o) => (Strategy.combo ? o.type === DCAOrderTypeEnum.tp : true))
