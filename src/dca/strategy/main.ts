@@ -2913,8 +2913,12 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   get comboBasedOn() {
-    return !this.settings.comboTpBase ||
-      this.settings.comboTpBase === ComboTpBase.full
+    return this.settings.comboTpBase &&
+      !this.settings.useTp &&
+      !this.settings.useSl
+      ? ComboTpBase.filled
+      : !this.settings.comboTpBase ||
+        this.settings.comboTpBase === ComboTpBase.full
       ? ComboTpBase.full
       : ComboTpBase.filled
   }
