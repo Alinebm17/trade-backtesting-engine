@@ -288,7 +288,9 @@ export class Strategy implements StrategyInterface {
       if (step === 0 && total === 0) {
         updateProgress(
           0,
-          `Processing candle on ${new Date(this.data?.[0].time).toUTCString()}`,
+          `Processing candle on ${new Date(
+            this.data?.[0]?.time,
+          ).toUTCString()}`,
         )
       }
       if (size !== 0) {
