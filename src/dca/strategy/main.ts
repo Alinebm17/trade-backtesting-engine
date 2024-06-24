@@ -5134,33 +5134,33 @@ export abstract class Strategy implements StrategyInterface {
     for (const s of this.symbols.keys()) {
       const deals = allDeals.filter((d) => d.symbol.pair === s)
       const maxSymbolValue =
-        Math.max(
-          ...deals.map(
-            (d) =>
-              (this.futures
-                ? this.coinm
-                  ? d.usage.current.base
-                  : d.usage.current.quote
-                : !this.long
-                ? d.usage.current.base
-                : d.usage.current.quote) / this.leverage,
-          ),
-        ) *
-        this.getRate() *
-        Math.max(1, +(this.settings.maxDealsPerPair ?? '1'))
+        this.settings.orderSizeType === OrderSizeTypeEnum.percFree ||
+        this.settings.orderSizeType === OrderSizeTypeEnum.percTotal
+          ? Strategy.initialBalanceUsd
+          : Math.max(
+              .../* this.settings.orderSizeType === OrderSizeTypeEnum.percFree ||
+          this.settings.orderSizeType === OrderSizeTypeEnum.percTotal
+            ? [deals.sort((a, b) => a.startTime - b.startTime)[0]].filter(
+                (d) => !!d,
+              )
+            : */ deals.map(
+                (d) =>
+                  (this.futures
+                    ? this.coinm
+                      ? d.usage.current.base
+                      : d.usage.current.quote
+                    : !this.long
+                    ? d.usage.current.base
+                    : d.usage.current.quote) / this.leverage,
+              ),
+            ) *
+            this.getRate() *
+            Math.max(1, +(this.settings.maxDealsPerPair ?? '1'))
       const profitDealsStats = deals.filter(
         (d) => d.profit.total > 0 && d.status === 'closed',
       )
       const lossDealsStats = deals.filter(
         (d) => d.profit.total <= 0 && d.status === 'closed',
-      )
-      const allProfitStats = profitDealsStats.reduce(
-        (acc, d) => (acc += d.profit.total),
-        0,
-      )
-      const allLossStats = lossDealsStats.reduce(
-        (acc, d) => (acc += d.profit.total),
-        0,
       )
       const closedDealsStats = deals.filter((d) => d.status === 'closed').length
       const profit = Strategy.totalProfitPerSymbol.get(s) ?? 0
@@ -5177,6 +5177,19 @@ export abstract class Strategy implements StrategyInterface {
       const avgDealDuration = deals.length
         ? friendlyTime(this.math.round(totalDealsDuration / deals.length, 0))
         : { d: '', h: '', min: '', s: '' }
+      const grossProfit =
+        maxSymbolValue === 0
+          ? 0
+          : (profitDealsStats.reduce((acc, d) => acc + d.profit.totalUsd, 0) /
+              maxSymbolValue) *
+            100
+      const grossLoss =
+        maxSymbolValue === 0
+          ? 0
+          : Math.abs(
+              lossDealsStats.reduce((acc, d) => acc + d.profit.totalUsd, 0) /
+                maxSymbolValue,
+            ) * 100
       symbolStats.push({
         pair: s,
         deals: {
@@ -5211,9 +5224,9 @@ export abstract class Strategy implements StrategyInterface {
         maxDealDuration,
         avgDealDuration,
         profitFactor:
-          allLoss !== 0
-            ? `${this.math.round(Math.abs(allProfitStats / allLossStats), 3)}`
-            : `${Infinity}`,
+          grossLoss === 0
+            ? `${Infinity}`
+            : `${this.math.round(grossProfit / grossLoss, 3)}`,
       })
     }
     const periodicStats: PeriodicStats[] = []
