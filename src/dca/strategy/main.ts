@@ -561,7 +561,6 @@ export abstract class Strategy implements StrategyInterface {
     if (
       !settings.useDynamicPriceFilter ||
       !settings.dynamicPriceFilterDeviation ||
-      !settings.dynamicPriceFilterPriceType ||
       isNaN(+settings.dynamicPriceFilterDeviation) ||
       !isFinite(+settings.dynamicPriceFilterDeviation)
     ) {
