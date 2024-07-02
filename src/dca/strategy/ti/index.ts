@@ -1361,11 +1361,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ) {
             if (indicatorCondition === IndicatorStartConditionEnum.cd) {
               action =
-                this.math.gt(value, last) && this.math.lt(prevValue, prev)
+                (this.math.gt(value, last) && this.math.lt(prevValue, prev)) ||
+                (this.math.gt(value, last) && this.math.lte(prevValue, prev))
             }
             if (indicatorCondition === IndicatorStartConditionEnum.cu) {
               action =
-                this.math.lt(value, last) && this.math.gt(prevValue, prev)
+                (this.math.lt(value, last) && this.math.gt(prevValue, prev)) ||
+                (this.math.lt(value, last) && this.math.gte(prevValue, prev))
             }
           }
           if (indicatorCondition === IndicatorStartConditionEnum.gt) {

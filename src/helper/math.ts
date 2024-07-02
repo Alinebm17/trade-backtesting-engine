@@ -135,6 +135,10 @@ export class MathHelper {
     return !this.isZero(a - b) && a < b
   }
 
+  gte(a: number, b: number) {
+    return (!this.isZero(a - b) && a > b) || this.isZero(a - b)
+  }
+
   lte(a: number, b: number) {
     return (!this.isZero(a - b) && a <= b) || this.isZero(a - b)
   }
