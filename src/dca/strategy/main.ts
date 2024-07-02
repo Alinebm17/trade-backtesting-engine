@@ -880,14 +880,14 @@ export abstract class Strategy implements StrategyInterface {
           } else {
             currentSl *= -1
           }
-          const riskSlPerc = currentSl * (this.long ? 1 : -1)
+          const riskSlPerc = currentSl
           currentRiskSlPrice = this.math.round(
-            price * (1 + riskSlPerc),
+            price * (1 + riskSlPerc * (this.long ? 1 : -1)),
             symbol?.priceAssetPrecision,
           )
           const rewardTpPerc = Math.abs(riskSlPerc) * +(riskTpRatio ?? '1')
           const rewardTpPrice = this.math.round(
-            price * (1 + rewardTpPerc),
+            price * (1 + rewardTpPerc * (this.long ? 1 : -1)),
             precisionPrice,
           )
           const riskPrecision = this.futures
