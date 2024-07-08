@@ -4182,7 +4182,10 @@ export abstract class Strategy implements StrategyInterface {
           if (priceTp * qtyTp < symbol.quoteAsset.minAmount) {
             qtyTp = symbol.quoteAsset.minAmount / priceTp
           } */
-          const modQty = this.math.remainder(qtyTp, symbol.baseAsset.step)
+          const modQty = this.math.remainder(
+            this.math.round(qtyTp, 12),
+            symbol.baseAsset.step,
+          )
           if (modQty !== 0) {
             qtyTp = this.math.round(
               qtyTp - modQty + symbol.baseAsset.step,
@@ -4260,7 +4263,10 @@ export abstract class Strategy implements StrategyInterface {
           if (priceSl * qtySl < symbol.quoteAsset.minAmount) {
             qtySl = symbol.quoteAsset.minAmount / priceSl
           }
-          const modQty = this.math.remainder(qtySl, symbol.baseAsset.step)
+          const modQty = this.math.remainder(
+            this.math.round(qtySl, 12),
+            symbol.baseAsset.step,
+          )
           if (modQty !== 0) {
             qtySl = this.math.round(
               qtySl - modQty + symbol.baseAsset.step,
