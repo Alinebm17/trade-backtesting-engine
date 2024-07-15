@@ -773,6 +773,15 @@ export interface DCABotSettings extends BaseSettings {
   riskMinPositionSize?: string
   riskMaxPositionSize?: string
   scaleDcaType?: ScaleDcaTypeEnum
+  startDealLogic?: IndicatorsLogicEnum
+  stopDealLogic?: IndicatorsLogicEnum
+  stopDealSlLogic?: IndicatorsLogicEnum
+  stopBotLogic?: IndicatorsLogicEnum
+}
+
+export enum IndicatorsLogicEnum {
+  and = 'and',
+  or = 'or',
 }
 
 export enum ScaleDcaTypeEnum {

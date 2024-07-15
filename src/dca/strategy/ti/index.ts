@@ -30,6 +30,7 @@ import {
   ppValueTypeEnum,
   ScaleDcaTypeEnum,
   RangeType,
+  IndicatorsLogicEnum,
 } from '../../../types'
 
 import type {
@@ -1498,7 +1499,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const stopBotStatus = stopBot.filter(filterFn)
       const startDcaStatus = startDca.filter(filterFn)
       if (
-        closeDealSl.length === closeDealSlStatus.length &&
+        (this.settings.stopDealSlLogic === IndicatorsLogicEnum.and ||
+        !this.settings.stopDealSlLogic
+          ? closeDealSl.length === closeDealSlStatus.length
+          : closeDealSlStatus.length > 0) &&
         closeDealSl.length
       ) {
         Strategy.indicatorEvents.push({
@@ -1539,7 +1543,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
           return i
         })
       }
-      if (stopBot.length === stopBotStatus.length && stopBotStatus.length) {
+      if (
+        (this.settings.stopBotLogic === IndicatorsLogicEnum.and ||
+        !this.settings.stopBotLogic
+          ? stopBot.length === stopBotStatus.length
+          : stopBotStatus.length > 0) &&
+        stopBotStatus.length
+      ) {
         this.stopByIndicator({
           open: /* lowestBar?.open ?? */ nextBar.open,
           time: nextBar.time,
@@ -1563,7 +1573,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
         })
       }
       if (
-        closeDealTp.length === closeDealTpStatus.length &&
+        (this.settings.stopDealLogic === IndicatorsLogicEnum.and ||
+        !this.settings.stopDealLogic
+          ? closeDealTp.length === closeDealTpStatus.length
+          : closeDealTpStatus.length > 0) &&
         closeDealTp.length
       ) {
         Strategy.indicatorEvents.push({
@@ -1601,7 +1614,13 @@ class TIStrategy extends Strategy implements StrategyInterface {
           return i
         })
       }
-      if (startDeal.length === startDealStatus.length && startDeal.length) {
+      if (
+        (this.settings.startDealLogic === IndicatorsLogicEnum.and ||
+        !this.settings.startDealLogic
+          ? startDeal.length === startDealStatus.length
+          : startDealStatus.length > 0) &&
+        startDeal.length
+      ) {
         Strategy.indicatorEvents.push({
           type: IndicatorAction.startDeal,
           side:
