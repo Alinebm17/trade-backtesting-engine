@@ -155,6 +155,8 @@ enum CandleTypeEnum {
 const fundsWarning =
   'The bot used more funds than allocated, this might not be accurate in live trading. Please check your settings.'
 
+const maxDeals = 50 * 1000
+
 export abstract class Strategy implements StrategyInterface {
   static combo = false
 
@@ -5136,103 +5138,109 @@ export abstract class Strategy implements StrategyInterface {
     const confidenceGrade = this.getConfidenceGrade()
     const buyAndHold = this.getBuyAndHold(firstData, lastData)
     const symbolStats: SymbolStats[] = []
-    for (const s of this.symbols.keys()) {
-      const deals = allDeals.filter((d) => d.symbol.pair === s)
-      const maxSymbolValue =
-        this.settings.orderSizeType === OrderSizeTypeEnum.percFree ||
-        this.settings.orderSizeType === OrderSizeTypeEnum.percTotal
-          ? Strategy.initialBalanceUsd
-          : Math.max(
-              .../* this.settings.orderSizeType === OrderSizeTypeEnum.percFree ||
+    if (allDeals.length < maxDeals) {
+      for (const s of this.symbols.keys()) {
+        const deals = allDeals.filter((d) => d.symbol.pair === s)
+        const maxSymbolValue =
+          this.settings.orderSizeType === OrderSizeTypeEnum.percFree ||
+          this.settings.orderSizeType === OrderSizeTypeEnum.percTotal
+            ? Strategy.initialBalanceUsd
+            : Math.max(
+                .../* this.settings.orderSizeType === OrderSizeTypeEnum.percFree ||
           this.settings.orderSizeType === OrderSizeTypeEnum.percTotal
             ? [deals.sort((a, b) => a.startTime - b.startTime)[0]].filter(
                 (d) => !!d,
               )
             : */ deals.map(
-                (d) =>
-                  (this.futures
-                    ? this.coinm
+                  (d) =>
+                    (this.futures
+                      ? this.coinm
+                        ? d.usage.current.base
+                        : d.usage.current.quote
+                      : !this.long
                       ? d.usage.current.base
-                      : d.usage.current.quote
-                    : !this.long
-                    ? d.usage.current.base
-                    : d.usage.current.quote) / this.leverage,
-              ),
-            ) *
-            this.getRate() *
-            Math.max(1, +(this.settings.maxDealsPerPair ?? '1'))
-      const profitDealsStats = deals.filter(
-        (d) => d.profit.total > 0 && d.status === 'closed',
-      )
-      const lossDealsStats = deals.filter(
-        (d) => d.profit.total <= 0 && d.status === 'closed',
-      )
-      const closedDealsStats = deals.filter((d) => d.status === 'closed').length
-      const profit = Strategy.totalProfitPerSymbol.get(s) ?? 0
-      const profitUsd = Strategy.totalProfitUsdPerSymbol.get(s) ?? 0
-      const precisionStats = this.precision.get(s) ?? 8
-      const symbol = this.symbols.get(s)
-      const maxDealDuration = deals.length
-        ? friendlyTime(Math.max(...deals.map((cd) => cd.duration)))
-        : { d: '', h: '', min: '', s: '' }
-      const totalDealsDuration = deals.reduce(
-        (acc, d) => (acc += d.duration),
-        0,
-      )
-      const avgDealDuration = deals.length
-        ? friendlyTime(this.math.round(totalDealsDuration / deals.length, 0))
-        : { d: '', h: '', min: '', s: '' }
-      const grossProfit =
-        maxSymbolValue === 0
-          ? 0
-          : (profitDealsStats.reduce((acc, d) => acc + d.profit.totalUsd, 0) /
-              maxSymbolValue) *
-            100
-      const grossLoss =
-        maxSymbolValue === 0
-          ? 0
-          : Math.abs(
-              lossDealsStats.reduce((acc, d) => acc + d.profit.totalUsd, 0) /
-                maxSymbolValue,
-            ) * 100
-      symbolStats.push({
-        pair: s,
-        deals: {
-          profit: profitDealsStats.length,
-          loss: lossDealsStats.length,
-          open: deals.filter((d) => d.status === 'open').length,
-        },
-        netProfit: {
-          total: this.math.round(profit, precisionStats),
-          totalUsd: this.math.round(profitUsd),
-          perc:
-            maxSymbolValue === 0
-              ? 0
-              : this.math.round((profitUsd / maxSymbolValue) * 100),
-        },
-        dailyReturn: {
-          total: this.math.round(profit / workingDays, precisionStats),
-          totalUsd: this.math.round(profitUsd / workingDays),
-          perc:
-            maxSymbolValue === 0
-              ? 0
-              : this.math.round(
-                  (profitUsd / workingDays / maxSymbolValue) * 100,
+                      : d.usage.current.quote) / this.leverage,
                 ),
-        },
-        profitAsset: this.profitBase
-          ? symbol?.baseAsset?.name ?? ''
-          : symbol?.quoteAsset?.name ?? '',
-        winRate: closedDeals
-          ? this.math.round((profitDealsStats.length / closedDealsStats) * 100)
-          : 0,
-        maxDealDuration,
-        avgDealDuration,
-        profitFactor:
-          grossLoss === 0
-            ? `${Infinity}`
-            : `${this.math.round(grossProfit / grossLoss, 3)}`,
-      })
+              ) *
+              this.getRate() *
+              Math.max(1, +(this.settings.maxDealsPerPair ?? '1'))
+        const profitDealsStats = deals.filter(
+          (d) => d.profit.total > 0 && d.status === 'closed',
+        )
+        const lossDealsStats = deals.filter(
+          (d) => d.profit.total <= 0 && d.status === 'closed',
+        )
+        const closedDealsStats = deals.filter(
+          (d) => d.status === 'closed',
+        ).length
+        const profit = Strategy.totalProfitPerSymbol.get(s) ?? 0
+        const profitUsd = Strategy.totalProfitUsdPerSymbol.get(s) ?? 0
+        const precisionStats = this.precision.get(s) ?? 8
+        const symbol = this.symbols.get(s)
+        const maxDealDuration = deals.length
+          ? friendlyTime(Math.max(...deals.map((cd) => cd.duration)))
+          : { d: '', h: '', min: '', s: '' }
+        const totalDealsDuration = deals.reduce(
+          (acc, d) => (acc += d.duration),
+          0,
+        )
+        const avgDealDuration = deals.length
+          ? friendlyTime(this.math.round(totalDealsDuration / deals.length, 0))
+          : { d: '', h: '', min: '', s: '' }
+        const grossProfit =
+          maxSymbolValue === 0
+            ? 0
+            : (profitDealsStats.reduce((acc, d) => acc + d.profit.totalUsd, 0) /
+                maxSymbolValue) *
+              100
+        const grossLoss =
+          maxSymbolValue === 0
+            ? 0
+            : Math.abs(
+                lossDealsStats.reduce((acc, d) => acc + d.profit.totalUsd, 0) /
+                  maxSymbolValue,
+              ) * 100
+        symbolStats.push({
+          pair: s,
+          deals: {
+            profit: profitDealsStats.length,
+            loss: lossDealsStats.length,
+            open: deals.filter((d) => d.status === 'open').length,
+          },
+          netProfit: {
+            total: this.math.round(profit, precisionStats),
+            totalUsd: this.math.round(profitUsd),
+            perc:
+              maxSymbolValue === 0
+                ? 0
+                : this.math.round((profitUsd / maxSymbolValue) * 100),
+          },
+          dailyReturn: {
+            total: this.math.round(profit / workingDays, precisionStats),
+            totalUsd: this.math.round(profitUsd / workingDays),
+            perc:
+              maxSymbolValue === 0
+                ? 0
+                : this.math.round(
+                    (profitUsd / workingDays / maxSymbolValue) * 100,
+                  ),
+          },
+          profitAsset: this.profitBase
+            ? symbol?.baseAsset?.name ?? ''
+            : symbol?.quoteAsset?.name ?? '',
+          winRate: closedDeals
+            ? this.math.round(
+                (profitDealsStats.length / closedDealsStats) * 100,
+              )
+            : 0,
+          maxDealDuration,
+          avgDealDuration,
+          profitFactor:
+            grossLoss === 0
+              ? `${Infinity}`
+              : `${this.math.round(grossProfit / grossLoss, 3)}`,
+        })
+      }
     }
     const periodicStats: PeriodicStats[] = []
     const firstDataTime = Strategy.start || (firstDataItem?.time ?? +new Date())
@@ -5241,167 +5249,171 @@ export abstract class Strategy implements StrategyInterface {
 
     let monthlyValue = Strategy.initialBalanceUsd
 
-    for (
-      let i = firstDataTime;
-      i < lastDataTime;
-      i += 28 * 24 * 60 * 60 * 1000
-    ) {
-      const monthlyStart = new Date(i)
-      monthlyStart.setDate(1)
-      monthlyStart.setHours(0, 0, 0, 0)
-      const nextMonth = new Date(monthlyStart)
-      nextMonth.setDate(1)
-      nextMonth.setMonth(nextMonth.getMonth() + 1)
-      const findMonth = periodicStats.find(
-        (p) => p.startTime === +monthlyStart && p.period === 'month',
-      )
-      if (findMonth) {
-        continue
-      }
-      const monthlyDeals = allDeals.filter(
-        (d) =>
-          d.closedTime &&
-          d.closedTime >= +monthlyStart &&
-          d.closedTime <= +nextMonth - 1,
-      )
-      let lowestBalanceDD = monthlyValue
-      let highestBalanceDD = monthlyValue
-      let lowestBalanceRU = monthlyValue
-      let highestBalanceRU = monthlyValue
-      let maxDrawdown = 0
-      let maxRunup = 0
-      let maxDrawdownValue = 0
-      let maxRunupValue = 0
-      let profit = 0
-      const startPeriodValue = Math.abs(monthlyValue)
-      for (const d of monthlyDeals) {
-        profit += d.profit.totalUsd
-        monthlyValue += d.profit.totalUsd
-        if (monthlyValue > highestBalanceRU) {
-          highestBalanceRU = monthlyValue
-          const tempRunup = highestBalanceRU - lowestBalanceRU
-          if (tempRunup > maxRunupValue) {
-            maxRunupValue = tempRunup
-            maxRunup = Math.abs(tempRunup / lowestBalanceRU)
+    if (allDeals.length < maxDeals) {
+      for (
+        let i = firstDataTime;
+        i < lastDataTime;
+        i += 28 * 24 * 60 * 60 * 1000
+      ) {
+        const monthlyStart = new Date(i)
+        monthlyStart.setDate(1)
+        monthlyStart.setHours(0, 0, 0, 0)
+        const nextMonth = new Date(monthlyStart)
+        nextMonth.setDate(1)
+        nextMonth.setMonth(nextMonth.getMonth() + 1)
+        const findMonth = periodicStats.find(
+          (p) => p.startTime === +monthlyStart && p.period === 'month',
+        )
+        if (findMonth) {
+          continue
+        }
+        const monthlyDeals = allDeals.filter(
+          (d) =>
+            d.closedTime &&
+            d.closedTime >= +monthlyStart &&
+            d.closedTime <= +nextMonth - 1,
+        )
+        let lowestBalanceDD = monthlyValue
+        let highestBalanceDD = monthlyValue
+        let lowestBalanceRU = monthlyValue
+        let highestBalanceRU = monthlyValue
+        let maxDrawdown = 0
+        let maxRunup = 0
+        let maxDrawdownValue = 0
+        let maxRunupValue = 0
+        let profit = 0
+        const startPeriodValue = Math.abs(monthlyValue)
+        for (const d of monthlyDeals) {
+          profit += d.profit.totalUsd
+          monthlyValue += d.profit.totalUsd
+          if (monthlyValue > highestBalanceRU) {
+            highestBalanceRU = monthlyValue
+            const tempRunup = highestBalanceRU - lowestBalanceRU
+            if (tempRunup > maxRunupValue) {
+              maxRunupValue = tempRunup
+              maxRunup = Math.abs(tempRunup / lowestBalanceRU)
+            }
+          }
+          if (monthlyValue < lowestBalanceRU) {
+            lowestBalanceRU = monthlyValue
+            highestBalanceRU = monthlyValue
+          }
+          if (monthlyValue < lowestBalanceDD) {
+            lowestBalanceDD = monthlyValue
+            const tempDrawdown = highestBalanceDD - lowestBalanceDD
+            if (tempDrawdown > maxDrawdownValue) {
+              maxDrawdownValue = tempDrawdown
+              maxDrawdown = Math.abs(tempDrawdown / highestBalanceDD)
+            }
+          }
+          if (monthlyValue > highestBalanceDD) {
+            highestBalanceDD = monthlyValue
+            lowestBalanceDD = monthlyValue
           }
         }
-        if (monthlyValue < lowestBalanceRU) {
-          lowestBalanceRU = monthlyValue
-          highestBalanceRU = monthlyValue
-        }
-        if (monthlyValue < lowestBalanceDD) {
-          lowestBalanceDD = monthlyValue
-          const tempDrawdown = highestBalanceDD - lowestBalanceDD
-          if (tempDrawdown > maxDrawdownValue) {
-            maxDrawdownValue = tempDrawdown
-            maxDrawdown = Math.abs(tempDrawdown / highestBalanceDD)
-          }
-        }
-        if (monthlyValue > highestBalanceDD) {
-          highestBalanceDD = monthlyValue
-          lowestBalanceDD = monthlyValue
-        }
-      }
-      const netResult = this.math.round((profit / startPeriodValue) * 100)
-      periodicStats.push({
-        period: 'month',
-        startTime: +monthlyStart,
-        netResult,
-        drawdown: Math.min(
+        const netResult = this.math.round((profit / startPeriodValue) * 100)
+        periodicStats.push({
+          period: 'month',
+          startTime: +monthlyStart,
           netResult,
-          this.math.round(Math.abs(maxDrawdown) * -100),
-        ),
-        runup: Math.max(netResult, this.math.round(Math.abs(maxRunup) * 100)),
-        deals: {
-          profit: monthlyDeals.filter((d) => d.profit.totalUsd > 0).length,
-          loss: monthlyDeals.filter((d) => d.profit.totalUsd <= 0).length,
-        },
-      })
+          drawdown: Math.min(
+            netResult,
+            this.math.round(Math.abs(maxDrawdown) * -100),
+          ),
+          runup: Math.max(netResult, this.math.round(Math.abs(maxRunup) * 100)),
+          deals: {
+            profit: monthlyDeals.filter((d) => d.profit.totalUsd > 0).length,
+            loss: monthlyDeals.filter((d) => d.profit.totalUsd <= 0).length,
+          },
+        })
+      }
     }
 
     let yearlyValue = Strategy.initialBalanceUsd
-    for (
-      let i = firstDataTime;
-      i < lastDataTime + 365 * 24 * 60 * 60 * 1000;
-      i += 365 * 24 * 60 * 60 * 1000
-    ) {
-      const yearStart = new Date(i)
-      yearStart.setDate(1)
-      yearStart.setHours(0, 0, 0, 0)
-      yearStart.setMonth(0)
-      const findYear = periodicStats.find(
-        (p) => p.startTime === +yearStart && p.period === 'year',
-      )
-      if (findYear) {
-        continue
-      }
-      if (
-        !allDeals.filter((d) => d.closedTime && d.closedTime >= +yearStart)
-          .length
+    if (allDeals.length < maxDeals) {
+      for (
+        let i = firstDataTime;
+        i < lastDataTime + 365 * 24 * 60 * 60 * 1000;
+        i += 365 * 24 * 60 * 60 * 1000
       ) {
-        continue
-      }
-      const nextYear = new Date(yearStart)
-      nextYear.setFullYear(nextYear.getFullYear() + 1)
-      const yearlyDeals = allDeals.filter(
-        (d) =>
-          d.closedTime &&
-          d.closedTime >= +yearStart &&
-          d.closedTime <= +nextYear - 1,
-      )
-      let highestBalanceRU = yearlyValue
-      let lowestBalanceRU = yearlyValue
-      let highestBalanceDD = yearlyValue
-      let lowestBalanceDD = yearlyValue
-      let maxDrawdown = 0
-      let maxRunup = 0
-      let maxDrawdownValue = 0
-      let maxRunupValue = 0
-      let profit = 0
-      const startPeriodValue = Math.abs(yearlyValue)
-      for (const d of yearlyDeals) {
-        profit += d.profit.totalUsd
-        yearlyValue += d.profit.totalUsd
-        if (yearlyValue > highestBalanceRU) {
-          highestBalanceRU = yearlyValue
-          const tempRunup = highestBalanceRU - lowestBalanceRU
-          if (tempRunup > maxRunupValue) {
-            maxRunupValue = tempRunup
-            maxRunup = Math.abs(tempRunup / lowestBalanceRU)
+        const yearStart = new Date(i)
+        yearStart.setDate(1)
+        yearStart.setHours(0, 0, 0, 0)
+        yearStart.setMonth(0)
+        const findYear = periodicStats.find(
+          (p) => p.startTime === +yearStart && p.period === 'year',
+        )
+        if (findYear) {
+          continue
+        }
+        if (
+          !allDeals.filter((d) => d.closedTime && d.closedTime >= +yearStart)
+            .length
+        ) {
+          continue
+        }
+        const nextYear = new Date(yearStart)
+        nextYear.setFullYear(nextYear.getFullYear() + 1)
+        const yearlyDeals = allDeals.filter(
+          (d) =>
+            d.closedTime &&
+            d.closedTime >= +yearStart &&
+            d.closedTime <= +nextYear - 1,
+        )
+        let highestBalanceRU = yearlyValue
+        let lowestBalanceRU = yearlyValue
+        let highestBalanceDD = yearlyValue
+        let lowestBalanceDD = yearlyValue
+        let maxDrawdown = 0
+        let maxRunup = 0
+        let maxDrawdownValue = 0
+        let maxRunupValue = 0
+        let profit = 0
+        const startPeriodValue = Math.abs(yearlyValue)
+        for (const d of yearlyDeals) {
+          profit += d.profit.totalUsd
+          yearlyValue += d.profit.totalUsd
+          if (yearlyValue > highestBalanceRU) {
+            highestBalanceRU = yearlyValue
+            const tempRunup = highestBalanceRU - lowestBalanceRU
+            if (tempRunup > maxRunupValue) {
+              maxRunupValue = tempRunup
+              maxRunup = Math.abs(tempRunup / lowestBalanceRU)
+            }
+          }
+          if (yearlyValue < lowestBalanceRU) {
+            lowestBalanceRU = yearlyValue
+            highestBalanceRU = yearlyValue
+          }
+          if (yearlyValue < lowestBalanceDD) {
+            lowestBalanceDD = yearlyValue
+            const tempDrawdown = highestBalanceDD - lowestBalanceDD
+            if (tempDrawdown > maxDrawdownValue) {
+              maxDrawdownValue = tempDrawdown
+              maxDrawdown = Math.abs(tempDrawdown / highestBalanceDD)
+            }
+          }
+          if (yearlyValue > highestBalanceDD) {
+            highestBalanceDD = yearlyValue
+            lowestBalanceDD = yearlyValue
           }
         }
-        if (yearlyValue < lowestBalanceRU) {
-          lowestBalanceRU = yearlyValue
-          highestBalanceRU = yearlyValue
-        }
-        if (yearlyValue < lowestBalanceDD) {
-          lowestBalanceDD = yearlyValue
-          const tempDrawdown = highestBalanceDD - lowestBalanceDD
-          if (tempDrawdown > maxDrawdownValue) {
-            maxDrawdownValue = tempDrawdown
-            maxDrawdown = Math.abs(tempDrawdown / highestBalanceDD)
-          }
-        }
-        if (yearlyValue > highestBalanceDD) {
-          highestBalanceDD = yearlyValue
-          lowestBalanceDD = yearlyValue
-        }
-      }
-      const netResult = this.math.round((profit / startPeriodValue) * 100)
-      periodicStats.push({
-        period: 'year',
-        startTime: +yearStart,
-        netResult,
-        drawdown: Math.min(
+        const netResult = this.math.round((profit / startPeriodValue) * 100)
+        periodicStats.push({
+          period: 'year',
+          startTime: +yearStart,
           netResult,
-          this.math.round(Math.abs(maxDrawdown) * -100),
-        ),
-        runup: Math.max(netResult, this.math.round(Math.abs(maxRunup) * 100)),
-        deals: {
-          profit: yearlyDeals.filter((d) => d.profit.totalUsd > 0).length,
-          loss: yearlyDeals.filter((d) => d.profit.totalUsd <= 0).length,
-        },
-      })
+          drawdown: Math.min(
+            netResult,
+            this.math.round(Math.abs(maxDrawdown) * -100),
+          ),
+          runup: Math.max(netResult, this.math.round(Math.abs(maxRunup) * 100)),
+          deals: {
+            profit: yearlyDeals.filter((d) => d.profit.totalUsd > 0).length,
+            loss: yearlyDeals.filter((d) => d.profit.totalUsd <= 0).length,
+          },
+        })
+      }
     }
 
     const quoteRate = lastPrice ?? 0
