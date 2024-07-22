@@ -4080,7 +4080,7 @@ export abstract class Strategy implements StrategyInterface {
         if (value && !isNaN(value) && isFinite(value)) {
           value *= +(indicator.dynamicArFactor || '1')
           tpOrder.price = this.math.round(
-            deal.startPrice + value * (this.long ? 1 : -1),
+            deal.avgPrice + value * (this.long ? 1 : -1),
             symbol?.priceAssetPrecision ?? 8,
           )
         }
