@@ -777,6 +777,10 @@ export interface DCABotSettings extends BaseSettings {
   stopDealLogic?: IndicatorsLogicEnum
   stopDealSlLogic?: IndicatorsLogicEnum
   stopBotLogic?: IndicatorsLogicEnum
+  useRiskReduction?: boolean
+  riskReductionValue?: string
+  useReinvest?: boolean
+  reinvestValue?: string
 }
 
 export enum IndicatorsLogicEnum {
@@ -1128,6 +1132,7 @@ export type Deal = {
   }
   lastIndex: number
   dynamicAr?: DynamicArPrices[]
+  sizes?: Sizes
 }
 
 export type PreparedGrid = {
@@ -1678,3 +1683,8 @@ export type FullBar = Bar & { symbol: string }
 export type SavedBar = FullBar & { interval: ExchangeIntervals }
 
 export type DynamicArPrices = { id: string; value: number }
+
+export type Sizes = {
+  base: number
+  dca: number[]
+}

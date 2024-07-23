@@ -62,6 +62,7 @@ import type {
   ExchangeEnum,
   MAResult,
   DynamicArPrices,
+  Sizes,
 } from '../../types'
 import {
   FasterBandsResult,
@@ -1472,6 +1473,95 @@ export abstract class Strategy implements StrategyInterface {
     return true
   }
 
+  private calculateCompoundReduce(initialOrders: DCAGrid[]): Sizes | null {
+    const use =
+      [OrderSizeTypeEnum.base, OrderSizeTypeEnum.quote].includes(
+        this.settings.orderSizeType,
+      ) &&
+      ((this.settings.strategy === StrategyEnum.long &&
+        this.settings.profitCurrency === 'quote') ||
+        (this.settings.strategy === StrategyEnum.short &&
+          this.settings.profitCurrency === 'base') ||
+        this.settings.futures) &&
+      (this.settings.useRiskReduction || this.settings.useReinvest)
+    if (!use) {
+      return null
+    }
+    const findLastDeal = Strategy.getDeals('closed').sort(
+      (a, b) => (b.closedTime ?? 0) - (a.closedTime ?? 0),
+    )[0]
+    if (!findLastDeal) {
+      return null
+    }
+
+    if (
+      (findLastDeal.profit.totalUsd > 0 && !this.settings.useReinvest) ||
+      (findLastDeal.profit.totalUsd < 0 && !this.settings.useRiskReduction)
+    ) {
+      return null
+    }
+
+    const profit = findLastDeal.profit.total
+
+    if (
+      (profit > 0 && !this.settings.useReinvest) ||
+      (profit < 0 && !this.settings.useRiskReduction)
+    ) {
+      return null
+    }
+
+    let maxDeals = +(this.settings.maxNumberOfOpenDeals ?? '0')
+    if (!maxDeals || maxDeals <= 0) {
+      if (this.settings.useMulti) {
+        const maxDealsPerPair = +(this.settings.maxDealsPerPair ?? '0')
+        if (!maxDealsPerPair || maxDealsPerPair <= 0) {
+          maxDeals = 1
+        } else {
+          maxDeals = Math.max(1, maxDealsPerPair * this.settings.pair.length)
+        }
+      }
+    }
+
+    const toUse =
+      (profit *
+        (this.settings.useReinvest
+          ? +(this.settings.reinvestValue ?? '50') / 100
+          : +(this.settings.riskReductionValue ?? '50') / 100)) /
+      maxDeals
+
+    console.log(profit, toUse)
+
+    const orders = initialOrders.filter(
+      (o) =>
+        o.type && [DCAOrderTypeEnum.bo, DCAOrderTypeEnum.dca].includes(o.type),
+    )
+
+    const baseOrder = orders.find((o) => o.type === DCAOrderTypeEnum.bo)
+
+    if (!baseOrder) {
+      return null
+    }
+
+    const totalOrders = orders.reduce((acc, v) => acc + v.qty, 0)
+
+    const sizes: Sizes = {
+      base:
+        (baseOrder.qty / totalOrders) *
+        (toUse *
+          (this.settings.profitCurrency === 'base' ? 1 : 1 / baseOrder.price)),
+      dca: orders
+        .filter((o) => o.type === DCAOrderTypeEnum.dca)
+        .map(
+          (o) =>
+            (o.qty / totalOrders) *
+            (toUse *
+              (this.settings.profitCurrency === 'base' ? 1 : 1 / o.price)),
+        ),
+    }
+
+    return sizes
+  }
+
   public openDeal(
     price: number,
     startTime: number,
@@ -1555,6 +1645,32 @@ export abstract class Strategy implements StrategyInterface {
             ? o.type !== DCAOrderTypeEnum.sl
             : true) && o.type !== DCAOrderTypeEnum.grid,
       )
+    const sizes = this.calculateCompoundReduce(initialOrders)
+    if (sizes) {
+      console.log(sizes)
+      initialOrders = botFunctions
+        .createOrders(
+          orderPrice,
+          true,
+          undefined,
+          undefined,
+          this.getBalances(s),
+          true,
+          [],
+          true,
+          fixSl,
+          fixTp,
+          fixSize,
+          dynamicAr,
+          sizes,
+        )
+        .filter(
+          (o) =>
+            (!this.settings.useRiskReward && !this.slAr
+              ? o.type !== DCAOrderTypeEnum.sl
+              : true) && o.type !== DCAOrderTypeEnum.grid,
+        )
+    }
     const allInitialOrder = [...initialOrders]
     initialOrders = initialOrders.filter((o) =>
       this.settings.dcaCondition === DCAConditionEnum.indicators
@@ -1651,6 +1767,7 @@ export abstract class Strategy implements StrategyInterface {
         quote: 0,
       },
       dynamicAr,
+      sizes: sizes ?? undefined,
     }
 
     if (

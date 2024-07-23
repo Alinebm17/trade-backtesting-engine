@@ -16,7 +16,7 @@ import {
 import BotUtils from './botUtils'
 import { checkNumber } from './utils'
 
-import type { DCABotSettings, Symbols, DCAGrid, Asset } from '../types'
+import type { DCABotSettings, Symbols, DCAGrid, Asset, Sizes } from '../types'
 
 class DCABotFunctions {
   math: BotUtils['math']
@@ -87,6 +87,7 @@ class DCABotFunctions {
     fixTp = 0,
     fixSize = 0,
     dcaArValues: DynamicArPrices[] = [],
+    sizes?: Sizes,
   ): DCAGrid[] {
     const { settings, symbol } = this
     const baseOrderSize = fixSize || parseFloat(settings.baseOrderSize)
@@ -145,11 +146,12 @@ class DCABotFunctions {
     }
     let baseQty =
       orderSizeType === OrderSizeTypeEnum.base
-        ? this.math.round(baseOrderSize, precision, true)
+        ? this.math.round(baseOrderSize + (sizes?.base ?? 0), precision, true)
         : orderSizeType === OrderSizeTypeEnum.quote
         ? this.math.round(
             (baseOrderSize * (coinm ? symbol.quoteAsset.minAmount : 1)) /
-              latestPrice,
+              latestPrice +
+              (sizes?.base ?? 0),
             precision,
             true,
           )
@@ -547,11 +549,15 @@ class DCABotFunctions {
             ? this.math.round(
                 ((orderSize * (coinm ? symbol.quoteAsset.minAmount : 1)) /
                   price) *
-                  volumeVal,
+                  volumeVal +
+                  (sizes?.dca?.[i - 1] ?? 0),
                 precision,
               )
             : orderSizeType === OrderSizeTypeEnum.base
-            ? this.math.round(orderSize * volumeVal, precision)
+            ? this.math.round(
+                orderSize * volumeVal + (sizes?.dca?.[i - 1] ?? 0),
+                precision,
+              )
             : orderSizeType === OrderSizeTypeEnum.percFree ||
               orderSizeType === OrderSizeTypeEnum.percTotal
             ? precOrderSize !== 0
