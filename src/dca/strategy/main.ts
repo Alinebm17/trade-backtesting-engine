@@ -1487,7 +1487,7 @@ export abstract class Strategy implements StrategyInterface {
     if (!use) {
       return null
     }
-    const findLastDeal = Strategy.getDeals('closed').sort(
+    /* const findLastDeal = Strategy.getDeals('closed').sort(
       (a, b) => (b.closedTime ?? 0) - (a.closedTime ?? 0),
     )[0]
     if (!findLastDeal) {
@@ -1499,9 +1499,9 @@ export abstract class Strategy implements StrategyInterface {
       (findLastDeal.profit.totalUsd < 0 && !this.settings.useRiskReduction)
     ) {
       return null
-    }
+    } */
 
-    const profit = findLastDeal.profit.total
+    const profit = Strategy.totalProfit
 
     if (
       (profit > 0 && !this.settings.useReinvest) ||
