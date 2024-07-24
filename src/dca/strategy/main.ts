@@ -1529,8 +1529,6 @@ export abstract class Strategy implements StrategyInterface {
           : +(this.settings.riskReductionValue ?? '50') / 100)) /
       maxDeals
 
-    console.log(profit, toUse)
-
     const orders = initialOrders.filter(
       (o) =>
         o.type && [DCAOrderTypeEnum.bo, DCAOrderTypeEnum.dca].includes(o.type),
