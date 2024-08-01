@@ -1127,7 +1127,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 (ii) => ii.id === `${maUUID}@${nextBar.symbol}`,
               )
               if (findMA) {
-                const [dataMA, prevMAData] = [
+                const [_, dataMA, prevMAData] = [
                   ...findMA.instance.currentData,
                 ].sort((a, b) => b.time - a.time)
                 prevValue = prevMAData ? (prevMAData.value as MAResult).ma : 0
@@ -1159,7 +1159,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               (ii) => ii.id === `${xoUUID}@${nextBar.symbol}`,
             )
             if (findXO) {
-              const [dataXO, prevXOData] = [
+              const [_, dataXO, prevXOData] = [
                 ...findXO.instance.currentData,
               ].sort((a, b) => b.time - a.time)
               prevValue = prevXOData
