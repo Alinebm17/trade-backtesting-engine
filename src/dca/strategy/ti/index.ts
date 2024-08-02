@@ -1127,9 +1127,17 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 (ii) => ii.id === `${maUUID}@${nextBar.symbol}`,
               )
               if (findMA) {
-                const [_, dataMA, prevMAData] = [
+                let [_, dataMA, prevMAData] = [
                   ...findMA.instance.currentData,
                 ].sort((a, b) => b.time - a.time)
+                if (
+                  findMA.interval === i.interval ||
+                  timeIntervalMap[findMA.interval] < timeIntervalMap[i.interval]
+                ) {
+                  ;[dataMA, prevMAData] = [...findMA.instance.currentData].sort(
+                    (a, b) => b.time - a.time,
+                  )
+                }
                 prevValue = prevMAData ? (prevMAData.value as MAResult).ma : 0
                 value = dataMA ? (dataMA.value as MAResult).ma : 0
                 if (
@@ -1159,9 +1167,17 @@ class TIStrategy extends Strategy implements StrategyInterface {
               (ii) => ii.id === `${xoUUID}@${nextBar.symbol}`,
             )
             if (findXO) {
-              const [_, dataXO, prevXOData] = [
+              let [_, dataXO, prevXOData] = [
                 ...findXO.instance.currentData,
               ].sort((a, b) => b.time - a.time)
+              if (
+                findXO.interval === i.interval ||
+                timeIntervalMap[findXO.interval] < timeIntervalMap[i.interval]
+              ) {
+                ;[dataXO, prevXOData] = [...findXO.instance.currentData].sort(
+                  (a, b) => b.time - a.time,
+                )
+              }
               prevValue = prevXOData
                 ? (prevXOData.value as PercentileResult).value
                 : 0
