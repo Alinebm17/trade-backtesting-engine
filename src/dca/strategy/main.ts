@@ -1830,6 +1830,18 @@ export abstract class Strategy implements StrategyInterface {
       (acc, o) => acc + o.qty * o.price,
       0,
     )
+    const baseUsage =
+      filledOrders.reduce((acc, fo) => (acc += fo.qty), 0) +
+      hiddenDCA.reduce((acc, fo) => (acc += fo.qty), 0)
+    const quoteUsage =
+      filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0) +
+      hiddenDCA.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
+    const maxBase = allInitialOrder
+      .filter((io) => io.type !== DCAOrderTypeEnum.tp)
+      .reduce((acc, io) => (acc += io.qty), 0)
+    const maxQuote = allInitialOrder
+      .filter((io) => io.type !== DCAOrderTypeEnum.tp)
+      .reduce((acc, io) => (acc += io.qty * io.price), 0)
     deal = {
       ...deal,
       activeOrders,
@@ -1851,51 +1863,45 @@ export abstract class Strategy implements StrategyInterface {
             : this.settings.dcaCondition === DCAConditionEnum.custom
             ? (this.settings.dcaCustom ?? []).length + 1
             : initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca)
-                .length + 1
+                .length +
+              1 +
+              hiddenDCA.length
           : 1,
-        complete: 1,
-        max: 1,
+        complete: hiddenDCA.length + 1,
+        max: hiddenDCA.length + 1,
       },
       lastFilled: Strategy.combo ? 1 : 0,
       usage: {
         current: {
           base: this.futures
             ? this.coinm
-              ? filledOrders.reduce((acc, fo) => (acc += fo.qty), 0)
+              ? baseUsage
               : 0
             : this.long
             ? 0
-            : filledOrders.reduce((acc, fo) => (acc += fo.qty), 0),
+            : baseUsage,
           quote: this.futures
             ? this.coinm
               ? 0
-              : filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
+              : quoteUsage
             : this.long
-            ? filledOrders.reduce((acc, fo) => (acc += fo.qty * fo.price), 0)
+            ? quoteUsage
             : 0,
         },
         max: {
           base: this.futures
             ? this.coinm
-              ? allInitialOrder
-                  .filter((io) => io.type !== DCAOrderTypeEnum.tp)
-                  .reduce((acc, io) => (acc += io.qty), 0)
+              ? maxBase
               : 0
             : this.long
             ? 0
-            : allInitialOrder
-                .filter((io) => io.type !== DCAOrderTypeEnum.tp)
-                .reduce((acc, io) => (acc += io.qty), 0),
+            : maxBase,
           quote: this.futures
             ? this.coinm
               ? 0
-              : allInitialOrder
-                  .filter((io) => io.type !== DCAOrderTypeEnum.tp)
-                  .reduce((acc, io) => (acc += io.qty * io.price), 0)
+              : maxQuote
             : this.long
-            ? allInitialOrder
-                .filter((io) => io.type !== DCAOrderTypeEnum.tp)
-                .reduce((acc, io) => (acc += io.qty * io.price), 0)
+            ? maxQuote
             : 0,
         },
       },
