@@ -200,13 +200,17 @@ export abstract class Strategy implements StrategyInterface {
     filledTp: (b: FullBar) => (o: FullGrid) => boolean
   }
 
-  static maxProfit = 0
+  static maxProfit = {
+    asset: 0,
+    usd: 0,
+    perc: 0,
+  }
 
-  static maxLoss = 0
-
-  static maxProfitUsd = 0
-
-  static maxLossUsd = 0
+  static maxLoss = {
+    asset: 0,
+    usd: 0,
+    perc: 0,
+  }
 
   static seriesWin = {
     count: 0,
@@ -340,10 +344,16 @@ export abstract class Strategy implements StrategyInterface {
       botQuote: 0,
     }
     Strategy.profits = []
-    Strategy.maxProfit = 0
-    Strategy.maxLoss = 0
-    Strategy.maxProfitUsd = 0
-    Strategy.maxLossUsd = 0
+    Strategy.maxProfit = {
+      asset: 0,
+      usd: 0,
+      perc: 0,
+    }
+    Strategy.maxLoss = {
+      asset: 0,
+      usd: 0,
+      perc: 0,
+    }
     Strategy.seriesWin = {
       count: 0,
       value: 0,
@@ -3458,18 +3468,22 @@ export abstract class Strategy implements StrategyInterface {
       Strategy.balanceForProfit += profit.total
       balance = Strategy.balanceForProfit
       Strategy.balanceUsd += profit.totalUsd
-      if (profit.total > 0 && profit.total > Strategy.maxProfit) {
-        Strategy.maxProfit = profit.total
+      if (profit.total > 0 && profit.total > Strategy.maxProfit.asset) {
+        Strategy.maxProfit.asset = profit.total
+        Strategy.maxProfit.usd = profit.totalUsd
+        Strategy.maxProfit.perc = profit.perc
       }
-      if (profit.total < 0 && profit.total < Strategy.maxLoss) {
-        Strategy.maxLoss = profit.total
+      if (profit.total < 0 && profit.total < Strategy.maxLoss.asset) {
+        Strategy.maxLoss.asset = profit.total
+        Strategy.maxLoss.usd = profit.totalUsd
+        Strategy.maxLoss.perc = profit.perc
       }
-      if (profit.totalUsd > 0 && profit.totalUsd > Strategy.maxProfitUsd) {
+      /* if (profit.totalUsd > 0 && profit.totalUsd > Strategy.maxProfitUsd) {
         Strategy.maxProfitUsd = profit.totalUsd
       }
       if (profit.totalUsd < 0 && profit.totalUsd < Strategy.maxLossUsd) {
         Strategy.maxLossUsd = profit.totalUsd
-      }
+      } */
       if (!Strategy.previousDeal && profit.total > 0) {
         Strategy.maxConsecutiveWins = 1
         Strategy.seriesWin.value = balance - initialBalance
@@ -5701,18 +5715,12 @@ export abstract class Strategy implements StrategyInterface {
         unrealizedPnLPerc: this.math.round(
           (unrealizedPnLUsd / unrealizedUsage) * 100,
         ),
-        maxDealLoss: this.math.round(Strategy.maxLoss, precision),
-        maxDealLossPerc: this.math.round(
-          (Strategy.maxLossUsd / maxTheoreticalUsageWithRate) * 100,
-          2,
-        ),
-        maxDealProfit: this.math.round(Strategy.maxProfit, precision),
-        maxDealProfitPerc: this.math.round(
-          (Strategy.maxProfitUsd / maxTheoreticalUsageWithRate) * 100,
-          2,
-        ),
-        maxDealLossUsd: this.math.round(Strategy.maxLossUsd, 2),
-        maxDealProfitUsd: this.math.round(Strategy.maxProfitUsd, 2),
+        maxDealLoss: this.math.round(Strategy.maxLoss.asset, precision),
+        maxDealLossPerc: this.math.round(Strategy.maxLoss.perc, 2),
+        maxDealProfit: this.math.round(Strategy.maxProfit.asset, precision),
+        maxDealProfitPerc: this.math.round(Strategy.maxProfit.perc, 2),
+        maxDealLossUsd: this.math.round(Strategy.maxLoss.usd, 2),
+        maxDealProfitUsd: this.math.round(Strategy.maxProfit.usd, 2),
         maxDrawDown: -this.math.round(Strategy.seriesLoss.value, precision),
         maxDrawDownUsd: -this.math.round(Strategy.seriesLoss.valueUsd, 2),
         maxDrawDownPerc: this.math.round(
