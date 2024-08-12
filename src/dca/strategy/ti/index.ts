@@ -1554,7 +1554,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
               ...i,
               status: {
                 ...i.status,
-                status: i.status.statusTo ? i.status.status : false,
+                status: i.status.statusTo
+                  ? i.status.statusTo >
+                    timeIntervalMap[i.interval] + nextBar.time
+                    ? i.status.status
+                    : false
+                  : false,
               },
             }
           }
@@ -1583,7 +1588,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
               ...i,
               status: {
                 ...i.status,
-                status: i.status.statusTo ? i.status.status : false,
+                status: i.status.statusTo
+                  ? i.status.statusTo >
+                    timeIntervalMap[i.interval] + nextBar.time
+                    ? i.status.status
+                    : false
+                  : false,
               },
             }
           }
@@ -1625,7 +1635,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
               ...i,
               status: {
                 ...i.status,
-                status: i.status.statusTo ? i.status.status : false,
+                status: i.status.statusTo
+                  ? i.status.statusTo >
+                    timeIntervalMap[i.interval] + nextBar.time
+                    ? i.status.status
+                    : false
+                  : false,
               },
             }
           }
@@ -1691,7 +1706,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
                   }
                 : {
                     ...i.status,
-                    status: i.status.statusTo ? i.status.status : false,
+                    status: i.status.statusTo
+                      ? i.status.statusTo >
+                        timeIntervalMap[i.interval] + nextBar.time
+                        ? i.status.status
+                        : false
+                      : false,
                     numberOfSignals:
                       i.interval === Strategy.highestInterval
                         ? (i.status?.numberOfSignals ?? 0) + 1
@@ -1713,7 +1733,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 ...i,
                 status: {
                   ...i.status,
-                  status: i.status.statusTo ? i.status.status : false,
+                  status: i.status.statusTo
+                    ? i.status.statusTo >
+                      timeIntervalMap[i.interval] + nextBar.time
+                      ? i.status.status
+                      : false
+                    : false,
                 },
               }
             }
