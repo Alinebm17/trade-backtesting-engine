@@ -1655,7 +1655,6 @@ export abstract class Strategy implements StrategyInterface {
       )
     const sizes = this.calculateCompoundReduce(initialOrders)
     if (sizes) {
-      console.log(sizes)
       initialOrders = botFunctions
         .createOrders(
           orderPrice,

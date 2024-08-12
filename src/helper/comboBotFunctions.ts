@@ -10,6 +10,8 @@ import {
   DCAOrderTypeEnum,
   FuturesStrategyEnum,
   BotMarginTypeEnum,
+  Sizes,
+  DynamicArPrices,
 } from '../types'
 import DcaBotFunctions from './dcaBotFunctions'
 
@@ -26,6 +28,8 @@ class ComboBotFunctions extends DcaBotFunctions {
     _fixSl = 0,
     _fixTp = 0,
     _fixSize = 0,
+    _dcaArValues: DynamicArPrices[] = [],
+    sizes?: Sizes,
   ): DCAGrid[] {
     const { settings, symbol } = this
     const baseOrderSize = parseFloat(settings.orderSize)
@@ -72,11 +76,12 @@ class ComboBotFunctions extends DcaBotFunctions {
       : undefined
     let baseQty =
       orderSizeType === OrderSizeTypeEnum.base
-        ? this.math.round(baseOrderSize, precision, true)
+        ? this.math.round(baseOrderSize + (sizes?.base ?? 0), precision, true)
         : orderSizeType === OrderSizeTypeEnum.quote
         ? this.math.round(
             (baseOrderSize * (coinm ? symbol.quoteAsset.minAmount : 1)) /
-              latestPrice,
+              latestPrice +
+              (sizes?.base ?? 0),
             precision,
             true,
           )
@@ -402,11 +407,15 @@ class ComboBotFunctions extends DcaBotFunctions {
             ? this.math.round(
                 ((orderSize * (coinm ? symbol.quoteAsset.minAmount : 1)) /
                   price) *
-                  volumeVal,
+                  volumeVal +
+                  (sizes?.dca?.[i - 1] ?? 0),
                 precision,
               )
             : orderSizeType === OrderSizeTypeEnum.base
-            ? this.math.round(orderSize * volumeVal, precision)
+            ? this.math.round(
+                orderSize * volumeVal + (sizes?.dca?.[i - 1] ?? 0),
+                precision,
+              )
             : orderSizeType === OrderSizeTypeEnum.percFree ||
               orderSizeType === OrderSizeTypeEnum.percTotal
             ? precOrderSize !== 0
