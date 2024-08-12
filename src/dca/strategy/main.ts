@@ -156,7 +156,7 @@ enum CandleTypeEnum {
 const fundsWarning =
   'The bot used more funds than allocated, this might not be accurate in live trading. Please check your settings.'
 
-const maxDeals = 50 * 1000
+const maxDealsPerResult = 50 * 1000
 
 export abstract class Strategy implements StrategyInterface {
   static combo = false
@@ -5272,7 +5272,7 @@ export abstract class Strategy implements StrategyInterface {
     const confidenceGrade = this.getConfidenceGrade()
     const buyAndHold = this.getBuyAndHold(firstData, lastData)
     const symbolStats: SymbolStats[] = []
-    if (allDeals.length < maxDeals) {
+    if (allDeals.length < maxDealsPerResult) {
       for (const s of this.symbols.keys()) {
         const deals = allDeals.filter((d) => d.symbol.pair === s)
         const maxSymbolValue =
@@ -5383,7 +5383,7 @@ export abstract class Strategy implements StrategyInterface {
 
     let monthlyValue = Strategy.initialBalanceUsd
 
-    if (allDeals.length < maxDeals) {
+    if (allDeals.length < maxDealsPerResult) {
       for (
         let i = firstDataTime;
         i < lastDataTime;
@@ -5464,7 +5464,7 @@ export abstract class Strategy implements StrategyInterface {
     }
 
     let yearlyValue = Strategy.initialBalanceUsd
-    if (allDeals.length < maxDeals) {
+    if (allDeals.length < maxDealsPerResult) {
       for (
         let i = firstDataTime;
         i < lastDataTime + 365 * 24 * 60 * 60 * 1000;

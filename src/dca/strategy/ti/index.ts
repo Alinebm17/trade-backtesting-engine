@@ -1127,6 +1127,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 (ii) => ii.id === `${maUUID}@${nextBar.symbol}`,
               )
               if (findMA) {
+                // eslint-disable-next-line prefer-const
                 let [_, dataMA, prevMAData] = [
                   ...findMA.instance.currentData,
                 ].sort((a, b) => b.time - a.time)
@@ -1167,6 +1168,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
               (ii) => ii.id === `${xoUUID}@${nextBar.symbol}`,
             )
             if (findXO) {
+              // eslint-disable-next-line prefer-const
               let [_, dataXO, prevXOData] = [
                 ...findXO.instance.currentData,
               ].sort((a, b) => b.time - a.time)
