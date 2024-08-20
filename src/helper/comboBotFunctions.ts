@@ -256,7 +256,14 @@ class ComboBotFunctions extends DcaBotFunctions {
       levels: `${+(settings.baseGridLevels ?? '1')}`,
     }
     let grids: DCAGrid[] = this.utils
-      .createGridOrders(baseGridSettings, true, feeOrder)
+      .createGridOrders(
+        baseGridSettings,
+        true,
+        feeOrder,
+        undefined,
+        undefined,
+        true,
+      )
       .map((g) => ({
         ...g,
         type: DCAOrderTypeEnum.grid,
@@ -329,6 +336,9 @@ class ComboBotFunctions extends DcaBotFunctions {
                   },
                   true,
                   feeOrder,
+                  undefined,
+                  undefined,
+                  true,
                 )
                 .map((g) => ({ ...g, type: DCAOrderTypeEnum.grid }))
         baseOrder.qty =
@@ -515,6 +525,9 @@ class ComboBotFunctions extends DcaBotFunctions {
             },
             true,
             feeOrder,
+            undefined,
+            undefined,
+            true,
           )
           .map((g) => ({
             ...g,
@@ -599,6 +612,9 @@ class ComboBotFunctions extends DcaBotFunctions {
                     },
                     true,
                     feeOrder,
+                    undefined,
+                    undefined,
+                    true,
                   )
                   .map((g) => ({
                     ...g,

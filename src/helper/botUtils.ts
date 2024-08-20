@@ -307,6 +307,7 @@ class BotUtils {
     nosplice = false,
     feeToSell = false,
     overrideRound?: boolean,
+    newSell = false,
   ): Grid[] {
     const useStart =
       !forceLocal &&
@@ -384,14 +385,21 @@ class BotUtils {
         }
       }
     }
-    if (
-      (profitCurrency === 'quote' && orderFixedIn === 'quote') ||
-      (profitCurrency === 'base' && orderFixedIn === 'quote')
-    ) {
+    const baseQuote = profitCurrency === 'base' && orderFixedIn === 'quote'
+    if ((profitCurrency === 'quote' && orderFixedIn === 'quote') || baseQuote) {
       quoteAmount =
         B /
-        (sells.reduce((acc, v) => (acc += 1 / v.sell), 0) * initPrice +
+        (sells.reduce((acc, v) => (acc += 1 / v.sell), 0) *
+          (sellCount && newSell && baseQuote
+            ? sells.reduce((acc, a) => acc + a.sell, 0) / sellCount
+            : initPrice) +
           buyCount * f)
+      if (isNaN(quoteAmount) || !isFinite(quoteAmount) || !quoteAmount) {
+        quoteAmount =
+          B /
+          (sells.reduce((acc, v) => (acc += 1 / v.sell), 0) * initPrice +
+            buyCount * f)
+      }
       if (quoteAmount < symbol.quoteAsset.minAmount) {
         quoteAmount = symbol.quoteAsset.minAmount * f
       }

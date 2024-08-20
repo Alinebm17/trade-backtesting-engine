@@ -1234,7 +1234,7 @@ export abstract class Strategy implements StrategyInterface {
       ? false
       : undefined
     const grids: DCAGrid[] = botFunctions.utils
-      .createGridOrders(gridSettings, true, false, !long, feeOrder)
+      .createGridOrders(gridSettings, true, false, !long, feeOrder, true)
       .map((g) => ({
         ...g,
         type: DCAOrderTypeEnum.grid,
