@@ -63,9 +63,14 @@ class DCABotFunctions {
   }
 
   get isTrailingTp() {
-    const { trailingTp, trailingTpPerc, tpPerc, useTp } = this.settings
+    const { trailingTp, trailingTpPerc, tpPerc, useTp, useMultiTp } =
+      this.settings
     return (
-      useTp && checkNumber(tpPerc) && trailingTp && checkNumber(trailingTpPerc)
+      useTp &&
+      checkNumber(tpPerc) &&
+      trailingTp &&
+      checkNumber(trailingTpPerc) &&
+      !useMultiTp
     )
   }
 
