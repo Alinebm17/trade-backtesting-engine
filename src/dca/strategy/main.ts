@@ -3705,13 +3705,12 @@ export abstract class Strategy implements StrategyInterface {
   private checkCloseTimer(d: Deal, b: FullBar) {
     if (
       this.settings.closeByTimer &&
-      this.settings.closeByTimerValue &&
       this.settings.closeByTimerUnits &&
       this.settings.useTp
     ) {
       const closeTime =
         d.startTime +
-        this.settings.closeByTimerValue *
+        (this.settings.closeByTimerValue ?? 1) *
           (this.settings.closeByTimerUnits === CooldownUnits.seconds
             ? 1000
             : this.settings.closeByTimerUnits === CooldownUnits.minutes
