@@ -913,17 +913,20 @@ export abstract class Strategy implements StrategyInterface {
 
           let riskBalance = symbol
             ? +(
-                this.getBalances(
-                  this.futures
-                    ? this.coinm
-                      ? symbol.baseAsset.name
-                      : symbol.quoteAsset.name
-                    : this.long
-                    ? symbol.quoteAsset.name
-                    : symbol.baseAsset.name,
-                )?.[0]?.free || '0'
+                this.getBalances(symbol.pair)?.find(
+                  (s) =>
+                    s.asset ===
+                    (this.futures
+                      ? this.coinm
+                        ? symbol.baseAsset.name
+                        : symbol.quoteAsset.name
+                      : this.long
+                      ? symbol.quoteAsset.name
+                      : symbol.baseAsset.name),
+                )?.free || '0'
               )
             : 0
+
           if ((riskBalance ?? 0) < 0) {
             return null
           }
