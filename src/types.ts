@@ -1359,6 +1359,7 @@ export type DCABacktestingResult = {
     processingDataTime: number
     botWorkingTime: SplitTime
     maxDealDuration: SplitTime
+    maxDealDurationTime: number
     periodName?: string
     botWorkingTimeNumber: number
     avgWinningTrade?: number

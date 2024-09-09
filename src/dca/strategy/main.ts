@@ -5592,6 +5592,9 @@ export abstract class Strategy implements StrategyInterface {
         Strategy.balanceUsd + unrealizedPnLUsd,
       )
     } */
+    const maxDealDuration = allDeals.length
+      ? Math.max(...allDeals.map((cd) => cd.duration))
+      : 0
     const result: DCABacktestingResult = {
       messages: [...new Set(Strategy.messages)],
       portfolio: Array.from(Strategy.portfolio, (v) => ({ x: v[0], y: v[1] })),
@@ -5778,8 +5781,9 @@ export abstract class Strategy implements StrategyInterface {
             : { d: '', h: '', min: '', s: '' },
         maxDealDuration:
           allDeals.length > 0
-            ? friendlyTime(Math.max(...allDeals.map((cd) => cd.duration)))
+            ? friendlyTime(maxDealDuration)
             : { d: '', h: '', min: '', s: '' },
+        maxDealDurationTime: maxDealDuration,
         botWorkingTimeNumber: workingTime,
       },
       usage: {
