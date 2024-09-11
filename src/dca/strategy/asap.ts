@@ -24,8 +24,9 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
   }
 
   public processTrade(trade: TradeResponse): void {
-    const allDeals = Strategy.getDeals()
-    if (allDeals.length === 0) {
+    const allDeals = Strategy.getDealsCount()
+    const allDealsClosed = Strategy.getDealsCount('closed')
+    if (allDeals === 0) {
       if (
         Strategy.workingShift.length === 0 &&
         ((Strategy.start && trade.timestamp >= Strategy.start) ||
@@ -40,10 +41,7 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
         +trade.price,
         trade.symbol,
       )
-    } else if (
-      allDeals.length !== 0 &&
-      Strategy.getDeals('closed').length === allDeals.length
-    ) {
+    } else if (allDeals !== 0 && allDealsClosed === allDeals) {
       this.openDeal(
         +trade.price,
         trade.timestamp,
@@ -96,8 +94,10 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
       !isNaN(+this.settings.maxDealsPerPair)
         ? +this.settings.maxDealsPerPair
         : 1
-    const dealsPerSymbols = Strategy.getDeals(undefined, bar.symbol)
-    if (dealsPerSymbols.length === 0) {
+    const dealsPerSymbols = Strategy.getDealsCount(undefined, bar.symbol)
+    const dealsPerSymbolsClosed = Strategy.getDealsCount('closed', bar.symbol)
+    const dealsPerSymbolsOpen = Strategy.getDealsCount('open', bar.symbol)
+    if (dealsPerSymbols === 0) {
       if ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start) {
         const newShift = Strategy.workingShift.length === 0
         if (newShift) {
@@ -111,17 +111,16 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
         }
       }
     } else if (
-      dealsPerSymbols.length !== 0 &&
-      (dealsPerSymbols.filter((d) => d.status === 'closed').length ===
-        dealsPerSymbols.length ||
-        dealsPerSymbols.filter((d) => d.status === 'open').length <
+      dealsPerSymbols !== 0 &&
+      (dealsPerSymbolsClosed === dealsPerSymbols ||
+        dealsPerSymbolsOpen <
           (multi ? maxPerSymbol : useDynamic && maxDeals ? maxDeals : 1))
     ) {
       for (const _ of [...Array(useDynamic ? 1 : maxPerSymbol).keys()]) {
         this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
       }
     }
-    if (dealsPerSymbols.filter((d) => d.status === 'open').length) {
+    if (dealsPerSymbolsOpen) {
       await this.checkDeals(checkPortfolio, bar, (price: number) => {
         this.openDeal(price, bar.time, bar.high, bar.low, bar.symbol)
         if (Strategy.combo) {

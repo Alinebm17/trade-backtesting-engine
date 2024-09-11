@@ -633,7 +633,7 @@ export abstract class Strategy implements StrategyInterface {
     const notSetRange =
       useDynamicPriceFilter &&
       !useStaticPriceFilter &&
-      (dynamic || (!dynamic && Strategy.getDeals('open', symbol).length > 0))
+      (dynamic || (!dynamic && Strategy.getDealsCount('open', symbol) > 0))
     if (
       !result &&
       Strategy.workingShift.length > 0 &&
@@ -717,6 +717,32 @@ export abstract class Strategy implements StrategyInterface {
     return d
   }
 
+  static getDealsCount(status?: Deal['status'], symbol?: string): number {
+    if (!status) {
+      if (!symbol) {
+        return Strategy.dealsBySymbolsStatusId.size
+      } else {
+        return Strategy.dealsBySymbolsStatusId.get(symbol)?.size || 0
+      }
+    }
+    if (symbol) {
+      const getBySymbol = Strategy.dealsBySymbolsStatusId.get(symbol)
+      if (!getBySymbol) {
+        return 0
+      }
+      const getByStatus = getBySymbol.get(status)
+      if (!getByStatus) {
+        return 0
+      }
+      return getByStatus.size
+    }
+    let sum = 0
+    for (const [, k] of Strategy.dealsBySymbolsStatusId.entries()) {
+      sum += k.get(status)?.size || 0
+    }
+    return sum
+  }
+
   private removeDeal(id: string, status: Deal['status'], symbol: string) {
     const getBySymbol = Strategy.dealsBySymbolsStatusId.get(symbol)
     if (!getBySymbol) {
@@ -739,7 +765,7 @@ export abstract class Strategy implements StrategyInterface {
     if (useMulti && maxDealsPerPair && maxDealsPerPair !== '') {
       const max = +maxDealsPerPair
       if (!isNaN(max) && max >= 0) {
-        const symbolDealsLength = Strategy.getDeals('open', symbol).length
+        const symbolDealsLength = Strategy.getDealsCount('open', symbol)
         if (symbolDealsLength < max) {
           return true
         }
@@ -754,7 +780,7 @@ export abstract class Strategy implements StrategyInterface {
     if (maxNumberOfOpenDeals && maxNumberOfOpenDeals !== '') {
       const max = +maxNumberOfOpenDeals
       if (!isNaN(max) && max >= 0) {
-        const dealsLength = Strategy.getDeals('open').length
+        const dealsLength = Strategy.getDealsCount('open')
         if (dealsLength < max) {
           if (this.checkMaxDealsPerPair(symbol)) {
             return true
@@ -1477,10 +1503,10 @@ export abstract class Strategy implements StrategyInterface {
         this.settings.botStart === BotStartTypeEnum.manual)
     ) {
       if (this.settings.useCloseAfterX && this.settings.closeAfterX) {
-        return Strategy.getDeals('closed').length < +this.settings.closeAfterX
+        return Strategy.getDealsCount('closed') < +this.settings.closeAfterX
       }
       if (this.settings.useCloseAfterXopen && this.settings.closeAfterXopen) {
-        return Strategy.getDeals().length < +this.settings.closeAfterXopen
+        return Strategy.getDealsCount() < +this.settings.closeAfterXopen
       }
     }
     return true

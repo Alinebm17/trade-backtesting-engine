@@ -802,8 +802,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
       !this.settings.useDynamicPriceFilter &&
       riskIndicators.filter((i) => i.data.length > 0).length
     ) {
-      const dealsPerSymbols = Strategy.getDeals(undefined, nextBar.symbol)
-      if (!dealsPerSymbols.length) {
+      const dealsPerSymbols = Strategy.getDealsCount(undefined, nextBar.symbol)
+      if (!dealsPerSymbols) {
         this.openDeal(
           nextBar.open,
           nextBar.time,
