@@ -1741,6 +1741,10 @@ export abstract class Strategy implements StrategyInterface {
       lastIndex: 0,
       symbol,
       transactions: [],
+      transactionsCount: {
+        buy: 0,
+        sell: 0,
+      },
       step,
       mingrids: [],
       id,
@@ -2824,6 +2828,8 @@ export abstract class Strategy implements StrategyInterface {
         ]
         m.transactions.buy += filledBuy.length
         m.transactions.sell += filledSell.length
+        d.transactionsCount.buy += filledBuy.length
+        d.transactionsCount.sell += filledSell.length
         const buys = grids.filter((g) => g.side === BotOrderSideEnum.buy)
         const sells = grids.filter((g) => g.side === BotOrderSideEnum.sell)
         m.grids.buy = buys.length
@@ -4857,6 +4863,7 @@ export abstract class Strategy implements StrategyInterface {
     }
     return deals.map((d) => ({
       symbol: d.symbol,
+      transactionsCount: d.transactionsCount,
       transactions: d.transactions.map((t) => ({
         _id: t._id,
         updateTime: t.updateTime,

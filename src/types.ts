@@ -1072,6 +1072,10 @@ export type Deal = {
   moveSlActivated?: boolean
   symbol: Symbols
   transactions: BacktestingTransaction[]
+  transactionsCount: {
+    buy: number
+    sell: number
+  }
   mingrids: Minigrid[]
   initialOrders: FullGrid[]
   id: string
@@ -1147,6 +1151,10 @@ export type PreparedGrid = {
 export type PreparedDeal = {
   symbol: Symbols
   transactions: PreparedTransaction[]
+  transactionsCount?: {
+    buy: number
+    sell: number
+  }
   mingrids: PreparedMinigrid[]
   id: string
   filledOrders: PreparedGrid[]
