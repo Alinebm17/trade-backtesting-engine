@@ -32,7 +32,8 @@ class ComboBotFunctions extends DcaBotFunctions {
     sizes?: Sizes,
   ): DCAGrid[] {
     const { settings, symbol } = this
-    const baseOrderSize = parseFloat(settings.orderSize)
+    const baseOrderSize =
+      parseFloat(settings.baseOrderSize) || parseFloat(settings.orderSize)
     const orderSize = parseFloat(settings.orderSize)
     const precision = this.utils.getBaseAssetPrecision(symbol)
     const quotePrecision = symbol ? symbol.priceAssetPrecision : 8

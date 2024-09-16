@@ -2035,6 +2035,7 @@ export abstract class Strategy implements StrategyInterface {
         Strategy.startRate = deal.startPrice
       }
     }
+    console.log(JSON.parse(JSON.stringify(deal)), this.settings)
   }
 
   private getUsdRate(symbol: string, price: number, type?: 'base' | 'quote') {
