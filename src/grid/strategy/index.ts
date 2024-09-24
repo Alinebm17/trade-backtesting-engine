@@ -276,7 +276,7 @@ export class Strategy implements StrategyInterface {
       this.botFunctions.lastPrice = botFunctionsPrice
       this.memoryOrders.set(key, orders)
     }
-    return [...orders]
+    return [...orders].map((o) => ({ ...o, id: v4() }))
   }
 
   public async test(updateProgress?: (value: number, text: string) => void) {
