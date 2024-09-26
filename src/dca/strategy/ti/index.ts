@@ -586,7 +586,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
       } else {
         i.statuses = i.statuses.filter((s) => s.statusTo > time)
         if (i.status.statusTo < time) {
-          i.status = { status: false, statusSince: 0, statusTo: 0 }
+          i.status = {
+            status: false,
+            statusSince: 0,
+            statusTo: 0,
+          }
         }
       }
 
@@ -1449,7 +1453,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
           statusSince: last.time + step,
           statusTo: last.time + step * 2 - 1,
         }
-
         i.statuses.push(status)
         if (toMultiplier > 0 && action) {
           let ind = 0
@@ -1687,7 +1690,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
             : false
         const maxDealsPerSignal =
           typeof this.settings.useMaxDealsPerHigherTimeframe !== 'undefined'
-            ? +(this.settings.maxDealsPerHigherTimeframe ?? '1')
+            ? !this.settings.useMaxDealsPerHigherTimeframe
+              ? Infinity
+              : +(this.settings.maxDealsPerHigherTimeframe ?? '1')
             : 1
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
@@ -1707,8 +1712,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 : {
                     ...i.status,
                     status: i.status.statusTo
-                      ? i.status.statusTo >
-                        timeIntervalMap[i.interval] + nextBar.time
+                      ? i.status.statusTo > nextBar.time
                         ? i.status.status
                         : false
                       : false,
