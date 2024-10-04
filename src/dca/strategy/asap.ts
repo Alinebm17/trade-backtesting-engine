@@ -82,18 +82,25 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
       this.settings.dynamicPriceFilterDeviation &&
       this.settings.dynamicPriceFilterPriceType
     )
-    const maxDeals =
+    let maxDeals =
       this.settings.maxNumberOfOpenDeals &&
+      this.settings.maxNumberOfOpenDeals !== '' &&
       !isNaN(+this.settings.maxNumberOfOpenDeals)
         ? +this.settings.maxNumberOfOpenDeals
         : 1
-    const maxPerSymbol =
+    if (maxDeals < 0) {
+      maxDeals = Infinity
+    }
+    let maxPerSymbol =
       multi &&
       this.settings.maxDealsPerPair &&
       +this.settings.maxDealsPerPair !== 0 &&
       !isNaN(+this.settings.maxDealsPerPair)
         ? +this.settings.maxDealsPerPair
         : 1
+    if (maxPerSymbol < 0) {
+      maxPerSymbol = Infinity
+    }
     const dealsPerSymbols = Strategy.getDealsCount(undefined, bar.symbol)
     const dealsPerSymbolsClosed = Strategy.getDealsCount('closed', bar.symbol)
     const dealsPerSymbolsOpen = Strategy.getDealsCount('open', bar.symbol)
