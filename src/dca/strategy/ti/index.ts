@@ -74,6 +74,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
   private lowestData: DataType[] = []
   private firstBar: Map<string, number> = new Map()
   private nextBarTime: Map<string, number> = new Map()
+  private nextAction = false
   constructor(input: StrategyInput) {
     /* input.settings.indicators = input.settings.indicators.filter(
       (i) => i.indicatorAction !== IndicatorAction.stopBot,
@@ -665,6 +666,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
     }
     this.checkStatuses(bar.time)
     this.checkInRange(bar.symbol, bar.close, bar.time)
+    let hasLowest = false
+    let hasRest = false
     if (Strategy.useFile && interval) {
       for (const i of Strategy.indicators.filter(
         (_i) => _i.interval === interval && _i.symbol === bar.symbol,
@@ -686,6 +689,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
         (i) =>
           i.interval === Strategy.lowestInterval && i.symbol === bar.symbol,
       )
+      hasLowest = lowestIndicators.length > 0
       const restIndicators = Strategy.indicators.filter(
         (i) =>
           i.interval !== Strategy.lowestInterval && i.symbol === bar.symbol,
@@ -742,6 +746,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
             bars.push(d)
           }
 
+          hasRest = bars.length > 0
+
           for (const b of bars) {
             i.instance.updateValue(
               {
@@ -768,7 +774,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
       return
     }
 
-    this.checkIndicators(bar)
+    if (this.nextAction) {
+      this.checkIndicators(bar)
+    }
+
+    this.nextAction = hasLowest || hasRest
 
     await this.checkDeals(checkPortfolio, bar)
   }
