@@ -666,8 +666,16 @@ export enum BaseSlOnEnum {
   avg = 'avg',
 }
 
+export enum DCAVolumeType {
+  scale = 'scale',
+  change = 'change',
+}
+
 export interface DCABotSettings extends BaseSettings {
   dcaCondition?: DCAConditionEnum
+  dcaVolumeBaseOn?: DCAVolumeType
+  dcaVolumeRequiredChange?: string
+  dcaVolumeMaxValue?: string
   baseSlOn?: BaseSlOnEnum
   dcaCustom?: DCACustom[]
   strategy: StrategyEnum

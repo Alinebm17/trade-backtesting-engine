@@ -12,6 +12,7 @@ import {
   DynamicArPrices,
   ScaleDcaTypeEnum,
   IndicatorSection,
+  DCAVolumeType,
 } from '../types'
 import BotUtils from './botUtils'
 import { checkNumber } from './utils'
@@ -435,6 +436,25 @@ class DCABotFunctions {
           : settings.dcaCondition === DCAConditionEnum.custom
           ? (settings.dcaCustom ?? []).length
           : parseInt(`${settings.ordersCount}`)
+      const useVolumeChange =
+        (settings.dcaCondition === DCAConditionEnum.percentage ||
+          !settings.dcaCondition) &&
+        settings.dcaVolumeBaseOn === DCAVolumeType.change &&
+        settings.useTp &&
+        settings.dealCloseCondition === CloseConditionEnum.tp &&
+        settings.tpPerc &&
+        !settings.useMultiTp &&
+        !settings.trailingTp &&
+        ![OrderSizeTypeEnum.percFree, OrderSizeTypeEnum.percTotal].includes(
+          orderSizeType,
+        )
+      const volumeChangeValue =
+        +(settings.dcaVolumeRequiredChange ?? tpPerc * 100) *
+        (long ? 1.02 : 0.98)
+      let maxVolumeSize = +(settings.dcaVolumeMaxValue ?? '-1')
+      if (maxVolumeSize < 0) {
+        maxVolumeSize = Infinity
+      }
       for (let i = 1; i <= ordersCount; i++) {
         if (scaleAr && !dcaArValues.length) {
           continue
@@ -446,7 +466,8 @@ class DCABotFunctions {
             : stepScale ** (i - 1)
         const volumeVal =
           settings.dcaCondition === DCAConditionEnum.indicators ||
-          settings.dcaCondition === DCAConditionEnum.custom
+          settings.dcaCondition === DCAConditionEnum.custom ||
+          useVolumeChange
             ? 1
             : volumeScale ** (i - 1)
         let price = this.math.round(
@@ -548,6 +569,20 @@ class DCABotFunctions {
         if (settings.dcaCondition === DCAConditionEnum.custom) {
           orderSize =
             +((settings.dcaCustom ?? [])[i - 1]?.size ?? '0') || _orderSize
+        }
+        if (useVolumeChange) {
+          const c =
+            ((volumeChangeValue / 100 + 1) * price) /
+            (1 + tpPerc * (long ? 1 : -1))
+          const quote =
+            baseOrder.price * baseOrder.qty +
+            orders.reduce((acc, v) => acc + v.price * v.qty, 0)
+          const base = baseOrder.qty + orders.reduce((acc, v) => acc + v.qty, 0)
+          orderSize = (c * base - quote) / (price - c)
+          if (orderSizeType === OrderSizeTypeEnum.quote) {
+            orderSize *= price
+          }
+          orderSize = Math.min(maxVolumeSize, orderSize)
         }
         let qty =
           orderSizeType === OrderSizeTypeEnum.quote
