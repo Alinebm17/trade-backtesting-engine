@@ -437,8 +437,6 @@ class DCABotFunctions {
           ? (settings.dcaCustom ?? []).length
           : parseInt(`${settings.ordersCount}`)
       const useVolumeChange =
-        (settings.dcaCondition === DCAConditionEnum.percentage ||
-          !settings.dcaCondition) &&
         settings.dcaVolumeBaseOn === DCAVolumeType.change &&
         settings.useTp &&
         settings.dealCloseCondition === CloseConditionEnum.tp &&
@@ -558,7 +556,10 @@ class DCABotFunctions {
           )
         }
         let orderSize = _orderSize
-        if (settings.dcaCondition === DCAConditionEnum.indicators) {
+        if (
+          settings.dcaCondition === DCAConditionEnum.indicators &&
+          !useVolumeChange
+        ) {
           orderSize =
             +(
               settings.indicators.filter(
@@ -566,7 +567,10 @@ class DCABotFunctions {
               )[i - 1]?.orderSize ?? '0'
             ) || _orderSize
         }
-        if (settings.dcaCondition === DCAConditionEnum.custom) {
+        if (
+          settings.dcaCondition === DCAConditionEnum.custom &&
+          !useVolumeChange
+        ) {
           orderSize =
             +((settings.dcaCustom ?? [])[i - 1]?.size ?? '0') || _orderSize
         }
