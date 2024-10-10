@@ -48,6 +48,7 @@ export enum IndicatorEnum {
   ath = 'ATH',
   kc = 'KC',
   kcpb = 'KCPB',
+  unpnl = 'UNPNL',
 }
 
 export enum ECDTriggerEnum {
@@ -509,6 +510,7 @@ export type SettingsIndicators = {
   kcMa?: MAEnum
   kcRange?: RangeType
   kcRangeLength?: number
+  unpnlValue?: number
 }
 
 export enum ppValueTypeEnum {
