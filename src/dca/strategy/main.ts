@@ -33,6 +33,7 @@ import {
   ScaleDcaTypeEnum,
   IndicatorSection,
   BaseSlOnEnum,
+  IndicatorsLogicEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -3090,12 +3091,30 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private getSLOrder(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
+    const foundInSl =
+      this.settings.dealCloseConditionSL === CloseConditionEnum.techInd
+        ? this.settings.indicators.find(
+            (i) =>
+              i.type === IndicatorEnum.unpnl &&
+              i.section === IndicatorSection.sl,
+          )
+        : undefined
+    const foundInTp =
+      this.settings.dealCloseCondition === CloseConditionEnum.techInd
+        ? this.settings.indicators.find(
+            (i) =>
+              i.type === IndicatorEnum.unpnl &&
+              i.section !== IndicatorSection.sl,
+          )
+        : undefined
+    const hasUnPnl = foundInSl || foundInTp
     if (
       this.settings.dealCloseConditionSL !== CloseConditionEnum.tp &&
       !this.slAr &&
       !this.settings.useRiskReward &&
       !Strategy.combo &&
-      !d.moveSlActivated
+      !d.moveSlActivated &&
+      !hasUnPnl
     ) {
       return { deal: d }
     }
@@ -3350,6 +3369,38 @@ export abstract class Strategy implements StrategyInterface {
         } */
       }
     }
+    if (hasUnPnl) {
+      const slLogicOr = this.settings.stopDealSlLogic === IndicatorsLogicEnum.or
+      const tpLogicOr = this.settings.stopDealLogic === IndicatorsLogicEnum.or
+      const slInidcators = foundInSl
+        ? this.settings.indicators.filter(
+            (i) =>
+              i.indicatorAction === IndicatorAction.closeDeal &&
+              i.section === IndicatorSection.sl,
+          )
+        : undefined
+      const tpInidcators = foundInTp
+        ? this.settings.indicators.filter(
+            (i) =>
+              i.indicatorAction === IndicatorAction.closeDeal &&
+              i.section !== IndicatorSection.sl,
+          )
+        : undefined
+      if (
+        (foundInSl && ((slInidcators?.length ?? 0) === 1 || slLogicOr)) ||
+        (foundInTp && ((tpInidcators?.length ?? 0) === 1 || tpLogicOr))
+      ) {
+        const value =
+          Math.min(
+            foundInSl ? foundInSl.unpnlValue ?? 2 : Infinity,
+            foundInTp ? foundInTp.unpnlValue ?? 2 : Infinity,
+          ) / 100
+        const diff = this.long ? b.close - d.avgPrice : d.avgPrice - b.close
+        const unPnl = diff / d.avgPrice - this.userFee * 2
+        close = unPnl >= value
+        closePrice = (value * (this.long ? 1 : -1) + 1) * d.avgPrice
+      }
+    }
     if (close) {
       slOrder =
         lock && slOrder
@@ -3388,24 +3439,54 @@ export abstract class Strategy implements StrategyInterface {
     return { deal: d }
   }
 
-  private checkMinTp(price: number, d: Deal) {
+  private checkMinTp(price: number, d: Deal, section: 'tp' | 'sl') {
+    let value: number | undefined
     if (
+      section !== 'sl' &&
       this.settings.useMinTP &&
       this.settings.dealCloseCondition === CloseConditionEnum.techInd &&
       this.settings.minTp &&
       checkNumber(this.settings.minTp)
     ) {
-      const min = +(this.settings.minTp ?? '0') / 100
+      value = +(this.settings.minTp ?? '0') / 100
+    }
+    if (section === 'sl') {
+      const foundUnpnl =
+        this.settings.dealCloseConditionSL === CloseConditionEnum.techInd
+          ? this.settings.indicators.find(
+              (i) =>
+                i.type === IndicatorEnum.unpnl &&
+                i.section === IndicatorSection.sl,
+            )
+          : undefined
+      if (foundUnpnl) {
+        value = (foundUnpnl.unpnlValue ?? 2) / 100
+      }
+    }
+    if (section === 'tp') {
+      const foundUnpnl =
+        this.settings.dealCloseCondition === CloseConditionEnum.techInd
+          ? this.settings.indicators.find(
+              (i) =>
+                i.type === IndicatorEnum.unpnl &&
+                i.section !== IndicatorSection.sl,
+            )
+          : undefined
+      if (foundUnpnl) {
+        value = (foundUnpnl.unpnlValue ?? 2) / 100
+      }
+    }
+    if (typeof value !== 'undefined') {
       const diff = this.long ? price - d.avgPrice : d.avgPrice - price
       const current = diff / d.avgPrice - this.userFee * 2
-      return current >= min
+      return current >= value
     }
     return true
   }
 
-  closeAllDeals(b: FullBar, sl = false, ignoreTp = false) {
+  closeAllDeals(b: FullBar, sl = false, ignoreTp = false, stop = false) {
     const allDeals = Strategy.getDeals('open', b.symbol).filter(
-      (d) => (!sl && this.checkMinTp(b.open, d)) || sl,
+      (d) => (!stop && this.checkMinTp(b.open, d, sl ? 'sl' : 'tp')) || stop,
     )
     for (const d of allDeals) {
       const position = Strategy.emptyPositon
@@ -3423,10 +3504,10 @@ export abstract class Strategy implements StrategyInterface {
       action === CloseDCATypeEnum.closeByMarket ||
       action === CloseDCATypeEnum.closeByLimit
     ) {
-      return this.closeAllDeals(b, true)
+      return this.closeAllDeals(b, true, false, true)
     }
     if (action === CloseDCATypeEnum.cancel) {
-      this.closeAllDeals(b, true, true)
+      this.closeAllDeals(b, true, true, true)
     }
   }
 

@@ -83,7 +83,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
     this.processBar = this.processBar.bind(this)
     const { indicators } = input.settings
     for (const s of input.symbols) {
-      for (const i of indicators) {
+      for (const i of indicators.filter(
+        (_i) => _i.type !== IndicatorEnum.unpnl,
+      )) {
         const {
           type,
           indicatorLength,

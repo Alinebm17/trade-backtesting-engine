@@ -7,6 +7,7 @@ import {
   DCAConditionEnum,
   ExchangeIntervals,
   FullBar,
+  IndicatorEnum,
   PairPrioritizationEnum,
   ScaleDcaTypeEnum,
   StartConditionEnum,
@@ -163,7 +164,9 @@ class DCABacktesting extends Backtesting {
             [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
               this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
             ))) &&
-        this.edge !== EdgeBacktestEnum.random
+        this.edge !== EdgeBacktestEnum.random &&
+        this.settings.indicators.filter((i) => i.type !== IndicatorEnum.unpnl)
+          .length > 0
       if (!isIndicators) {
         const data = await this._loadData(
           undefined,
