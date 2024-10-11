@@ -776,7 +776,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       return
     }
 
-    if (this.nextAction) {
+    if (this.nextAction || Strategy.useFile) {
       this.checkIndicators(bar)
     }
 
