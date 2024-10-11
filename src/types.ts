@@ -511,6 +511,7 @@ export type SettingsIndicators = {
   kcRange?: RangeType
   kcRangeLength?: number
   unpnlValue?: number
+  unpnlCondition?: IndicatorStartConditionEnum
 }
 
 export enum ppValueTypeEnum {

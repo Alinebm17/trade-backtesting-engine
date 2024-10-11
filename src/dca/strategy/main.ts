@@ -34,6 +34,7 @@ import {
   IndicatorSection,
   BaseSlOnEnum,
   IndicatorsLogicEnum,
+  IndicatorStartConditionEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -291,6 +292,10 @@ export abstract class Strategy implements StrategyInterface {
   static dataMap: Map<ExchangeIntervals, Map<string, FullBar>> = new Map()
 
   private readonly slippage?: number
+
+  private defaultUnpnl = 2
+
+  private defaultUnpnlCondition = IndicatorStartConditionEnum.gt
 
   static lastOpenedDeal = 0
 
@@ -3390,15 +3395,32 @@ export abstract class Strategy implements StrategyInterface {
         (foundInSl && ((slInidcators?.length ?? 0) === 1 || slLogicOr)) ||
         (foundInTp && ((tpInidcators?.length ?? 0) === 1 || tpLogicOr))
       ) {
-        const value =
-          Math.min(
-            foundInSl ? foundInSl.unpnlValue ?? 2 : Infinity,
-            foundInTp ? foundInTp.unpnlValue ?? 2 : Infinity,
-          ) / 100
+        const slConditionGt =
+          (foundInSl
+            ? foundInSl?.unpnlCondition ?? this.defaultUnpnlCondition
+            : null) === IndicatorStartConditionEnum.gt
+        const tpConditionGt =
+          (foundInTp
+            ? foundInTp?.unpnlCondition ?? this.defaultUnpnlCondition
+            : null) === IndicatorStartConditionEnum.gt
+
+        const slValue = (foundInSl?.unpnlValue ?? this.defaultUnpnl) / 100
+        const tpValue = (foundInTp?.unpnlValue ?? this.defaultUnpnl) / 100
+        const min = Math.max(
+          foundInSl && !slConditionGt ? slValue : -Infinity,
+          foundInTp && !tpConditionGt ? tpValue : -Infinity,
+        )
+        const max = Math.min(
+          foundInSl && slConditionGt ? slValue : Infinity,
+          foundInTp && tpConditionGt ? tpValue : Infinity,
+        )
         const diff = this.long ? b.close - d.avgPrice : d.avgPrice - b.close
         const unPnl = diff / d.avgPrice - this.userFee * 2
-        close = unPnl >= value
-        closePrice = (value * (this.long ? 1 : -1) + 1) * d.avgPrice
+        const high = unPnl >= max
+        const low = unPnl <= min
+        close = high || low
+        closePrice =
+          ((high ? max : min) * (this.long ? 1 : -1) + 1) * d.avgPrice
       }
     }
     if (close) {
@@ -3441,6 +3463,7 @@ export abstract class Strategy implements StrategyInterface {
 
   private checkMinTp(price: number, d: Deal, section: 'tp' | 'sl') {
     let value: number | undefined
+    let isGt = true
     if (
       section !== 'sl' &&
       this.settings.useMinTP &&
@@ -3460,7 +3483,10 @@ export abstract class Strategy implements StrategyInterface {
             )
           : undefined
       if (foundUnpnl) {
-        value = (foundUnpnl.unpnlValue ?? 2) / 100
+        isGt =
+          (foundUnpnl.unpnlCondition ?? this.defaultUnpnlCondition) ===
+          IndicatorStartConditionEnum.gt
+        value = (foundUnpnl.unpnlValue ?? this.defaultUnpnl) / 100
       }
     }
     if (section === 'tp') {
@@ -3473,13 +3499,16 @@ export abstract class Strategy implements StrategyInterface {
             )
           : undefined
       if (foundUnpnl) {
-        value = (foundUnpnl.unpnlValue ?? 2) / 100
+        isGt =
+          (foundUnpnl.unpnlCondition ?? this.defaultUnpnlCondition) ===
+          IndicatorStartConditionEnum.gt
+        value = (foundUnpnl.unpnlValue ?? this.defaultUnpnl) / 100
       }
     }
     if (typeof value !== 'undefined') {
       const diff = this.long ? price - d.avgPrice : d.avgPrice - price
       const current = diff / d.avgPrice - this.userFee * 2
-      return current >= value
+      return isGt ? current >= value : current <= value
     }
     return true
   }
