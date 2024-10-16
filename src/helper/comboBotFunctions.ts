@@ -65,8 +65,9 @@ class ComboBotFunctions extends DcaBotFunctions {
       symbol.priceAssetPrecision,
     )
     if (
-      (minOpenDeal !== 0 && latestPrice <= minOpenDeal) ||
-      (maxOpenDeal !== 0 && latestPrice >= maxOpenDeal)
+      settings.useStaticPriceFilter &&
+      ((minOpenDeal !== 0 && latestPrice <= minOpenDeal) ||
+        (maxOpenDeal !== 0 && latestPrice >= maxOpenDeal))
     ) {
       return []
     }
