@@ -148,12 +148,14 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
             if (Strategy.lowestInterval === bar.interval) {
               last.set(bar.symbol, bar)
             }
+            await new Promise((resolve) => setTimeout(resolve, 0))
           }
           for (const b of last.values()) {
             if (Strategy.portfolio.has(b.time)) {
               continue
             }
             this.checkPortfolio(b.time, b.close, b.symbol)
+            await new Promise((resolve) => setTimeout(resolve, 0))
           }
           return
         }

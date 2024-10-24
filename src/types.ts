@@ -1017,9 +1017,12 @@ export type SplitTime = {
 }
 
 export type Minigrid = {
+  filledBase: number
+  filledQuote: number
   symbol: Symbols
   initialOrders: FullGrid[]
   filledOrders: FullGrid[]
+  notUsedFilledOrders: FullGrid[]
   activeOrders: FullGrid[]
   id: string
   dealId: string
@@ -1079,6 +1082,12 @@ export type PreparedMinigrid = {
   }
 }
 
+export type OrderHistory = FullGrid & {
+  slLine?: boolean
+  avgLine?: boolean
+  dealId: string
+}
+
 export type Deal = {
   moveSlActivated?: boolean
   symbol: Symbols
@@ -1093,11 +1102,8 @@ export type Deal = {
   filledOrders: (FullGrid & { dealId: string })[]
   hiddenOrders: (FullGrid & { dealId: string })[]
   activeOrders: FullGrid[]
-  ordersHistory: (FullGrid & {
-    slLine?: boolean
-    avgLine?: boolean
-    dealId: string
-  })[]
+  ordersHistory: OrderHistory[]
+  finishedOrdersHistory: OrderHistory[]
   status: 'open' | 'closed'
   startTime: number
   closedTime?: number

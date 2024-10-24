@@ -606,6 +606,17 @@ class BotUtils {
           )
         }
       }
+      const prev = grids[grids.length - 1]
+      if (prev && prev.side === grid.side && prev.price === grid.price) {
+        grid.price +=
+          1 /
+          +`${
+            symbol.priceAssetPrecision === 1
+              ? 1
+              : `1${'0'.repeat(symbol.priceAssetPrecision - 1)}`
+          }`
+        grid.price = this.math.round(grid.price, symbol.priceAssetPrecision)
+      }
       grids.push(grid)
     })
     if (!nosplice) {
