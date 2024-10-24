@@ -75,7 +75,7 @@ class BotUtils {
     if (gridType === 'arithmetic') {
       const step = (top - low) / parseFloat(`${levels}`)
       for (let i = 0; i <= parseFloat(`${levels}`); i++) {
-        const p = this.math.round(
+        let p = this.math.round(
           Math.max(
             low + step * i,
             symbol.priceAssetPrecision === 0
@@ -84,6 +84,21 @@ class BotUtils {
           ),
           symbol.priceAssetPrecision,
         )
+        const prev = prices[prices.length - 1]
+        if (
+          prev &&
+          (prev.buy === this.math.round(p, symbol.priceAssetPrecision) ||
+            prev.sell ===
+              this.math.round(p * (1 + sellD), symbol.priceAssetPrecision))
+        ) {
+          p +=
+            1 /
+            +`${
+              symbol.priceAssetPrecision === 1
+                ? 1
+                : `1${'0'.repeat(symbol.priceAssetPrecision - 1)}`
+            }`
+        }
         prices.push({
           buy: this.math.round(p, symbol.priceAssetPrecision),
           sell: this.math.round(p * (1 + sellD), symbol.priceAssetPrecision),
@@ -605,17 +620,6 @@ class BotUtils {
             true,
           )
         }
-      }
-      const prev = grids[grids.length - 1]
-      if (prev && prev.side === grid.side && prev.price === grid.price) {
-        grid.price +=
-          1 /
-          +`${
-            symbol.priceAssetPrecision === 1
-              ? 1
-              : `1${'0'.repeat(symbol.priceAssetPrecision - 1)}`
-          }`
-        grid.price = this.math.round(grid.price, symbol.priceAssetPrecision)
       }
       grids.push(grid)
     })
