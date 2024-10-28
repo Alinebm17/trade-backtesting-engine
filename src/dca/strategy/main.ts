@@ -1294,6 +1294,7 @@ export abstract class Strategy implements StrategyInterface {
       type: DCAOrderTypeEnum.grid,
       relatedTo: minigrid.dcaOrderId,
       minigridId: minigrid.id,
+      id: !!local ? botFunctions.utils.id(20) : g.id,
     }))
     if (!local) {
       this.gridsOnPrice.set(key, grids)
