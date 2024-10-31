@@ -735,7 +735,10 @@ export abstract class Strategy implements StrategyInterface {
       if (!symbol) {
         return Strategy.dealsBySymbolsStatusId.size
       } else {
-        return Strategy.dealsBySymbolsStatusId.get(symbol)?.size || 0
+        const deals = Strategy.dealsBySymbolsStatusId.get(symbol)
+        return (
+          (deals?.get('open')?.size || 0) + (deals?.get('closed')?.size || 0)
+        )
       }
     }
     if (symbol) {
