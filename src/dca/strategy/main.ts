@@ -3508,7 +3508,7 @@ export abstract class Strategy implements StrategyInterface {
         } */
       }
     }
-    if (hasUnPnl) {
+    if (hasUnPnl && !close) {
       const slLogicOr = this.settings.stopDealSlLogic === IndicatorsLogicEnum.or
       const tpLogicOr = this.settings.stopDealLogic === IndicatorsLogicEnum.or
       const slInidcators = foundInSl
