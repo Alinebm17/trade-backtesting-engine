@@ -3623,7 +3623,11 @@ export abstract class Strategy implements StrategyInterface {
         value = (foundUnpnl.unpnlValue ?? this.defaultUnpnl) / 100
       }
     }
-    if (section === 'tp') {
+    if (
+      section === 'tp' &&
+      (this.settings.stopDealLogic === IndicatorsLogicEnum.and ||
+        !this.settings.stopDealLogic)
+    ) {
       const foundUnpnl =
         this.settings.dealCloseCondition === CloseConditionEnum.techInd
           ? this.settings.indicators.find(
