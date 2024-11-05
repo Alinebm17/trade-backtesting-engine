@@ -41,7 +41,7 @@ class ComboBotFunctions extends DcaBotFunctions {
     const baseStep = parseFloat(settings.baseStep ?? settings.step) / 100
     const stepScale = parseFloat(settings.stepScale)
     const volumeScale = parseFloat(settings.volumeScale)
-    const feeFactor = 1 + this.userFee
+    const feeFactor = 1 + (settings.futures ? 0 : this.userFee)
     let minOpenDeal = parseFloat(settings.minOpenDeal || '0')
     let maxOpenDeal = parseFloat(settings.maxOpenDeal || '0')
     minOpenDeal = isNaN(minOpenDeal) ? 0 : minOpenDeal
