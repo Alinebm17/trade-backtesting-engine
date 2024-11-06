@@ -1534,13 +1534,13 @@ export abstract class Strategy implements StrategyInterface {
     if (this.settings.useBotController) {
       if (this.settings.useCloseAfterXloss && this.settings.closeAfterXloss) {
         const d = Strategy.getDeals('closed').filter(
-          (d) => d.profit.totalUsd <= 0,
+          (_d) => _d.profit.totalUsd <= 0,
         ).length
         return d < +this.settings.closeAfterXloss
       }
       if (this.settings.useCloseAfterXwin && this.settings.closeAfterXwin) {
         const d = Strategy.getDeals('closed').filter(
-          (d) => d.profit.totalUsd > 0,
+          (_d) => _d.profit.totalUsd > 0,
         ).length
         return d < +this.settings.closeAfterXwin
       }
