@@ -1677,7 +1677,7 @@ export abstract class Strategy implements StrategyInterface {
     return sizes
   }
 
-  private checkStartStopPrice(price: number) {
+  private checkStartStopPrice(price: number, high: number, low: number) {
     if (
       this.settings.botStart === BotStartTypeEnum.price &&
       Strategy.status === 'open'
@@ -1688,8 +1688,8 @@ export abstract class Strategy implements StrategyInterface {
       ) {
         Strategy.preventOpen =
           this.settings.stopBotPriceCondition === IndicatorStartConditionEnum.gt
-            ? price > +this.settings.stopBotPriceValue
-            : price < +this.settings.stopBotPriceValue
+            ? Math.max(price, high, low) > +this.settings.stopBotPriceValue
+            : Math.min(price, high, low) < +this.settings.stopBotPriceValue
         if (Strategy.preventOpen) {
           Strategy.status = 'closed'
         }
@@ -1703,11 +1703,11 @@ export abstract class Strategy implements StrategyInterface {
         this.settings.startBotPriceCondition &&
         this.settings.startBotPriceValue
       ) {
-        Strategy.preventOpen = !(this.settings.stopBotPriceCondition ===
+        Strategy.preventOpen = !(this.settings.startBotPriceCondition ===
         IndicatorStartConditionEnum.gt
-          ? price > +this.settings.startBotPriceValue
-          : price < +this.settings.startBotPriceValue)
-        if (Strategy.preventOpen) {
+          ? Math.max(price, high, low) > +this.settings.startBotPriceValue
+          : Math.min(price, high, low) < +this.settings.startBotPriceValue)
+        if (!Strategy.preventOpen) {
           Strategy.status = 'open'
         }
       }
@@ -1722,7 +1722,9 @@ export abstract class Strategy implements StrategyInterface {
     s: string,
     onlyReturn = false,
   ) {
-    this.checkStartStopPrice(price)
+    if (!onlyReturn) {
+      this.checkStartStopPrice(price, high, low)
+    }
     if (!onlyReturn && Strategy.preventOpen) {
       return
     }
