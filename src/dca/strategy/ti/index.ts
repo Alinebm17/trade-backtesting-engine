@@ -200,7 +200,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
             indicatorAction === IndicatorAction.startDca) ||
           ((!this.settings.useBotController ||
             this.settings.botStart !== BotStartTypeEnum.indicators) &&
-            indicatorAction === IndicatorAction.stopBot)
+            indicatorAction === IndicatorAction.stopBot) ||
+          ((!this.settings.useBotController ||
+            this.settings.botActualStart !== BotStartTypeEnum.indicators) &&
+            indicatorAction === IndicatorAction.startBot)
         ) {
           continue
         }
@@ -808,6 +811,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
     const stopIndicators = Strategy.indicators.filter(
       (ci) => ci.settings.indicatorAction === IndicatorAction.stopBot,
     )
+    const botStartIndicators = Strategy.indicators.filter(
+      (ci) => ci.settings.indicatorAction === IndicatorAction.startBot,
+    )
     const riskIndicators = Strategy.indicators.filter(
       (ci) => ci.settings.indicatorAction === IndicatorAction.riskReward,
     )
@@ -833,7 +839,10 @@ class TIStrategy extends Strategy implements StrategyInterface {
       (startIndicators.filter((i) => i.data.length > 0).length ||
         closeIndicators.filter((i) => i.data.length > 0).length ||
         stopIndicators.filter((i) => i.data.length > 0).length ||
-        dcaIndicators.filter((i) => i.data.length > 0).length) &&
+        dcaIndicators.filter((i) => i.data.length > 0).length ||
+        (botStartIndicators.filter((i) => i.data.length > 0).length &&
+          Strategy.preventOpen &&
+          Strategy.status === 'monitoring')) &&
       nextBar
     ) {
       const currentState = [...Strategy.indicators].filter(
@@ -1516,6 +1525,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
           !i.ignore &&
           i.symbol === nextBar.symbol,
       )
+      const startBot = [...Strategy.indicators].filter(
+        (i) =>
+          i.settings.indicatorAction === IndicatorAction.startBot &&
+          !i.ignore &&
+          i.symbol === nextBar.symbol,
+      )
       const startDca = [...Strategy.indicators].filter(
         (i) =>
           i.settings.indicatorAction === IndicatorAction.startDca &&
@@ -1530,6 +1545,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const closeDealTpStatus = closeDealTp.filter(filterFn)
       const startDealStatus = startDeal.filter(filterFn)
       const stopBotStatus = stopBot.filter(filterFn)
+      const startBotStatus = startBot.filter(filterFn)
       const startDcaStatus = startDca.filter(filterFn)
       if (
         (this.settings.stopDealSlLogic === IndicatorsLogicEnum.and ||
@@ -1599,6 +1615,35 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (stopBotStatus.map((ai) => ai.id).includes(i.id)) {
+            return {
+              ...i,
+              status: {
+                ...i.status,
+                status: i.status.statusTo
+                  ? i.status.statusTo >
+                    timeIntervalMap[i.interval] + nextBar.time
+                    ? i.status.status
+                    : false
+                  : false,
+              },
+            }
+          }
+          return i
+        })
+      }
+      if (
+        (this.settings.startBotLogic === IndicatorsLogicEnum.and ||
+        !this.settings.startBotLogic
+          ? startBot.length === startBotStatus.length
+          : startBotStatus.length > 0) &&
+        startBotStatus.length &&
+        Strategy.preventOpen &&
+        Strategy.status === 'monitoring'
+      ) {
+        Strategy.preventOpen = false
+        Strategy.status = 'open'
+        Strategy.indicators = Strategy.indicators.map((i) => {
+          if (startBotStatus.map((ai) => ai.id).includes(i.id)) {
             return {
               ...i,
               status: {

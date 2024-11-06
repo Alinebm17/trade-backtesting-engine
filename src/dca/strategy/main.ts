@@ -34,6 +34,7 @@ import {
   BaseSlOnEnum,
   IndicatorsLogicEnum,
   IndicatorStartConditionEnum,
+  BotStartTypeEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -341,7 +342,10 @@ export abstract class Strategy implements StrategyInterface {
 
   static preventOpen = false
 
+  static status: 'open' | 'closed' | 'monitoring' = 'open'
+
   static resetData() {
+    Strategy.status = 'open'
     Strategy.preventOpen = false
     Strategy.useFile = false
     Strategy.fullResult = false
@@ -488,6 +492,16 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.combo = !!combo
     this.settings = settings
 
+    Strategy.status =
+      this.settings.botStart === BotStartTypeEnum.price ||
+      this.settings.botStart === BotStartTypeEnum.indicators ||
+      this.settings.botActualStart === BotStartTypeEnum.price ||
+      this.settings.botActualStart === BotStartTypeEnum.indicators
+        ? 'monitoring'
+        : 'open'
+Strategy.preventOpen =
+  this.settings.botStart === BotStartTypeEnum.indicators ||
+  this.settings.botActualStart === BotStartTypeEnum.indicators
     this.filterFn = {
       filledOrders: this.long
         ? (b: FullBar) => (o: FullGrid) =>
@@ -1663,6 +1677,43 @@ export abstract class Strategy implements StrategyInterface {
     return sizes
   }
 
+  private checkStartStopPrice(price: number) {
+    if (
+      this.settings.botStart === BotStartTypeEnum.price &&
+      Strategy.status === 'open'
+    ) {
+      if (
+        this.settings.stopBotPriceValue &&
+        this.settings.stopBotPriceCondition
+      ) {
+        Strategy.preventOpen =
+          this.settings.stopBotPriceCondition === IndicatorStartConditionEnum.gt
+            ? price > +this.settings.stopBotPriceValue
+            : price < +this.settings.stopBotPriceValue
+        if (Strategy.preventOpen) {
+          Strategy.status = 'closed'
+        }
+      }
+    }
+    if (
+      this.settings.botActualStart === BotStartTypeEnum.price &&
+      Strategy.status === 'monitoring'
+    ) {
+      if (
+        this.settings.startBotPriceCondition &&
+        this.settings.startBotPriceValue
+      ) {
+        Strategy.preventOpen = !(this.settings.stopBotPriceCondition ===
+        IndicatorStartConditionEnum.gt
+          ? price > +this.settings.startBotPriceValue
+          : price < +this.settings.startBotPriceValue)
+        if (Strategy.preventOpen) {
+          Strategy.status = 'open'
+        }
+      }
+    }
+  }
+
   public openDeal(
     price: number,
     startTime: number,
@@ -1671,6 +1722,7 @@ export abstract class Strategy implements StrategyInterface {
     s: string,
     onlyReturn = false,
   ) {
+    this.checkStartStopPrice(price)
     if (!onlyReturn && Strategy.preventOpen) {
       return
     }

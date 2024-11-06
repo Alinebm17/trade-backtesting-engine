@@ -50,6 +50,9 @@ const getStrategyBySettings = (
       (settings.useBotController &&
         settings.botStart === BotStartTypeEnum.indicators &&
         settings.startCondition !== StartConditionEnum.ti) ||
+      (settings.useBotController &&
+        settings.botActualStart === BotStartTypeEnum.indicators &&
+        settings.startCondition !== StartConditionEnum.ti) ||
       (settings.useRiskReward &&
         settings.startCondition !== StartConditionEnum.ti)) &&
     settings.indicators.filter((i) => i.type !== IndicatorEnum.unpnl).length > 0

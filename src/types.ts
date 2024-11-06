@@ -160,6 +160,7 @@ export enum IndicatorAction {
   closeDeal = 'closeDeal',
   startDca = 'startDca',
   stopBot = 'stopBot',
+  startBot = 'startBot',
   riskReward = 'riskReward',
 }
 
@@ -799,6 +800,12 @@ export interface DCABotSettings extends BaseSettings {
   riskReductionValue?: string
   useReinvest?: boolean
   reinvestValue?: string
+  startBotPriceCondition?: IndicatorStartConditionEnum
+  startBotPriceValue?: string
+  stopBotPriceCondition?: IndicatorStartConditionEnum
+  stopBotPriceValue?: string
+  startBotLogic?: IndicatorsLogicEnum
+  botActualStart?: BotStartTypeEnum
 }
 
 export enum IndicatorsLogicEnum {
@@ -842,6 +849,7 @@ export enum BotStartTypeEnum {
   manual = 'manual',
   webhook = 'webhook',
   indicators = 'indicators',
+  price = 'price',
 }
 
 export enum CloseDCATypeEnum {
