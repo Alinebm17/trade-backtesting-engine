@@ -499,9 +499,9 @@ export abstract class Strategy implements StrategyInterface {
       this.settings.botActualStart === BotStartTypeEnum.indicators
         ? 'monitoring'
         : 'open'
-Strategy.preventOpen =
-  this.settings.botStart === BotStartTypeEnum.indicators ||
-  this.settings.botActualStart === BotStartTypeEnum.indicators
+    Strategy.preventOpen =
+      this.settings.botStart === BotStartTypeEnum.indicators ||
+      this.settings.botActualStart === BotStartTypeEnum.indicators
     this.filterFn = {
       filledOrders: this.long
         ? (b: FullBar) => (o: FullGrid) =>
