@@ -493,14 +493,12 @@ export abstract class Strategy implements StrategyInterface {
     this.settings = settings
 
     Strategy.status =
-      this.settings.botStart === BotStartTypeEnum.price ||
-      this.settings.botStart === BotStartTypeEnum.indicators ||
-      this.settings.botActualStart === BotStartTypeEnum.price ||
-      this.settings.botActualStart === BotStartTypeEnum.indicators
+      (this.settings.botActualStart === BotStartTypeEnum.price ||
+        this.settings.botActualStart === BotStartTypeEnum.indicators) &&
+      this.settings.useBotController
         ? 'monitoring'
         : 'open'
     Strategy.preventOpen =
-      this.settings.botStart === BotStartTypeEnum.indicators ||
       this.settings.botActualStart === BotStartTypeEnum.indicators
     this.filterFn = {
       filledOrders: this.long

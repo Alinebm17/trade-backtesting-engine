@@ -838,7 +838,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
     if (
       (startIndicators.filter((i) => i.data.length > 0).length ||
         closeIndicators.filter((i) => i.data.length > 0).length ||
-        stopIndicators.filter((i) => i.data.length > 0).length ||
+        (stopIndicators.filter((i) => i.data.length > 0).length &&
+          Strategy.status === 'open' &&
+          !Strategy.preventOpen) ||
         dcaIndicators.filter((i) => i.data.length > 0).length ||
         (botStartIndicators.filter((i) => i.data.length > 0).length &&
           Strategy.preventOpen &&
@@ -1602,7 +1604,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
         !this.settings.stopBotLogic
           ? stopBot.length === stopBotStatus.length
           : stopBotStatus.length > 0) &&
-        stopBotStatus.length
+        stopBotStatus.length &&
+        Strategy.status === 'open' &&
+        !Strategy.preventOpen
       ) {
         this.stopByIndicator({
           open: /* lowestBar?.open ?? */ nextBar.open,
