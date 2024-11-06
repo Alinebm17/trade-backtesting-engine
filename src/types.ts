@@ -731,6 +731,13 @@ export interface DCABotSettings extends BaseSettings {
   comboTpBase?: ComboTpBase
   useCloseAfterX?: boolean
   closeAfterX?: string
+  useCloseAfterXwin?: boolean
+  closeAfterXwin?: string
+  useCloseAfterXloss?: boolean
+  closeAfterXloss?: string
+  useCloseAfterXprofit?: boolean
+  closeAfterXprofitValue?: string
+  closeAfterXprofitCond?: IndicatorStartConditionEnum
   pair: string[]
   useMulti?: boolean
   useCloseAfterXopen?: boolean

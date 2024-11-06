@@ -22,7 +22,6 @@ import {
   CooldownOptionsEnum,
   CloseDCATypeEnum,
   DynamicPriceFilterPriceTypeEnum,
-  BotStartTypeEnum,
   DynamicPriceFilterDirectionEnum,
   IndicatorEnum,
   ppValueEnum,
@@ -1532,11 +1531,30 @@ export abstract class Strategy implements StrategyInterface {
     if (Strategy.edge) {
       return true
     }
-    if (
-      this.settings.useBotController &&
-      (this.settings.botStart === BotStartTypeEnum.webhook ||
-        this.settings.botStart === BotStartTypeEnum.manual)
-    ) {
+    if (this.settings.useBotController) {
+      if (this.settings.useCloseAfterXloss && this.settings.closeAfterXloss) {
+        const d = Strategy.getDeals('closed').filter(
+          (d) => d.profit.totalUsd <= 0,
+        ).length
+        return d < +this.settings.closeAfterXloss
+      }
+      if (this.settings.useCloseAfterXwin && this.settings.closeAfterXwin) {
+        const d = Strategy.getDeals('closed').filter(
+          (d) => d.profit.totalUsd > 0,
+        ).length
+        return d < +this.settings.closeAfterXwin
+      }
+      if (
+        this.settings.useCloseAfterXprofit &&
+        this.settings.closeAfterXprofitCond &&
+        this.settings.closeAfterXprofitValue
+      ) {
+        const val = Strategy.totalProfitUsd
+        return this.settings.closeAfterXprofitCond ===
+          IndicatorStartConditionEnum.gt
+          ? val < +this.settings.closeAfterXprofitValue
+          : val > +this.settings.closeAfterXprofitValue
+      }
       if (this.settings.useCloseAfterX && this.settings.closeAfterX) {
         return Strategy.getDealsCount('closed') < +this.settings.closeAfterX
       }
