@@ -1532,35 +1532,46 @@ export abstract class Strategy implements StrategyInterface {
       return true
     }
     if (this.settings.useBotController) {
+      let close = false
       if (this.settings.useCloseAfterXloss && this.settings.closeAfterXloss) {
         const d = Strategy.getDeals('closed').filter(
           (_d) => _d.profit.totalUsd <= 0,
         ).length
-        return d < +this.settings.closeAfterXloss
+        close = !(d < +this.settings.closeAfterXloss)
       }
-      if (this.settings.useCloseAfterXwin && this.settings.closeAfterXwin) {
+      if (
+        this.settings.useCloseAfterXwin &&
+        this.settings.closeAfterXwin &&
+        !close
+      ) {
         const d = Strategy.getDeals('closed').filter(
           (_d) => _d.profit.totalUsd > 0,
         ).length
-        return d < +this.settings.closeAfterXwin
+        close = !(d < +this.settings.closeAfterXwin)
       }
       if (
         this.settings.useCloseAfterXprofit &&
         this.settings.closeAfterXprofitCond &&
-        this.settings.closeAfterXprofitValue
+        this.settings.closeAfterXprofitValue &&
+        !close
       ) {
         const val = Strategy.totalProfitUsd
-        return this.settings.closeAfterXprofitCond ===
-          IndicatorStartConditionEnum.gt
+        close = !(this.settings.closeAfterXprofitCond ===
+        IndicatorStartConditionEnum.gt
           ? val < +this.settings.closeAfterXprofitValue
-          : val > +this.settings.closeAfterXprofitValue
+          : val > +this.settings.closeAfterXprofitValue)
       }
-      if (this.settings.useCloseAfterX && this.settings.closeAfterX) {
-        return Strategy.getDealsCount('closed') < +this.settings.closeAfterX
+      if (this.settings.useCloseAfterX && this.settings.closeAfterX && !close) {
+        close = !(Strategy.getDealsCount('closed') < +this.settings.closeAfterX)
       }
-      if (this.settings.useCloseAfterXopen && this.settings.closeAfterXopen) {
-        return Strategy.getDealsCount() < +this.settings.closeAfterXopen
+      if (
+        this.settings.useCloseAfterXopen &&
+        this.settings.closeAfterXopen &&
+        !close
+      ) {
+        close = !(Strategy.getDealsCount() < +this.settings.closeAfterXopen)
       }
+      return !close
     }
     return true
   }
