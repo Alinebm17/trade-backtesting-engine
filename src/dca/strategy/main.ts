@@ -329,9 +329,9 @@ export abstract class Strategy implements StrategyInterface {
 
   static maxPrice: Map<string, number> = new Map()
 
-  static priceMin: number = 0
+  static priceMin = 0
 
-  static priceMax: number = 0
+  static priceMax = 0
 
   static start = 0
 
