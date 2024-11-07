@@ -329,6 +329,10 @@ export abstract class Strategy implements StrategyInterface {
 
   static maxPrice: Map<string, number> = new Map()
 
+  static priceMin: number = 0
+
+  static priceMax: number = 0
+
   static start = 0
 
   static previousValues = 0
@@ -4250,6 +4254,14 @@ export abstract class Strategy implements StrategyInterface {
     if (this._stop) {
       return
     }
+    if (!this.settings.useMulti && !Strategy.edge) {
+      if (Strategy.priceMin === 0 || b.low < Strategy.priceMin) {
+        Strategy.priceMin = b.low
+      }
+      if (Strategy.priceMax === 0 || b.high > Strategy.priceMax) {
+        Strategy.priceMax = b.high
+      }
+    }
     if (!Strategy.lowestDataForBnHSymbol) {
       Strategy.lowestDataForBnHSymbol = b.symbol
     }
@@ -5264,6 +5276,16 @@ export abstract class Strategy implements StrategyInterface {
     }))
   }
 
+  private calculatePriceDeviation() {
+    if (Strategy.priceMax === 0 || Strategy.priceMin === 0) {
+      return 0
+    }
+    return this.math.round(
+      ((Strategy.priceMax - Strategy.priceMin) / Strategy.priceMax) * 100,
+      3,
+    )
+  }
+
   public returnResult(
     firstData: Map<string, FullBar>,
     lastData: Map<string, FullBar>,
@@ -6165,6 +6187,7 @@ export abstract class Strategy implements StrategyInterface {
         avgRealUsage: avgUsable,
       },
       numerical: {
+        priceDeviation: this.calculatePriceDeviation(),
         confidenceGrade: confidenceGrade.level,
         dealsForConfidenceGrade: confidenceGrade.number,
         all: allDeals.length,
