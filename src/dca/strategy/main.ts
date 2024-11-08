@@ -1693,7 +1693,8 @@ export abstract class Strategy implements StrategyInterface {
             ? Math.max(price, high, low) > +this.settings.stopBotPriceValue
             : Math.min(price, high, low) < +this.settings.stopBotPriceValue
         if (Strategy.preventOpen) {
-          Strategy.status = 'closed'
+          Strategy.status =
+            this.settings.stopStatus === 'monitoring' ? 'monitoring' : 'closed'
         }
       }
     }
@@ -3752,6 +3753,8 @@ export abstract class Strategy implements StrategyInterface {
   stopByIndicator(b: FullBar) {
     Strategy.preventOpen = true
     const action = this.settings.stopType || CloseDCATypeEnum.closeByMarket
+    Strategy.status =
+      this.settings.stopStatus === 'monitoring' ? 'monitoring' : Strategy.status
     if (
       action === CloseDCATypeEnum.closeByMarket ||
       action === CloseDCATypeEnum.closeByLimit
