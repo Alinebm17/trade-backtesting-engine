@@ -3,6 +3,7 @@ import Backtesting from '..'
 import { v4 } from 'uuid'
 
 import {
+  BotStartTypeEnum,
   CloseConditionEnum,
   DCAConditionEnum,
   ExchangeIntervals,
@@ -160,6 +161,9 @@ class DCABacktesting extends Backtesting {
             this.settings.useSl) ||
           (this.settings.dcaCondition === DCAConditionEnum.indicators &&
             this.settings.useDca) ||
+          (this.settings.useBotController &&
+            (this.settings.botStart === BotStartTypeEnum.indicators ||
+              this.settings.botActualStart === BotStartTypeEnum.indicators)) ||
           (this.settings.useDca &&
             [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
               this.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage,
