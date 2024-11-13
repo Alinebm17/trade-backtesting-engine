@@ -675,11 +675,17 @@ export enum DCAVolumeType {
   change = 'change',
 }
 
+export enum DcaVolumeRequiredChangeRef {
+  tp = 'tp',
+  avg = 'avg',
+}
+
 export interface DCABotSettings extends BaseSettings {
   dcaCondition?: DCAConditionEnum
   dcaVolumeBaseOn?: DCAVolumeType
   dcaVolumeRequiredChange?: string
   dcaVolumeMaxValue?: string
+  dcaVolumeRequiredChangeRef?: DcaVolumeRequiredChangeRef
   baseSlOn?: BaseSlOnEnum
   dcaCustom?: DCACustom[]
   strategy: StrategyEnum

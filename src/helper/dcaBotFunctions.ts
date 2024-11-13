@@ -13,6 +13,7 @@ import {
   ScaleDcaTypeEnum,
   IndicatorSection,
   DCAVolumeType,
+  DcaVolumeRequiredChangeRef,
 } from '../types'
 import BotUtils from './botUtils'
 import { checkNumber } from './utils'
@@ -449,7 +450,7 @@ class DCABotFunctions {
         )
       const volumeChangeValue =
         +(settings.dcaVolumeRequiredChange ?? tpPerc * 100) *
-        (long ? 1.02 : 0.98)
+        (long ? 1 + Math.min(0.02, tpPerc) : 1 - Math.min(0.02, tpPerc))
       let maxVolumeSize = +(settings.dcaVolumeMaxValue ?? '-1')
       if (maxVolumeSize < 0) {
         maxVolumeSize = Infinity
@@ -576,14 +577,23 @@ class DCABotFunctions {
             +((settings.dcaCustom ?? [])[i - 1]?.size ?? '0') || _orderSize
         }
         if (useVolumeChange) {
-          const c =
-            ((volumeChangeValue / 100 + 1) * price) /
-            (1 + tpPerc * (long ? 1 : -1))
           const quote =
             baseOrder.price * baseOrder.qty +
             orders.reduce((acc, v) => acc + v.price * v.qty, 0)
           const base = baseOrder.qty + orders.reduce((acc, v) => acc + v.qty, 0)
-          orderSize = (c * base - quote) / (price - c)
+          if (
+            settings.dcaVolumeRequiredChangeRef ===
+            DcaVolumeRequiredChangeRef.avg
+          ) {
+            const newAvg =
+              price * (1 + (volumeChangeValue / 100) * (long ? 1 : -1))
+            orderSize = (newAvg * base - quote) / (price - newAvg)
+          } else {
+            const c =
+              ((volumeChangeValue / 100 + 1) * price) /
+              (1 + tpPerc * (long ? 1 : -1))
+            orderSize = (c * base - quote) / (price - c)
+          }
           if (orderSizeType === OrderSizeTypeEnum.quote) {
             orderSize *= price
           }
