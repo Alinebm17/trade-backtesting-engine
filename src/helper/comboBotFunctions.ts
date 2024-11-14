@@ -307,7 +307,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                 (settings.futures ? 1 : feeFactor),
               precision,
               false,
-              true,
+              !settings.futures,
             )
           : this.math.round(
               grids.reduce((acc, v) => acc + v.qty * v.price, 0),
@@ -346,7 +346,12 @@ class ComboBotFunctions extends DcaBotFunctions {
         baseOrder.qty =
           useBase || settings.futures
             ? updatedComboAdjustments
-              ? this.math.round(qtyByGrids * feeFactor, precision, false, true)
+              ? this.math.round(
+                  qtyByGrids * feeFactor,
+                  precision,
+                  false,
+                  !settings.futures,
+                )
               : qtyByGrids
             : this.math.round(
                 (qtyByGrids / baseOrder.price) * feeFactor,
@@ -574,7 +579,7 @@ class ComboBotFunctions extends DcaBotFunctions {
                     (settings.futures ? 1 : feeFactor),
                   precision,
                   false,
-                  true,
+                  !settings.futures,
                 )
               : this.math.round(
                   dcaMinigridOrders.reduce(
