@@ -609,6 +609,9 @@ export abstract class Strategy implements StrategyInterface {
     ) {
       return true
     }
+    if (Strategy.getDealsCount('open', symbol) === 0) {
+      return true
+    }
     const lastData = Strategy.lastPricesPerSymbol.get(symbol)
     if (!lastData) {
       return true
