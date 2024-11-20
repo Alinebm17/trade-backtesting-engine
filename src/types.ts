@@ -631,6 +631,7 @@ export enum OrderTypeEnum {
 export enum DCATypeEnum {
   regular = 'regular',
   terminal = 'terminal',
+  trigger = 'trigger',
 }
 
 export enum OrderSizeTypeEnum {
@@ -813,6 +814,21 @@ export interface DCABotSettings extends BaseSettings {
   stopBotPriceValue?: string
   startBotLogic?: IndicatorsLogicEnum
   botActualStart?: BotStartTypeEnum
+  entryOrderAmount?: EntryOrderAmountEnum
+  exitOrderAmount?: EntryOrderAmountEnum
+  exitOrderSize?: string
+  exitOrderCurrency?: ExitOrderCurrencyEnum
+}
+
+export enum ExitOrderCurrencyEnum {
+  base = OrderSizeTypeEnum.base,
+  quote = OrderSizeTypeEnum.quote,
+  position = 'position',
+}
+
+export enum EntryOrderAmountEnum {
+  predefined = 'predefined',
+  webhook = 'webhook',
 }
 
 export enum IndicatorsLogicEnum {
