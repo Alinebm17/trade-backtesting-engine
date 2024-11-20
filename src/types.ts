@@ -821,8 +821,8 @@ export interface DCABotSettings extends BaseSettings {
 }
 
 export enum ExitOrderCurrencyEnum {
-  base = OrderSizeTypeEnum.base,
-  quote = OrderSizeTypeEnum.quote,
+  base = 'base',
+  quote = 'quote',
   position = 'position',
 }
 
