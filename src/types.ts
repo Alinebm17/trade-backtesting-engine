@@ -1006,6 +1006,8 @@ export enum ExchangeEnum {
   paperBitgetCoinm = 'paperBitgetCoinm',
   bitgetAll = 'bitgetAll',
   bitgetSpot = 'bitgetSpot',
+  paperBitgetAll = 'paperBitgetAll',
+  paperBitgetSpot = 'paperBitgetSpot',
 }
 
 export type DCAGrid = {
