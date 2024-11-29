@@ -998,6 +998,14 @@ export enum ExchangeEnum {
   paperKucoinAll = 'paperKucoinAll',
   kucoinSpot = 'kucoinSpot',
   paperKucoinSpot = 'paperKucoinSpot',
+  bitget = 'bitget',
+  paperBitget = 'paperBitget',
+  bitgetUsdm = 'bitgetUsdm',
+  bitgetCoinm = 'bitgetCoinm',
+  paperBitgetUsdm = 'paperBitgetUsdm',
+  paperBitgetCoinm = 'paperBitgetCoinm',
+  bitgetAll = 'bitgetAll',
+  bitgetSpot = 'bitgetSpot',
 }
 
 export type DCAGrid = {
