@@ -1789,6 +1789,7 @@ export abstract class Strategy implements StrategyInterface {
     )
     let initialOrders = botFunctions
       .createOrders(
+        this.usdRateQuote.get(s) ?? 0,
         orderPrice,
         true,
         undefined,
@@ -1812,6 +1813,7 @@ export abstract class Strategy implements StrategyInterface {
     if (sizes) {
       initialOrders = botFunctions
         .createOrders(
+          this.usdRateQuote.get(s) ?? 0,
           orderPrice,
           true,
           undefined,
@@ -3184,6 +3186,7 @@ export abstract class Strategy implements StrategyInterface {
 
             if (absDiff >= +minPercFromLast / 100) {
               const orders = botFunctions.createOrders(
+                this.usdRateQuote.get(d.symbol.pair) ?? 0,
                 d.startPrice,
                 true,
                 undefined,
@@ -5017,6 +5020,7 @@ export abstract class Strategy implements StrategyInterface {
       return
     }
     const dealOrders = botFunctions.createOrders(
+      this.usdRateQuote.get(s) ?? 0,
       startPrice,
       true,
       undefined,

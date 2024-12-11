@@ -82,6 +82,7 @@ class DCABotFunctions {
   }
 
   createOrders(
+    usdPrice: number,
     inputLatestPrice: number,
     all = false,
     precOrderSize = 0,
@@ -153,7 +154,13 @@ class DCABotFunctions {
       return []
     }
     let baseQty =
-      orderSizeType === OrderSizeTypeEnum.base
+      orderSizeType === OrderSizeTypeEnum.usd
+        ? this.math.round(
+            baseOrderSize / (usdPrice * latestPrice),
+            precision,
+            true,
+          )
+        : orderSizeType === OrderSizeTypeEnum.base
         ? this.math.round(baseOrderSize + (sizes?.base ?? 0), precision, true)
         : orderSizeType === OrderSizeTypeEnum.quote
         ? this.math.round(
@@ -600,7 +607,9 @@ class DCABotFunctions {
           orderSize = Math.min(maxVolumeSize, orderSize)
         }
         let qty =
-          orderSizeType === OrderSizeTypeEnum.quote
+          orderSizeType === OrderSizeTypeEnum.usd
+            ? this.math.round(orderSize / (usdPrice * latestPrice), precision)
+            : orderSizeType === OrderSizeTypeEnum.quote
             ? this.math.round(
                 ((orderSize * (coinm ? symbol.quoteAsset.minAmount : 1)) /
                   price) *
@@ -947,6 +956,7 @@ class DCABotFunctions {
   }
 
   getSLOrder(
+    usdPrice: number,
     slPerc: number,
     breakeven: number,
     all = false,
@@ -983,6 +993,7 @@ class DCABotFunctions {
       }
     }
     const orders = this.createOrders(
+      usdPrice,
       breakeven,
       all,
       precOrderSize,

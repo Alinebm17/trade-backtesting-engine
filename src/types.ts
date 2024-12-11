@@ -639,6 +639,7 @@ export enum OrderSizeTypeEnum {
   quote = 'quote',
   percTotal = 'percTotal',
   percFree = 'percFree',
+  usd = 'usd',
 }
 
 export enum CooldownUnits {
