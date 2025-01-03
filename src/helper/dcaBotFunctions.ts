@@ -276,6 +276,14 @@ class DCABotFunctions {
       requiredPrice: useTp ? tpPrice : undefined,
       levelNumber: 0,
     }
+    if (baseOrder.qty < symbol.baseAsset.minAmount) {
+      baseOrder.qty = this.math.round(
+        symbol.baseAsset.minAmount,
+        precision,
+        false,
+        true,
+      )
+    }
     if (baseOrder.price * baseOrder.qty < symbol.quoteAsset.minAmount) {
       baseOrder.qty = this.math.round(
         symbol.quoteAsset.minAmount / baseOrder.price,
