@@ -5995,6 +5995,26 @@ export abstract class Strategy implements StrategyInterface {
     const maxDealDuration = allDeals.length
       ? Math.max(...allDeals.map((cd) => cd.duration))
       : 0
+    const avgNetDailyPerc =
+      workingDays > 0
+        ? this.math.round(
+            (totalProfitUsd / workingDays / maxTheoreticalUsageWithRate) * 100,
+            2,
+          )
+        : 0
+    let annualizedReturn = 0
+    if (
+      avgNetDailyPerc &&
+      !isNaN(avgNetDailyPerc) &&
+      isFinite(avgNetDailyPerc)
+    ) {
+      annualizedReturn = ((1 + avgNetDailyPerc / 100) ** 365 - 1) * 100
+      if (annualizedReturn > Number.MAX_SAFE_INTEGER) {
+        annualizedReturn = Infinity
+      } else {
+        annualizedReturn = this.math.round(annualizedReturn, 2)
+      }
+    }
     const result: DCABacktestingResult = {
       messages: [...new Set(Strategy.messages)],
       portfolio: Array.from(Strategy.portfolio, (v) => ({ x: v[0], y: v[1] })),
@@ -6106,14 +6126,8 @@ export abstract class Strategy implements StrategyInterface {
           workingDays > 0
             ? this.math.round(totalProfitUsd / workingDays, 2)
             : 0,
-        avgNetDailyPerc:
-          workingDays > 0
-            ? this.math.round(
-                (totalProfitUsd / workingDays / maxTheoreticalUsageWithRate) *
-                  100,
-                2,
-              )
-            : 0,
+        avgNetDailyPerc,
+        annualizedReturn,
         unrealizedPnL: this.math.round(unrealizedPnL, precision),
         unrealizedPnLUsd: this.math.round(unrealizedPnLUsd, 2),
         unrealizedPnLPerc: this.math.round(

@@ -1505,6 +1505,29 @@ export class Strategy implements StrategyInterface {
       budgetUsd,
       periodRatio,
     )
+    const avgNetDailyPerc =
+      workingDays > 0
+        ? this.math.round(
+            (totalProfit / workingDays / this.initialBalances) * 100,
+            2,
+          )
+        : 0
+    let annualizedReturn = 0
+    if (
+      avgNetDailyPerc &&
+      !isNaN(avgNetDailyPerc) &&
+      isFinite(avgNetDailyPerc)
+    ) {
+      annualizedReturn = this.math.round(
+        ((1 + avgNetDailyPerc / 100) ** 365 - 1) * 100,
+        2,
+      )
+      if (annualizedReturn > Number.MAX_SAFE_INTEGER) {
+        annualizedReturn = Infinity
+      } else {
+        annualizedReturn = this.math.round(annualizedReturn, 2)
+      }
+    }
     const result: GridBacktestingResult = {
       filledOrders: this.filledOrders,
       buyAndHoldEquity: buyAndHold.buyAndHoldEquity,
@@ -1581,13 +1604,8 @@ export class Strategy implements StrategyInterface {
           workingDays > 0
             ? this.math.round(totalProfitUsd / workingDays, 2)
             : 0,
-        avgNetDailyPerc:
-          workingDays > 0
-            ? this.math.round(
-                (totalProfit / workingDays / this.initialBalances) * 100,
-                2,
-              )
-            : 0,
+        avgNetDailyPerc,
+        annualizedReturn,
         avgTransactionProfit:
           this.transactions.length > 0
             ? this.math.convertFromExponential(

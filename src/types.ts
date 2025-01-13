@@ -1402,6 +1402,7 @@ export type DCABacktestingResult = {
     avgNetDaily: number
     avgNetDailyUsd: number
     avgNetDailyPerc: number
+    annualizedReturn?: number
     unrealizedPnL: number
     unrealizedPnLUsd: number
     unrealizedPnLPerc: number
@@ -1617,6 +1618,7 @@ export type GridBacktestingResult = {
     avgNetDaily: string
     avgNetDailyUsd: number
     avgNetDailyPerc: number
+    annualizedReturn?: number
     avgTransactionProfit: string
     avgTransactionProfitUsd: number
     avgTransactionProfitPerc: number
