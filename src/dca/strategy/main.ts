@@ -6008,7 +6008,13 @@ export abstract class Strategy implements StrategyInterface {
       !isNaN(avgNetDailyPerc) &&
       isFinite(avgNetDailyPerc)
     ) {
-      annualizedReturn = ((1 + avgNetDailyPerc / 100) ** 365 - 1) * 100
+      const compound =
+        [OrderSizeTypeEnum.percFree, OrderSizeTypeEnum.percTotal].includes(
+          this.settings.orderSizeType,
+        ) || this.settings.useReinvest
+      annualizedReturn = compound
+        ? ((1 + avgNetDailyPerc / 100) ** 365 - 1) * 100
+        : avgNetDailyPerc * 365
       if (annualizedReturn > Number.MAX_SAFE_INTEGER) {
         annualizedReturn = Infinity
       } else {

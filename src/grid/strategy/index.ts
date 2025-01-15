@@ -1518,10 +1518,7 @@ export class Strategy implements StrategyInterface {
       !isNaN(avgNetDailyPerc) &&
       isFinite(avgNetDailyPerc)
     ) {
-      annualizedReturn = this.math.round(
-        ((1 + avgNetDailyPerc / 100) ** 365 - 1) * 100,
-        2,
-      )
+      annualizedReturn = this.math.round(avgNetDailyPerc * 365, 2)
       if (annualizedReturn > Number.MAX_SAFE_INTEGER) {
         annualizedReturn = Infinity
       } else {
