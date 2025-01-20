@@ -683,6 +683,7 @@ export enum DcaVolumeRequiredChangeRef {
 }
 
 export interface DCABotSettings extends BaseSettings {
+  minimumDeviation?: string
   dcaCondition?: DCAConditionEnum
   dcaVolumeBaseOn?: DCAVolumeType
   dcaVolumeRequiredChange?: string
@@ -1424,6 +1425,7 @@ export type DCABacktestingResult = {
     stDevWinningTrade?: number
     stDevLosingTrade?: number
     stDownDevLosingTrade?: number
+    annualizedReturn?: number
   }
   duration: {
     avgDealDuration: number
@@ -1609,6 +1611,7 @@ export type GridBacktestingResult = {
   })[]
   noData?: boolean
   financial: {
+    annualizedReturn?: number
     freeProfitTotal: number
     freeProfitTotalUsd: number
     profitTotal: string

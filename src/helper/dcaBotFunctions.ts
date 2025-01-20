@@ -105,6 +105,7 @@ class DCABotFunctions {
     const precision = this.utils.getBaseAssetPrecision(symbol)
     const step = parseFloat(settings.step) / 100
     const stepScale = parseFloat(settings.stepScale)
+    const minimumDeviation = parseFloat(settings.minimumDeviation ?? '1')
     const volumeScale = parseFloat(settings.volumeScale)
     let minOpenDeal = parseFloat(settings.minOpenDeal || '0')
     let maxOpenDeal = parseFloat(settings.maxOpenDeal || '0')
@@ -479,6 +480,11 @@ class DCABotFunctions {
           settings.dcaCondition === DCAConditionEnum.custom
             ? 1
             : stepScale ** (i - 1)
+        const minimumDeviat =
+          settings.dcaCondition === DCAConditionEnum.indicators ||
+          settings.dcaCondition === DCAConditionEnum.custom
+            ? 1
+            : minimumDeviation ** (i - 1)
         const volumeVal =
           settings.dcaCondition === DCAConditionEnum.indicators ||
           settings.dcaCondition === DCAConditionEnum.custom ||
@@ -531,7 +537,9 @@ class DCABotFunctions {
               value *= +(indicator.dynamicArFactor || '1') * stepAr
               price = this.math.round(
                 (i === 1 ? latestPrice : orders[orders.length - 1].price) +
-                  value * (settings.strategy === StrategyEnum.long ? -1 : 1),
+                  Math.max(value, minimumDeviat) *
+                    value *
+                    (settings.strategy === StrategyEnum.long ? -1 : 1),
 
                 symbol.priceAssetPrecision,
               )
