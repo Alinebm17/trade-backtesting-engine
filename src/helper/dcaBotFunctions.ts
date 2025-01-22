@@ -105,7 +105,7 @@ class DCABotFunctions {
     const precision = this.utils.getBaseAssetPrecision(symbol)
     const step = parseFloat(settings.step) / 100
     const stepScale = parseFloat(settings.stepScale)
-    const minimumDeviation = parseFloat(settings.minimumDeviation ?? '0')
+    const minimumDeviation = parseFloat(settings.minimumDeviation ?? '0') / 100
     const volumeScale = parseFloat(settings.volumeScale)
     let minOpenDeal = parseFloat(settings.minOpenDeal || '0')
     let maxOpenDeal = parseFloat(settings.maxOpenDeal || '0')
@@ -444,6 +444,12 @@ class DCABotFunctions {
           : Math.max(tpOrder.qty, qty)
     }
     const gridStep = latestPrice * step
+    const minGridStep =
+      settings.dcaCondition === DCAConditionEnum.percentage &&
+      (settings.scaleDcaType === ScaleDcaTypeEnum.atr ||
+        settings.scaleDcaType === ScaleDcaTypeEnum.adr)
+        ? latestPrice * minimumDeviation
+        : 0
     let orders: DCAGrid[] = []
     if (settings.useDca) {
       const ordersCount =
@@ -480,12 +486,6 @@ class DCABotFunctions {
           settings.dcaCondition === DCAConditionEnum.custom
             ? 1
             : stepScale ** (i - 1)
-        const minimumDeviat =
-          settings.dcaCondition === DCAConditionEnum.percentage &&
-          (settings.scaleDcaType === ScaleDcaTypeEnum.atr ||
-            settings.scaleDcaType === ScaleDcaTypeEnum.adr)
-            ? minimumDeviation ** (i - 1)
-            : 1
         const volumeVal =
           settings.dcaCondition === DCAConditionEnum.indicators ||
           settings.dcaCondition === DCAConditionEnum.custom ||
@@ -535,15 +535,29 @@ class DCABotFunctions {
             let value = dcaArValues.find((d) => d.id === indicator.uuid)?.value
             if (value && !isNaN(value) && isFinite(value)) {
               const stepAr = i < 2 ? 1 : stepScale ** (i - 2)
-              const minGridStep =
-                stepAr * +(indicator.dynamicArFactor || '1') * minimumDeviat
+              value *= +(indicator.dynamicArFactor || '1') * stepAr
+              const lastPrice =
+                i === 1 ? latestPrice : orders[orders.length - 1]?.price ?? 0
               price = this.math.round(
-                (i === 1 ? latestPrice : orders[orders.length - 1].price) -
-                  (settings.strategy === StrategyEnum.long ? 1 : -1) *
-                    minGridStep *
-                    stepVal,
+                lastPrice +
+                  value * (settings.strategy === StrategyEnum.long ? -1 : 1),
                 symbol.priceAssetPrecision,
               )
+              const priceMinDeviation = minGridStep
+                ? this.math.round(
+                    lastPrice +
+                      (settings.strategy === StrategyEnum.long ? -1 : 1) *
+                        minGridStep *
+                        stepVal,
+                    symbol.priceAssetPrecision,
+                  )
+                : 0
+              if (priceMinDeviation) {
+                price =
+                  settings.strategy === StrategyEnum.long
+                    ? Math.min(price, priceMinDeviation)
+                    : Math.max(price, priceMinDeviation)
+              }
             }
           } else {
             continue
