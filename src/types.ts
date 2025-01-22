@@ -1403,7 +1403,6 @@ export type DCABacktestingResult = {
     avgNetDaily: number
     avgNetDailyUsd: number
     avgNetDailyPerc: number
-    annualizedReturn?: number
     unrealizedPnL: number
     unrealizedPnLUsd: number
     unrealizedPnLPerc: number
@@ -1611,7 +1610,6 @@ export type GridBacktestingResult = {
   })[]
   noData?: boolean
   financial: {
-    annualizedReturn?: number
     freeProfitTotal: number
     freeProfitTotalUsd: number
     profitTotal: string
