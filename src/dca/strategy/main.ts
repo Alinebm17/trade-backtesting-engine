@@ -22,6 +22,7 @@ import {
   CooldownOptionsEnum,
   CloseDCATypeEnum,
   DynamicPriceFilterPriceTypeEnum,
+  DynamicPriceFilterDirectionEnum,
   IndicatorEnum,
   ppValueEnum,
   SRCrossingEnum,
@@ -600,14 +601,23 @@ export abstract class Strategy implements StrategyInterface {
 
   private checkInDynamicRange(symbol: string, price: number): boolean {
     const { settings } = this
+    if (!settings.useDynamicPriceFilter) {
+      return true
+    }
+
+    const overValue =
+      parseFloat(settings.dynamicPriceFilterOverValue || '') ||
+      parseFloat(settings.dynamicPriceFilterDeviation || '') ||
+      0
+    const underValue =
+      parseFloat(settings.dynamicPriceFilterUnderValue || '') ||
+      parseFloat(settings.dynamicPriceFilterDeviation || '') ||
+      0
     if (
-      !settings.useDynamicPriceFilter ||
-      !settings.dynamicPriceFilterOverValue || 
-      isNaN(+settings.dynamicPriceFilterOverValue) ||
-      !isFinite(+settings.dynamicPriceFilterOverValue) || 
-      !settings.dynamicPriceFilterUnderValue || 
-      isNaN(+settings.dynamicPriceFilterUnderValue) ||
-      !isFinite(+settings.dynamicPriceFilterUnderValue)
+      isNaN(overValue) ||
+      !isFinite(overValue) ||
+      isNaN(underValue) ||
+      !isFinite(underValue)
     ) {
       return true
     }
@@ -624,13 +634,30 @@ export abstract class Strategy implements StrategyInterface {
       DynamicPriceFilterPriceTypeEnum.avg
         ? lastData.avg
         : lastData.entry
-    const minPrice =
-      referencePrice -
-      (referencePrice * +settings.dynamicPriceFilterUnderValue) / 100;
-    const maxPrice =
-      referencePrice +
-      (referencePrice * +settings.dynamicPriceFilterOverValue) / 100;
-    return latestPrice >= minPrice && latestPrice <= maxPrice;
+    const calculatedOverValue =
+      referencePrice + (referencePrice * overValue) / 100
+    const calculatedUnderValue =
+      referencePrice - (referencePrice * underValue) / 100
+
+    if (
+      settings.dynamicPriceFilterDirection ===
+      DynamicPriceFilterDirectionEnum.overAndUnder
+    ) {
+      return (
+        latestPrice > calculatedOverValue || latestPrice < calculatedUnderValue
+      )
+    } else if (
+      settings.dynamicPriceFilterDirection ===
+      DynamicPriceFilterDirectionEnum.over
+    ) {
+      return latestPrice > calculatedOverValue
+    } else if (
+      settings.dynamicPriceFilterDirection ===
+      DynamicPriceFilterDirectionEnum.under
+    ) {
+      return latestPrice < calculatedUnderValue
+    }
+    return true
   }
 
   public checkInRange(symbol: string, price: number, time: number) {
