@@ -22,7 +22,6 @@ import {
   CooldownOptionsEnum,
   CloseDCATypeEnum,
   DynamicPriceFilterPriceTypeEnum,
-  DynamicPriceFilterDirectionEnum,
   IndicatorEnum,
   ppValueEnum,
   SRCrossingEnum,
@@ -603,9 +602,12 @@ export abstract class Strategy implements StrategyInterface {
     const { settings } = this
     if (
       !settings.useDynamicPriceFilter ||
-      !settings.dynamicPriceFilterDeviation ||
-      isNaN(+settings.dynamicPriceFilterDeviation) ||
-      !isFinite(+settings.dynamicPriceFilterDeviation)
+      !settings.dynamicPriceFilterOverValue || 
+      isNaN(+settings.dynamicPriceFilterOverValue) ||
+      !isFinite(+settings.dynamicPriceFilterOverValue) || 
+      !settings.dynamicPriceFilterUnderValue || 
+      isNaN(+settings.dynamicPriceFilterUnderValue) ||
+      !isFinite(+settings.dynamicPriceFilterUnderValue)
     ) {
       return true
     }
@@ -622,17 +624,13 @@ export abstract class Strategy implements StrategyInterface {
       DynamicPriceFilterPriceTypeEnum.avg
         ? lastData.avg
         : lastData.entry
-    const diff =
-      settings.dynamicPriceFilterDirection ===
-        DynamicPriceFilterDirectionEnum.overAndUnder ||
-      !settings.dynamicPriceFilterDirection
-        ? Math.abs(latestPrice - referencePrice)
-        : settings.dynamicPriceFilterDirection ===
-          DynamicPriceFilterDirectionEnum.over
-        ? latestPrice - referencePrice
-        : referencePrice - latestPrice
-    const currentDeviation = (diff / referencePrice) * 100
-    return currentDeviation >= Math.abs(+settings.dynamicPriceFilterDeviation)
+    const minPrice =
+      referencePrice -
+      (referencePrice * +settings.dynamicPriceFilterUnderValue) / 100;
+    const maxPrice =
+      referencePrice +
+      (referencePrice * +settings.dynamicPriceFilterOverValue) / 100;
+    return latestPrice >= minPrice && latestPrice <= maxPrice;
   }
 
   public checkInRange(symbol: string, price: number, time: number) {
