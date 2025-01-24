@@ -683,6 +683,7 @@ export enum DcaVolumeRequiredChangeRef {
 }
 
 export interface DCABotSettings extends BaseSettings {
+  minimumDeviation?: string
   dcaCondition?: DCAConditionEnum
   dcaVolumeBaseOn?: DCAVolumeType
   dcaVolumeRequiredChange?: string
@@ -1404,7 +1405,6 @@ export type DCABacktestingResult = {
     avgNetDaily: number
     avgNetDailyUsd: number
     avgNetDailyPerc: number
-    annualizedReturn?: number
     unrealizedPnL: number
     unrealizedPnLUsd: number
     unrealizedPnLPerc: number
@@ -1426,6 +1426,7 @@ export type DCABacktestingResult = {
     stDevWinningTrade?: number
     stDevLosingTrade?: number
     stDownDevLosingTrade?: number
+    annualizedReturn?: number
   }
   duration: {
     avgDealDuration: number
