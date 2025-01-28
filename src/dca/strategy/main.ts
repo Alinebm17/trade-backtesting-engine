@@ -663,15 +663,15 @@ export abstract class Strategy implements StrategyInterface {
     }
     const result = dynamic && staticResult
     const last = Strategy.workingShift[Strategy.workingShift.length - 1]
-    const notSetRange =
+    /* const notSetRange =
       useDynamicPriceFilter &&
       !useStaticPriceFilter &&
-      (dynamic || (!dynamic && Strategy.getDealsCount('open', symbol) > 0))
+      (dynamic || (!dynamic && Strategy.getDealsCount('open', symbol) > 0)) */
     if (
-      !result &&
+      !staticResult &&
       Strategy.workingShift.length > 0 &&
-      !Strategy.rangeStatus &&
-      !notSetRange
+      !Strategy.rangeStatus /* &&
+      !notSetRange */
     ) {
       if (!last.end) {
         last.end = time
@@ -682,7 +682,7 @@ export abstract class Strategy implements StrategyInterface {
       }
       Strategy.rangeStatus = true
     }
-    if (result && Strategy.rangeStatus) {
+    if (staticResult && Strategy.rangeStatus) {
       Strategy.rangeStatus = false
       if (last.end) {
         Strategy.workingShift.push({ start: time })
