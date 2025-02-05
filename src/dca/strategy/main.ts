@@ -601,11 +601,23 @@ export abstract class Strategy implements StrategyInterface {
 
   private checkInDynamicRange(symbol: string, price: number): boolean {
     const { settings } = this
+    if (!settings.useDynamicPriceFilter) {
+      return true
+    }
+
+    const overValue =
+      parseFloat(settings.dynamicPriceFilterOverValue || '') ||
+      parseFloat(settings.dynamicPriceFilterDeviation || '') ||
+      0
+    const underValue =
+      parseFloat(settings.dynamicPriceFilterUnderValue || '') ||
+      parseFloat(settings.dynamicPriceFilterDeviation || '') ||
+      0
     if (
-      !settings.useDynamicPriceFilter ||
-      !settings.dynamicPriceFilterDeviation ||
-      isNaN(+settings.dynamicPriceFilterDeviation) ||
-      !isFinite(+settings.dynamicPriceFilterDeviation)
+      isNaN(overValue) ||
+      !isFinite(overValue) ||
+      isNaN(underValue) ||
+      !isFinite(underValue)
     ) {
       return true
     }
@@ -622,17 +634,30 @@ export abstract class Strategy implements StrategyInterface {
       DynamicPriceFilterPriceTypeEnum.avg
         ? lastData.avg
         : lastData.entry
-    const diff =
+    const calculatedOverValue =
+      referencePrice + (referencePrice * overValue) / 100
+    const calculatedUnderValue =
+      referencePrice - (referencePrice * underValue) / 100
+
+    if (
       settings.dynamicPriceFilterDirection ===
-        DynamicPriceFilterDirectionEnum.overAndUnder ||
-      !settings.dynamicPriceFilterDirection
-        ? Math.abs(latestPrice - referencePrice)
-        : settings.dynamicPriceFilterDirection ===
-          DynamicPriceFilterDirectionEnum.over
-        ? latestPrice - referencePrice
-        : referencePrice - latestPrice
-    const currentDeviation = (diff / referencePrice) * 100
-    return currentDeviation >= Math.abs(+settings.dynamicPriceFilterDeviation)
+      DynamicPriceFilterDirectionEnum.overAndUnder
+    ) {
+      return (
+        latestPrice > calculatedOverValue || latestPrice < calculatedUnderValue
+      )
+    } else if (
+      settings.dynamicPriceFilterDirection ===
+      DynamicPriceFilterDirectionEnum.over
+    ) {
+      return latestPrice > calculatedOverValue
+    } else if (
+      settings.dynamicPriceFilterDirection ===
+      DynamicPriceFilterDirectionEnum.under
+    ) {
+      return latestPrice < calculatedUnderValue
+    }
+    return true
   }
 
   public checkInRange(symbol: string, price: number, time: number) {
@@ -663,15 +688,15 @@ export abstract class Strategy implements StrategyInterface {
     }
     const result = dynamic && staticResult
     const last = Strategy.workingShift[Strategy.workingShift.length - 1]
-    const notSetRange =
+    /* const notSetRange =
       useDynamicPriceFilter &&
       !useStaticPriceFilter &&
-      (dynamic || (!dynamic && Strategy.getDealsCount('open', symbol) > 0))
+      (dynamic || (!dynamic && Strategy.getDealsCount('open', symbol) > 0)) */
     if (
-      !result &&
+      !staticResult &&
       Strategy.workingShift.length > 0 &&
-      !Strategy.rangeStatus &&
-      !notSetRange
+      !Strategy.rangeStatus /* &&
+      !notSetRange */
     ) {
       if (!last.end) {
         last.end = time
@@ -682,7 +707,7 @@ export abstract class Strategy implements StrategyInterface {
       }
       Strategy.rangeStatus = true
     }
-    if (result && Strategy.rangeStatus) {
+    if (staticResult && Strategy.rangeStatus) {
       Strategy.rangeStatus = false
       if (last.end) {
         Strategy.workingShift.push({ start: time })
