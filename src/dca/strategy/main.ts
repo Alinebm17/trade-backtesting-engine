@@ -641,7 +641,8 @@ export abstract class Strategy implements StrategyInterface {
 
     if (
       settings.dynamicPriceFilterDirection ===
-      DynamicPriceFilterDirectionEnum.overAndUnder
+        DynamicPriceFilterDirectionEnum.overAndUnder ||
+      !settings.dynamicPriceFilterDirection
     ) {
       return (
         latestPrice > calculatedOverValue || latestPrice < calculatedUnderValue
@@ -657,7 +658,7 @@ export abstract class Strategy implements StrategyInterface {
     ) {
       return latestPrice < calculatedUnderValue
     }
-    return true
+    return false
   }
 
   public checkInRange(symbol: string, price: number, time: number) {
