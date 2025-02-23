@@ -137,6 +137,10 @@ if (typeof window === 'undefined') {
       }
     }
   }
+} else {
+  saveFile = async () => {
+    console.warn('File operations are not supported in browser environment')
+  }
 }
 
 class Backtesting {

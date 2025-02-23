@@ -51,6 +51,11 @@ if (typeof window === 'undefined') {
 
     fs.closeSync(fd)
   }
+} else {
+  getFileLinesSync = function* (_filename: string, _encoding: BufferEncoding) {
+    console.warn('File operations are not supported in browser environment')
+    return
+  }
 }
 
 class CombinedStrategy extends Strategy implements StrategyInterface {
