@@ -634,11 +634,37 @@ export abstract class Strategy implements StrategyInterface {
       DynamicPriceFilterPriceTypeEnum.avg
         ? lastData.avg
         : lastData.entry
-    const calculatedOverValue =
+    let calculatedOverValue =
       referencePrice + (referencePrice * overValue) / 100
-    const calculatedUnderValue =
+    let calculatedUnderValue =
       referencePrice - (referencePrice * underValue) / 100
+    if (settings.useNoOverlapDeals) {
+      const openDeals = Strategy.getDeals('open', symbol)
+      if (openDeals.length > 0) {
+        const mostRecentDeal = openDeals.sort(
+          (a, b) => b.startTime - a.startTime,
+        )[0]
+        const mostRecentInitialAvgPrice = mostRecentDeal.avgPrice
 
+        const percentageChange =
+          ((latestPrice - mostRecentInitialAvgPrice) /
+            mostRecentInitialAvgPrice) *
+          100
+
+        if (percentageChange >= overValue) {
+          calculatedOverValue =
+            mostRecentInitialAvgPrice +
+            (mostRecentInitialAvgPrice * overValue) / 100
+          this.openDeal(price, Date.now(), 0, 0, symbol, true)
+        }
+        if (percentageChange <= underValue) {
+          calculatedUnderValue =
+            mostRecentInitialAvgPrice -
+            (mostRecentInitialAvgPrice * Math.abs(underValue)) / 100
+          this.openDeal(price, Date.now(), 0, 0, symbol, true)
+        }
+      }
+    }
     if (
       settings.dynamicPriceFilterDirection ===
         DynamicPriceFilterDirectionEnum.overAndUnder ||
