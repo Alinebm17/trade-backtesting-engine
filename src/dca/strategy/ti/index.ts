@@ -68,6 +68,7 @@ export type Indicator = {
   status: Status
   ignore: boolean
   symbol: string
+  groupId: string
 }
 
 class TIStrategy extends Strategy implements StrategyInterface {
@@ -447,6 +448,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           status: { status: false, statusSince: 0, statusTo: 0 },
           ignore: false,
           symbol: s.pair,
+          groupId: i.groupId,
         })
         if (
           type === IndicatorEnum.ma &&
@@ -475,6 +477,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             status: { status: false, statusSince: 0, statusTo: 0 },
             ignore: true,
             symbol: s.pair,
+            groupId: '',
           })
         }
         if (
@@ -501,6 +504,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             status: { status: false, statusSince: 0, statusTo: 0 },
             ignore: true,
             symbol: s.pair,
+            groupId: '',
           })
         }
       }
@@ -1549,12 +1553,29 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const stopBotStatus = stopBot.filter(filterFn)
       const startBotStatus = startBot.filter(filterFn)
       const startDcaStatus = startDca.filter(filterFn)
+      const closeDealSlGroupsStatus = !closeDealSl.length
+        ? []
+        : this.settings.indicatorGroups
+            .filter(
+              (ig) =>
+                ig.action === IndicatorAction.closeDeal &&
+                ig.section === IndicatorSection.sl,
+            )
+            .map((ig) => {
+              const findAll = closeDealSl.filter((i) => i.groupId === ig.id)
+              const findAllStatus = closeDealSlStatus.filter(
+                (i) => i.groupId === ig.id,
+              )
+              return !!(ig.logic === IndicatorsLogicEnum.or
+                ? findAllStatus.length > 0
+                : findAll.length && findAll.length === findAllStatus.length)
+            })
       if (
         (this.settings.stopDealSlLogic === IndicatorsLogicEnum.and ||
         !this.settings.stopDealSlLogic
-          ? closeDealSl.length === closeDealSlStatus.length
-          : closeDealSlStatus.length > 0) &&
-        closeDealSl.length
+          ? closeDealSlGroupsStatus.every((r) => !!r)
+          : closeDealSlGroupsStatus.some((r) => !!r)) &&
+        closeDealSlGroupsStatus.length
       ) {
         Strategy.indicatorEvents.push({
           type: IndicatorAction.closeDeal,
@@ -1599,12 +1620,25 @@ class TIStrategy extends Strategy implements StrategyInterface {
           return i
         })
       }
+      const stopBotGroupsStatus = !stopBot.length
+        ? []
+        : this.settings.indicatorGroups
+            .filter((ig) => ig.action === IndicatorAction.stopBot)
+            .map((ig) => {
+              const findAll = stopBot.filter((i) => i.groupId === ig.id)
+              const findAllStatus = stopBotStatus.filter(
+                (i) => i.groupId === ig.id,
+              )
+              return !!(ig.logic === IndicatorsLogicEnum.or
+                ? findAllStatus.length > 0
+                : findAll.length && findAll.length === findAllStatus.length)
+            })
       if (
         (this.settings.stopBotLogic === IndicatorsLogicEnum.and ||
         !this.settings.stopBotLogic
-          ? stopBot.length === stopBotStatus.length
-          : stopBotStatus.length > 0) &&
-        stopBotStatus.length &&
+          ? stopBotGroupsStatus.every((r) => !!r)
+          : stopBotGroupsStatus.some((r) => !!r)) &&
+        stopBotGroupsStatus.length &&
         Strategy.status === 'open' &&
         !Strategy.preventOpen
       ) {
@@ -1635,12 +1669,25 @@ class TIStrategy extends Strategy implements StrategyInterface {
           return i
         })
       }
+      const startBotGroupsStatus = !startBot.length
+        ? []
+        : this.settings.indicatorGroups
+            .filter((ig) => ig.action === IndicatorAction.startBot)
+            .map((ig) => {
+              const findAll = startBot.filter((i) => i.groupId === ig.id)
+              const findAllStatus = startBotStatus.filter(
+                (i) => i.groupId === ig.id,
+              )
+              return !!(ig.logic === IndicatorsLogicEnum.or
+                ? findAllStatus.length > 0
+                : findAll.length && findAll.length === findAllStatus.length)
+            })
       if (
         (this.settings.startBotLogic === IndicatorsLogicEnum.and ||
         !this.settings.startBotLogic
-          ? startBot.length === startBotStatus.length
-          : startBotStatus.length > 0) &&
-        startBotStatus.length &&
+          ? startBotGroupsStatus.every((r) => !!r)
+          : startBotGroupsStatus.some((r) => !!r)) &&
+        startBotGroupsStatus.length &&
         Strategy.preventOpen &&
         Strategy.status === 'monitoring'
       ) {
@@ -1664,12 +1711,29 @@ class TIStrategy extends Strategy implements StrategyInterface {
           return i
         })
       }
+      const closeDealTpGroupsStatus = !closeDealTp.length
+        ? []
+        : this.settings.indicatorGroups
+            .filter(
+              (ig) =>
+                ig.action === IndicatorAction.closeDeal &&
+                ig.section !== IndicatorSection.sl,
+            )
+            .map((ig) => {
+              const findAll = closeDealTp.filter((i) => i.groupId === ig.id)
+              const findAllStatus = closeDealTpStatus.filter(
+                (i) => i.groupId === ig.id,
+              )
+              return !!(ig.logic === IndicatorsLogicEnum.or
+                ? findAllStatus.length > 0
+                : findAll.length && findAll.length === findAllStatus.length)
+            })
       if (
         (this.settings.stopDealLogic === IndicatorsLogicEnum.and ||
         !this.settings.stopDealLogic
-          ? closeDealTp.length === closeDealTpStatus.length
-          : closeDealTpStatus.length > 0) &&
-        closeDealTp.length
+          ? closeDealTpGroupsStatus.every((r) => !!r)
+          : closeDealTpGroupsStatus.some((r) => !!r)) &&
+        closeDealTpGroupsStatus.length
       ) {
         Strategy.indicatorEvents.push({
           type: IndicatorAction.closeDeal,
@@ -1711,12 +1775,25 @@ class TIStrategy extends Strategy implements StrategyInterface {
           return i
         })
       }
+      const startDealGroupsStatus = !startDeal.length
+        ? []
+        : this.settings.indicatorGroups
+            .filter((ig) => ig.action === IndicatorAction.startDeal)
+            .map((ig) => {
+              const findAll = startDeal.filter((i) => i.groupId === ig.id)
+              const findAllStatus = startDealStatus.filter(
+                (i) => i.groupId === ig.id,
+              )
+              return !!(ig.logic === IndicatorsLogicEnum.or
+                ? findAllStatus.length > 0
+                : findAll.length && findAll.length === findAllStatus.length)
+            })
       if (
         (this.settings.startDealLogic === IndicatorsLogicEnum.and ||
         !this.settings.startDealLogic
-          ? startDeal.length === startDealStatus.length
-          : startDealStatus.length > 0) &&
-        startDeal.length
+          ? startDealGroupsStatus.every((r) => !!r)
+          : startDealGroupsStatus.some((r) => !!r)) &&
+        startDealGroupsStatus.length
       ) {
         Strategy.indicatorEvents.push({
           type: IndicatorAction.startDeal,
