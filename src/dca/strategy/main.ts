@@ -641,27 +641,42 @@ export abstract class Strategy implements StrategyInterface {
     if (settings.useNoOverlapDeals) {
       const openDeals = Strategy.getDeals('open', symbol)
       if (openDeals.length > 0) {
-        const mostRecentDeal = openDeals.sort(
-          (a, b) => b.startTime - a.startTime,
-        )[0]
-        const mostRecentInitialAvgPrice = mostRecentDeal.avgPrice
-
-        const percentageChange =
-          ((latestPrice - mostRecentInitialAvgPrice) /
-            mostRecentInitialAvgPrice) *
-          100
-
-        if (percentageChange >= overValue) {
-          calculatedOverValue =
-            mostRecentInitialAvgPrice +
-            (mostRecentInitialAvgPrice * overValue) / 100
-          this.openDeal(price, Date.now(), 0, 0, symbol, true)
-        }
-        if (percentageChange <= underValue) {
-          calculatedUnderValue =
-            mostRecentInitialAvgPrice -
-            (mostRecentInitialAvgPrice * Math.abs(underValue)) / 100
-          this.openDeal(price, Date.now(), 0, 0, symbol, true)
+        const ranges = openDeals.map((d) => ({
+          start: d.startPrice,
+          end:
+            [...d.initialOrders].sort((a, b) =>
+              this.long ? a.price - b.price : b.price - a.price,
+            )?.[0]?.price || d.startPrice,
+        }))
+        const orders = this.botFunctions
+          .get(symbol)
+          ?.createOrders(
+            this.usdRateQuote.get(symbol) ?? 0,
+            price,
+            true,
+            undefined,
+            undefined,
+            this.getBalances(symbol),
+            true,
+            [],
+            true,
+          )
+          ?.filter((o) => o.type === DCAOrderTypeEnum.dca)
+        const currentDealPrice =
+          orders?.sort((a, b) =>
+            this.long ? a.price - b.price : b.price - a.price,
+          )?.[0]?.price || price
+        const currentRange = { start: price, end: +currentDealPrice }
+        const isCurrentDealRangeIsInRanges = ranges.some((r) => {
+          const isInRange = this.long
+            ? (currentRange.start <= r.start && currentRange.start >= r.end) ||
+              (currentRange.end <= r.start && currentRange.end >= r.end)
+            : (currentRange.start >= r.start && currentRange.start <= r.end) ||
+              (currentRange.end >= r.start && currentRange.end <= r.end)
+          return isInRange
+        })
+        if (isCurrentDealRangeIsInRanges) {
+          return false
         }
       }
     }
