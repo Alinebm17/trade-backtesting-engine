@@ -634,11 +634,52 @@ export abstract class Strategy implements StrategyInterface {
       DynamicPriceFilterPriceTypeEnum.avg
         ? lastData.avg
         : lastData.entry
-    const calculatedOverValue =
+    let calculatedOverValue =
       referencePrice + (referencePrice * overValue) / 100
-    const calculatedUnderValue =
+    let calculatedUnderValue =
       referencePrice - (referencePrice * underValue) / 100
-
+    if (settings.useNoOverlapDeals) {
+      const openDeals = Strategy.getDeals('open', symbol)
+      if (openDeals.length > 0) {
+        const ranges = openDeals.map((d) => ({
+          start: d.startPrice,
+          end:
+            [...d.initialOrders].sort((a, b) =>
+              this.long ? a.price - b.price : b.price - a.price,
+            )?.[0]?.price || d.startPrice,
+        }))
+        const orders = this.botFunctions
+          .get(symbol)
+          ?.createOrders(
+            this.usdRateQuote.get(symbol) ?? 0,
+            price,
+            true,
+            undefined,
+            undefined,
+            this.getBalances(symbol),
+            true,
+            [],
+            true,
+          )
+          ?.filter((o) => o.type === DCAOrderTypeEnum.dca)
+        const currentDealPrice =
+          orders?.sort((a, b) =>
+            this.long ? a.price - b.price : b.price - a.price,
+          )?.[0]?.price || price
+        const currentRange = { start: price, end: +currentDealPrice }
+        const isCurrentDealRangeIsInRanges = ranges.some((r) => {
+          const isInRange = this.long
+            ? (currentRange.start <= r.start && currentRange.start >= r.end) ||
+              (currentRange.end <= r.start && currentRange.end >= r.end)
+            : (currentRange.start >= r.start && currentRange.start <= r.end) ||
+              (currentRange.end >= r.start && currentRange.end <= r.end)
+          return isInRange
+        })
+        if (isCurrentDealRangeIsInRanges) {
+          return false
+        }
+      }
+    }
     if (
       settings.dynamicPriceFilterDirection ===
         DynamicPriceFilterDirectionEnum.overAndUnder ||
