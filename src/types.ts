@@ -416,6 +416,7 @@ export type SettingsIndicators = {
   indicatorLength: number
   indicatorValue: string
   indicatorCondition: IndicatorStartConditionEnum
+  groupId: string
   uuid: string
   indicatorInterval: ExchangeIntervals
   signal?: TradingviewAnalysisSignalEnum
@@ -682,6 +683,13 @@ export enum DcaVolumeRequiredChangeRef {
   avg = 'avg',
 }
 
+export type SettingsIndicatorGroup = {
+  id: string
+  logic: IndicatorsLogicEnum
+  action: IndicatorAction
+  section?: IndicatorSection
+}
+
 export interface DCABotSettings extends BaseSettings {
   minimumDeviation?: string
   dcaCondition?: DCAConditionEnum
@@ -717,6 +725,7 @@ export interface DCABotSettings extends BaseSettings {
   hodlNextBuy: number
   maxNumberOfOpenDeals?: string
   indicators: SettingsIndicators[]
+  indicatorGroups: SettingsIndicatorGroup[]
   type?: DCATypeEnum
   orderSizeType: OrderSizeTypeEnum
   limitTimeout?: string
