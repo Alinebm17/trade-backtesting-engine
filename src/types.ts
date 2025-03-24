@@ -8,6 +8,7 @@ import type {
   PCResult,
   PriorPivotResult,
   QFLResult,
+  DCResult,
 } from '../indicators/src'
 
 export const DirName = `../../tmp-backtester`
@@ -49,6 +50,7 @@ export enum IndicatorEnum {
   kc = 'KC',
   kcpb = 'KCPB',
   unpnl = 'UNPNL',
+  dc = 'DC',
 }
 
 export enum ECDTriggerEnum {
@@ -205,6 +207,7 @@ export enum RangeType {
 }
 
 export type IndicatorConfigBackTesting =
+  | { type: IndicatorEnum.dc; length: number }
   | {
       type: IndicatorEnum.st
       factor: number
@@ -409,6 +412,7 @@ export type IndicatorHistory = { time: number } & (
     }
   | { type: IndicatorEnum.qfl; value: QFLResult }
   | { type: IndicatorEnum.psar; value: { psar: number; price: number } }
+  | { type: IndicatorEnum.dc; value: DCResult }
 )
 
 export type SettingsIndicators = {

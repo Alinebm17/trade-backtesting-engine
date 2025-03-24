@@ -209,7 +209,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
           continue
         }
         const ind = new InternalIndicator(
-          type === IndicatorEnum.macd
+          type === IndicatorEnum.dc
+            ? { type, length: indicatorLength }
+            : type === IndicatorEnum.macd
             ? {
                 type,
                 shortInterval: macdFast ?? 12,
@@ -1113,6 +1115,15 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ) {
             last = lastData.value
             prev = prevData.value
+          }
+          if (
+            lastData.type === IndicatorEnum.dc &&
+            prevData.type === IndicatorEnum.dc
+          ) {
+            last = lastData.value.price
+            prev = prevData.value.price
+            value = lastData.value.basis
+            prevValue = prevData.value.basis
           }
           if (
             lastData.type === IndicatorEnum.atr &&

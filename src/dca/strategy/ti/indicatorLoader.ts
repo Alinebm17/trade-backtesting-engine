@@ -39,6 +39,7 @@ import {
   FasterATH,
   FasterKeltnerChannel,
   FasterKeltnerChannelPB,
+  FasterDonchianChannels,
 } from '../../../../indicators/src'
 import { MAEnum, IndicatorEnum, RangeType } from '../../../types'
 
@@ -88,6 +89,7 @@ export default class InternalIndicator {
     | FasterATH
     | FasterKeltnerChannel
     | FasterKeltnerChannelPB
+    | FasterDonchianChannels
   private data: IndicatorHistory[] = []
 
   private readonly type: IndicatorEnum
@@ -120,6 +122,10 @@ export default class InternalIndicator {
         indicatorConfig.atrPeriod,
       )
       this.length = indicatorConfig.atrPeriod + add
+    }
+    if (indicatorConfig.type === IndicatorEnum.dc) {
+      this.indicator = new FasterDonchianChannels(indicatorConfig.length)
+      this.length = indicatorConfig.length + add
     }
     if (indicatorConfig.type === IndicatorEnum.pp) {
       this.indicator = new PriorPivot(
@@ -639,7 +645,8 @@ export default class InternalIndicator {
     if (
       this.indicator &&
       (this.indicator instanceof FasterMOM ||
-        this.indicator instanceof FasterECD)
+        this.indicator instanceof FasterECD ||
+        this.indicator instanceof FasterDonchianChannels)
     ) {
       this.indicator?.update({
         high: +value.h,
