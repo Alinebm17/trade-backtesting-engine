@@ -518,6 +518,13 @@ export type SettingsIndicators = {
   kcRangeLength?: number
   unpnlValue?: number
   unpnlCondition?: IndicatorStartConditionEnum
+  dcValue?: DCValueEnum
+}
+
+export enum DCValueEnum {
+  basis = 'basis',
+  lower = 'lower',
+  upper = 'upper',
 }
 
 export enum ppValueTypeEnum {

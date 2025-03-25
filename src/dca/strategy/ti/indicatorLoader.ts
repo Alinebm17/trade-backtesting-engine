@@ -125,7 +125,7 @@ export default class InternalIndicator {
     }
     if (indicatorConfig.type === IndicatorEnum.dc) {
       this.indicator = new FasterDonchianChannels(indicatorConfig.length)
-      this.length = indicatorConfig.length + add
+      this.length = indicatorConfig.length + 1 + add
     }
     if (indicatorConfig.type === IndicatorEnum.pp) {
       this.indicator = new PriorPivot(

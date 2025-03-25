@@ -31,6 +31,7 @@ import {
   ScaleDcaTypeEnum,
   RangeType,
   IndicatorsLogicEnum,
+  DCValueEnum,
 } from '../../../types'
 
 import type {
@@ -898,6 +899,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             ppType,
             indicatorAction,
             section,
+            dcValue,
           },
           data,
         } = i
@@ -1122,8 +1124,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
           ) {
             last = lastData.value.price
             prev = prevData.value.price
-            value = lastData.value.basis
-            prevValue = prevData.value.basis
+            value =
+              dcValue === DCValueEnum.lower
+                ? lastData.value.low
+                : dcValue === DCValueEnum.upper
+                ? lastData.value.high
+                : lastData.value.basis
+            prevValue =
+              dcValue === DCValueEnum.lower
+                ? prevData.value.low
+                : dcValue === DCValueEnum.upper
+                ? prevData.value.high
+                : prevData.value.basis
           }
           if (
             lastData.type === IndicatorEnum.atr &&
