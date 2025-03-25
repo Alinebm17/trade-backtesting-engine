@@ -41,6 +41,7 @@ import type {
   SettingsIndicators,
   TradeResponse,
   FullBar,
+  SettingsIndicatorGroup,
 } from '../../../types'
 import type { DataType, StrategyInput } from '../main'
 import {
@@ -77,13 +78,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
   private firstBar: Map<string, number> = new Map()
   private nextBarTime: Map<string, number> = new Map()
   private nextAction = false
+  private indicatorGroupsToUse: SettingsIndicatorGroup[] = []
   constructor(input: StrategyInput) {
     /* input.settings.indicators = input.settings.indicators.filter(
       (i) => i.indicatorAction !== IndicatorAction.stopBot,
     ) */
     super(input)
     this.processBar = this.processBar.bind(this)
-    const { indicators } = input.settings
+    const { indicators, indicatorGroups } = input.settings
+    this.indicatorGroupsToUse = (indicatorGroups ?? []).filter((ig) => {
+      const ind = (indicators ?? []).filter((i) => i.groupId === ig.id)
+      return ind.length > 0
+    })
     for (const s of input.symbols) {
       for (const i of indicators.filter(
         (_i) => _i.type !== IndicatorEnum.unpnl,
@@ -1578,7 +1584,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const startDcaStatus = startDca.filter(filterFn)
       const closeDealSlGroupsStatus = !closeDealSl.length
         ? []
-        : this.settings.indicatorGroups
+        : this.indicatorGroupsToUse
             .filter(
               (ig) =>
                 ig.action === IndicatorAction.closeDeal &&
@@ -1645,7 +1651,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       }
       const stopBotGroupsStatus = !stopBot.length
         ? []
-        : this.settings.indicatorGroups
+        : this.indicatorGroupsToUse
             .filter((ig) => ig.action === IndicatorAction.stopBot)
             .map((ig) => {
               const findAll = stopBot.filter((i) => i.groupId === ig.id)
@@ -1694,7 +1700,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       }
       const startBotGroupsStatus = !startBot.length
         ? []
-        : this.settings.indicatorGroups
+        : this.indicatorGroupsToUse
             .filter((ig) => ig.action === IndicatorAction.startBot)
             .map((ig) => {
               const findAll = startBot.filter((i) => i.groupId === ig.id)
@@ -1736,7 +1742,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       }
       const closeDealTpGroupsStatus = !closeDealTp.length
         ? []
-        : this.settings.indicatorGroups
+        : this.indicatorGroupsToUse
             .filter(
               (ig) =>
                 ig.action === IndicatorAction.closeDeal &&
@@ -1800,7 +1806,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       }
       const startDealGroupsStatus = !startDeal.length
         ? []
-        : this.settings.indicatorGroups
+        : this.indicatorGroupsToUse
             .filter((ig) => ig.action === IndicatorAction.startDeal)
             .map((ig) => {
               const findAll = startDeal.filter((i) => i.groupId === ig.id)
