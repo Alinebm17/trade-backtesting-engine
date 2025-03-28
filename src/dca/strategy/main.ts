@@ -642,13 +642,40 @@ export abstract class Strategy implements StrategyInterface {
       const openDeals = Strategy.getDeals('open', symbol)
       if (openDeals.length > 0) {
         const ranges = openDeals.map((d) => ({
-          start: d.startPrice,
+          start:
+            d.avgPrice *
+            (this.long
+              ? settings.dynamicPriceFilterDirection ===
+                  DynamicPriceFilterDirectionEnum.over ||
+                settings.dynamicPriceFilterDirection ===
+                  DynamicPriceFilterDirectionEnum.overAndUnder
+                ? 1 + overValue / 100
+                : 1
+              : settings.dynamicPriceFilterDirection ===
+                  DynamicPriceFilterDirectionEnum.under ||
+                settings.dynamicPriceFilterDirection ===
+                  DynamicPriceFilterDirectionEnum.overAndUnder
+              ? 1 - underValue / 100
+              : 1) /* d.startPrice */,
           end:
-            [...d.initialOrders].sort((a, b) =>
+            /*  ([...d.initialOrders].sort((a, b) =>
               this.long ? a.price - b.price : b.price - a.price,
-            )?.[0]?.price || d.startPrice,
+            )?.[0]?.price || d.startPrice) */ d.avgPrice *
+            (this.long
+              ? settings.dynamicPriceFilterDirection ===
+                  DynamicPriceFilterDirectionEnum.under ||
+                settings.dynamicPriceFilterDirection ===
+                  DynamicPriceFilterDirectionEnum.overAndUnder
+                ? 1 - underValue / 100
+                : 1
+              : settings.dynamicPriceFilterDirection ===
+                  DynamicPriceFilterDirectionEnum.over ||
+                settings.dynamicPriceFilterDirection ===
+                  DynamicPriceFilterDirectionEnum.overAndUnder
+              ? 1 + overValue / 100
+              : 1),
         }))
-        const orders = this.botFunctions
+        /* const orders = this.botFunctions
           .get(symbol)
           ?.createOrders(
             this.usdRateQuote.get(symbol) ?? 0,
@@ -665,8 +692,11 @@ export abstract class Strategy implements StrategyInterface {
         const currentDealPrice =
           orders?.sort((a, b) =>
             this.long ? a.price - b.price : b.price - a.price,
-          )?.[0]?.price || price
-        const currentRange = { start: price, end: +currentDealPrice }
+          )?.[0]?.price || price */
+        const currentRange = {
+          start: price,
+          end: price /* +currentDealPrice */,
+        }
         const isCurrentDealRangeIsInRanges = ranges.some((r) => {
           const isInRange = this.long
             ? (currentRange.start <= r.start && currentRange.start >= r.end) ||
