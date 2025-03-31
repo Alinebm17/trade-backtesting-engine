@@ -643,7 +643,10 @@ export abstract class Strategy implements StrategyInterface {
       if (openDeals.length > 0) {
         const ranges = openDeals.map((d) => ({
           start:
-            d.avgPrice *
+            (settings.dynamicPriceFilterPriceType ===
+            DynamicPriceFilterPriceTypeEnum.avg
+              ? d.avgPrice
+              : d.startPrice) *
             (this.long
               ? settings.dynamicPriceFilterDirection ===
                   DynamicPriceFilterDirectionEnum.over ||
@@ -660,7 +663,10 @@ export abstract class Strategy implements StrategyInterface {
           end:
             /*  ([...d.initialOrders].sort((a, b) =>
               this.long ? a.price - b.price : b.price - a.price,
-            )?.[0]?.price || d.startPrice) */ d.avgPrice *
+            )?.[0]?.price || d.startPrice) */ (settings.dynamicPriceFilterPriceType ===
+            DynamicPriceFilterPriceTypeEnum.avg
+              ? d.avgPrice
+              : d.startPrice) *
             (this.long
               ? settings.dynamicPriceFilterDirection ===
                   DynamicPriceFilterDirectionEnum.under ||
