@@ -4400,6 +4400,7 @@ export abstract class Strategy implements StrategyInterface {
       this.checkEquityDrawdown()
     }
     for (let d of Strategy.getDeals('open', b.symbol)) {
+      d = JSON.parse(JSON.stringify(d)) as Deal
       let tpOrder: FullGrid | undefined
       tpOrder = this.checkCloseTimer(d, b)
       const bOpenHigh = { ...b, low: b.open }
