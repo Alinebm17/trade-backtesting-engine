@@ -129,6 +129,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
           xOscillator2,
           xOscillator2Interval,
           xOscillator2length,
+          xOscillator2voLong,
+          xOscillator2voShort,
           xoUUID,
           percentile,
           percentileLookback,
@@ -326,10 +328,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 percentilePercentage,
               }
             : type === IndicatorEnum.xo
-            ? {
-                type: xOscillator1 || IndicatorEnum.rsi,
-                interval: indicatorLength,
-              }
+            ? xOscillator1 === IndicatorEnum.vo
+              ? {
+                  type: xOscillator1,
+                  voLong: voLong ?? 10,
+                  voShort: voShort ?? 5,
+                }
+              : {
+                  type: xOscillator1 || IndicatorEnum.rsi,
+                  interval: indicatorLength,
+                }
             : type === IndicatorEnum.stoch
             ? {
                 type,
@@ -499,10 +507,18 @@ class TIStrategy extends Strategy implements StrategyInterface {
           !tpAr &&
           !slAr
         ) {
-          const indicatorChild = new InternalIndicator({
-            type: xOscillator2 || IndicatorEnum.mfi,
-            interval: xOscillator2length || indicatorLength,
-          })
+          const indicatorChild = new InternalIndicator(
+            xOscillator2 === IndicatorEnum.vo
+              ? {
+                  type: xOscillator2,
+                  voLong: xOscillator2voLong ?? voLong ?? 10,
+                  voShort: xOscillator2voShort ?? voShort ?? 5,
+                }
+              : {
+                  type: xOscillator2 || IndicatorEnum.mfi,
+                  interval: xOscillator2length || indicatorLength,
+                },
+          )
           Strategy.indicators.push({
             instance: indicatorChild,
             data: [],

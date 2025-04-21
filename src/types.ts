@@ -466,10 +466,20 @@ export type SettingsIndicators = {
   momSource?: string
   bbwpLookback?: number
   ecdTrigger?: ECDTriggerEnum
-  xOscillator1?: IndicatorEnum.rsi | IndicatorEnum.cci | IndicatorEnum.mfi
-  xOscillator2?: IndicatorEnum.rsi | IndicatorEnum.cci | IndicatorEnum.mfi
+  xOscillator1?:
+    | IndicatorEnum.rsi
+    | IndicatorEnum.cci
+    | IndicatorEnum.mfi
+    | IndicatorEnum.vo
+  xOscillator2?:
+    | IndicatorEnum.rsi
+    | IndicatorEnum.cci
+    | IndicatorEnum.mfi
+    | IndicatorEnum.vo
   xOscillator2length?: number
   xOscillator2Interval?: ExchangeIntervals
+  xOscillator2voLong?: number
+  xOscillator2voShort?: number
   xoUUID?: string
   percentile?: boolean
   percentileLookback?: number
