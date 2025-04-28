@@ -163,6 +163,10 @@ const maxDealsPerResult = 50 * 1000
 export abstract class Strategy implements StrategyInterface {
   static combo = false
 
+  static portfolioTimes: Set<string> = new Set()
+
+  static candleTimes: Set<string> = new Set()
+
   static indicatorEvents: IndicatorsEvents[] = []
 
   static emptyPositon = {
@@ -4217,6 +4221,11 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   public checkPortfolio(time: number, _price: number, symbol: string) {
+    const key = `${symbol}-${time}`
+    if (Strategy.portfolioTimes.has(key)) {
+      return
+    }
+    Strategy.portfolioTimes.add(key)
     const openDeal = Strategy.getDeals('open', symbol)
     const fullSymbol = this.symbols.get(symbol)
     const baseBalance =
@@ -4368,6 +4377,11 @@ export abstract class Strategy implements StrategyInterface {
     if (this._stop) {
       return
     }
+    const key = `${b.symbol}-${b.time}`
+    if (Strategy.candleTimes.has(key)) {
+      return
+    }
+    Strategy.candleTimes.add(key)
     if (!this.settings.useMulti && !Strategy.edge) {
       if (Strategy.priceMin === 0 || b.low < Strategy.priceMin) {
         Strategy.priceMin = b.low

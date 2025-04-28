@@ -104,17 +104,15 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
     const dealsPerSymbols = Strategy.getDealsCount(undefined, bar.symbol)
     const dealsPerSymbolsClosed = Strategy.getDealsCount('closed', bar.symbol)
     const dealsPerSymbolsOpen = Strategy.getDealsCount('open', bar.symbol)
+    let newShift = false
     if (dealsPerSymbols === 0) {
       if ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start) {
-        const newShift = Strategy.workingShift.length === 0
+        newShift = Strategy.workingShift.length === 0
         if (newShift) {
           this.startWorkingShift(bar.time)
         }
         for (const _ of [...Array(useDynamic ? 1 : maxPerSymbol).keys()]) {
           this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
-        }
-        if (newShift) {
-          this.checkPortfolio(bar.time, bar.close, bar.symbol)
         }
       }
     } else if (
@@ -127,13 +125,16 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
         this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)
       }
     }
-    if (dealsPerSymbolsOpen) {
+    if (dealsPerSymbolsOpen || newShift) {
       await this.checkDeals(checkPortfolio, bar, (price: number) => {
         this.openDeal(price, bar.time, bar.high, bar.low, bar.symbol)
         if (Strategy.combo) {
           this.checkDeals(false, bar)
         }
       })
+    }
+    if (newShift) {
+      this.checkPortfolio(bar.time, bar.close, bar.symbol)
     }
   }
 }
