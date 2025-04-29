@@ -255,7 +255,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 ma: kcMa || MAEnum.ema,
                 multiplier: bbwMult || 2,
                 range: kcRange || RangeType.atr,
-                rangeLength: kcRangeLength || 10,
+                rangeLength: kcRangeLength || 20,
               }
             : type === IndicatorEnum.kcpb
             ? {
@@ -264,7 +264,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 ma: kcMa || MAEnum.ema,
                 multiplier: bbwMult || 2,
                 range: kcRange || RangeType.atr,
-                rangeLength: kcRangeLength || 10,
+                rangeLength: kcRangeLength || 20,
                 percentile,
                 percentileLookback,
                 percentilePercentage,
