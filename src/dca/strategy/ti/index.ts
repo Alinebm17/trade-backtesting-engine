@@ -1860,13 +1860,6 @@ class TIStrategy extends Strategy implements StrategyInterface {
               : /* lowestBar?.high ??  */ nextBar.high,
           symbol: nextBar.symbol,
         })
-        this.openDeal(
-          /* lowestBar?.open ??  */ nextBar.open,
-          nextBar.time,
-          /* lowestBar?.high ??  */ nextBar.high,
-          /* lowestBar?.low ?? */ nextBar.low,
-          nextBar.symbol,
-        )
         const useMaxDealsPerSignal =
           this.settings.indicators
             .filter((i) => i.indicatorAction === IndicatorAction.startDeal)
@@ -1884,6 +1877,50 @@ class TIStrategy extends Strategy implements StrategyInterface {
               ? Infinity
               : +(this.settings.maxDealsPerHigherTimeframe ?? '1')
             : 1
+        const cbIfNotOpened = () => {
+          Strategy.indicators = Strategy.indicators.map((i) => {
+            if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
+              const maxNumberExceed =
+                i.interval === Strategy.highestInterval &&
+                useMaxDealsPerSignal &&
+                Math.max(0, (i.status.numberOfSignals ?? 0) - 1) >=
+                  maxDealsPerSignal
+              return {
+                ...i,
+                status: maxNumberExceed
+                  ? {
+                      status: false,
+                      statusSince: 0,
+                      statusTo: 0,
+                      numberOfSignals: 0,
+                    }
+                  : {
+                      ...i.status,
+                      status: i.status.statusTo
+                        ? i.status.statusTo > nextBar.time
+                          ? i.status.status
+                          : false
+                        : false,
+                      numberOfSignals:
+                        i.interval === Strategy.highestInterval
+                          ? Math.max(0, (i.status.numberOfSignals ?? 0) - 1)
+                          : i.status.numberOfSignals,
+                    },
+              }
+            }
+            return i
+          })
+        }
+        this.openDeal(
+          /* lowestBar?.open ??  */ nextBar.open,
+          nextBar.time,
+          /* lowestBar?.high ??  */ nextBar.high,
+          /* lowestBar?.low ?? */ nextBar.low,
+          nextBar.symbol,
+          false,
+          cbIfNotOpened,
+        )
+
         Strategy.indicators = Strategy.indicators.map((i) => {
           if (startDealStatus.map((ai) => ai.id).includes(i.id)) {
             const maxNumberExceed =

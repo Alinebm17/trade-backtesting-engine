@@ -1836,27 +1836,28 @@ export abstract class Strategy implements StrategyInterface {
     low: number,
     s: string,
     onlyReturn = false,
+    cbIfNotOpened?: () => void,
   ) {
     if (!onlyReturn) {
       this.checkStartStopPrice(price, high, low)
     }
     if (!onlyReturn && Strategy.preventOpen) {
-      return
+      return cbIfNotOpened && cbIfNotOpened()
     }
     if (!this.checkCloseAfterX()) {
-      return
+      return cbIfNotOpened && cbIfNotOpened()
     }
     if (!this.checkCooldownStart(startTime, s)) {
-      return
+      return cbIfNotOpened && cbIfNotOpened()
     }
     if (!this.checkCooldownStop(startTime, s)) {
-      return
+      return cbIfNotOpened && cbIfNotOpened()
     }
     if (!this.checkInRange(s, price, startTime)) {
-      return
+      return cbIfNotOpened && cbIfNotOpened()
     }
     if (!this.checkMaxDeals(s)) {
-      return
+      return cbIfNotOpened && cbIfNotOpened()
     }
     let fixSl = 0
     let fixTp = 0
@@ -1864,7 +1865,7 @@ export abstract class Strategy implements StrategyInterface {
     if (this.settings.useRiskReward) {
       const riskReward = this.checkRiskRewardCondition(s, price)
       if (!riskReward) {
-        return
+        return cbIfNotOpened && cbIfNotOpened()
       }
       fixSl = riskReward.sl
       fixTp = riskReward.tp ?? 0
@@ -1874,14 +1875,14 @@ export abstract class Strategy implements StrategyInterface {
     if (this.scaleAr || this.tpAr || this.slAr) {
       const dynamic = this.getDynamicLevels(s)
       if (!dynamic.length) {
-        return
+        return cbIfNotOpened && cbIfNotOpened()
       }
       dynamicAr = dynamic
     }
     const symbol = this.symbols.get(s)
     const botFunctions = this.botFunctions.get(s)
     if (!symbol || !botFunctions) {
-      return
+      return cbIfNotOpened && cbIfNotOpened()
     }
     if (!onlyReturn) {
       Strategy.lastOpenedDeal = startTime
