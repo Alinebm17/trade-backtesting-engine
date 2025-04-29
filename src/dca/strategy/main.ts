@@ -163,9 +163,9 @@ const maxDealsPerResult = 50 * 1000
 export abstract class Strategy implements StrategyInterface {
   static combo = false
 
-  /* static portfolioTimes: Set<string> = new Set()
+  static portfolioTimes: Set<string> = new Set()
 
-  static candleTimes: Set<string> = new Set() */
+  static candleTimes: Set<string> = new Set()
 
   static indicatorEvents: IndicatorsEvents[] = []
 
@@ -4221,11 +4221,11 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   public checkPortfolio(time: number, _price: number, symbol: string) {
-    /* const key = `${symbol}-${time}`
+    const key = `${symbol}-${time}`
     if (Strategy.portfolioTimes.has(key)) {
       return
     }
-    Strategy.portfolioTimes.add(key) */
+    Strategy.portfolioTimes.add(key)
     const openDeal = Strategy.getDeals('open', symbol)
     const fullSymbol = this.symbols.get(symbol)
     const baseBalance =
@@ -4306,6 +4306,9 @@ export abstract class Strategy implements StrategyInterface {
           commission
         value += unPnl * rate
       }
+      if (isNaN(value)) {
+        value = 0
+      }
       return this.replacePortfolioValue(
         time,
         this.math.round(value + balanceUsd),
@@ -4323,6 +4326,9 @@ export abstract class Strategy implements StrategyInterface {
           quoteRate
         value += unPnL
       }
+    }
+    if (isNaN(value)) {
+      value = 0
     }
     return this.replacePortfolioValue(
       time,
@@ -4377,11 +4383,11 @@ export abstract class Strategy implements StrategyInterface {
     if (this._stop) {
       return
     }
-    /* const key = `${b.symbol}-${b.time}`
+    const key = `${b.symbol}-${b.time}`
     if (Strategy.candleTimes.has(key)) {
       return
     }
-    Strategy.candleTimes.add(key) */
+    Strategy.candleTimes.add(key)
     if (!this.settings.useMulti && !Strategy.edge) {
       if (Strategy.priceMin === 0 || b.low < Strategy.priceMin) {
         Strategy.priceMin = b.low

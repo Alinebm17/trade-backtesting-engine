@@ -814,7 +814,14 @@ class TIStrategy extends Strategy implements StrategyInterface {
 
     this.nextAction = hasLowest || hasRest
 
-    await this.checkDeals(checkPortfolio, bar)
+    await this.checkDeals(checkPortfolio, bar, (price: number) => {
+      if (this.settings.startCondition === StartConditionEnum.asap) {
+        this.openDeal(price, bar.time, bar.high, bar.low, bar.symbol)
+        if (Strategy.combo) {
+          this.checkDeals(false, bar)
+        }
+      }
+    })
   }
 
   private updateIndicatorData(i: Indicator) {
