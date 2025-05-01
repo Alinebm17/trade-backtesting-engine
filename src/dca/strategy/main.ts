@@ -443,6 +443,8 @@ export abstract class Strategy implements StrategyInterface {
     Strategy.lastOpenedDealPerSymbol = new Map()
     Strategy.lastPricesPerSymbol = new Map()
     Strategy.messages = []
+    Strategy.portfolioTimes = new Set()
+    Strategy.candleTimes = new Set()
   }
 
   static position: Map<string, typeof Strategy.emptyPositon> = new Map()
