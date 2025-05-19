@@ -1472,10 +1472,16 @@ class TIStrategy extends Strategy implements StrategyInterface {
                 (this.math.lt(value, last) && this.math.gte(prevValue, prev))
             }
           }
-          if (indicatorCondition === IndicatorStartConditionEnum.gt) {
+          if (
+            indicatorCondition === IndicatorStartConditionEnum.gt &&
+            !skipAction
+          ) {
             action = this.math.gt(last, value)
           }
-          if (indicatorCondition === IndicatorStartConditionEnum.lt) {
+          if (
+            indicatorCondition === IndicatorStartConditionEnum.lt &&
+            !skipAction
+          ) {
             action = this.math.lt(last, value)
           }
 
