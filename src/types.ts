@@ -1,7 +1,7 @@
 import type {
-  FasterMACDResult,
-  FasterBandsResult,
-  FasterStochasticResult,
+  MACDResult,
+  BandsResult,
+  StochasticResult,
   PivotResult,
   DIVResult,
   SuperTrendResult,
@@ -9,7 +9,7 @@ import type {
   PriorPivotResult,
   QFLResult,
   DCResult,
-} from '../indicators/src'
+} from '@gainium/indicators'
 
 export const DirName = `../../tmp-backtester`
 
@@ -391,7 +391,7 @@ export type IndicatorHistory = { time: number } & (
   | { type: IndicatorEnum.pc; value: PCResult }
   | {
       type: IndicatorEnum.macd
-      value: FasterMACDResult
+      value: MACDResult
     }
   | {
       type: IndicatorEnum.ma
@@ -400,11 +400,11 @@ export type IndicatorHistory = { time: number } & (
   | { type: IndicatorEnum.tv; value: number }
   | {
       type: IndicatorEnum.bb | IndicatorEnum.kc
-      value: { result: FasterBandsResult; price: number }
+      value: { result: BandsResult; price: number }
     }
   | {
       type: IndicatorEnum.stoch | IndicatorEnum.stochRSI
-      value: FasterStochasticResult
+      value: StochasticResult
     }
   | {
       type: IndicatorEnum.sr

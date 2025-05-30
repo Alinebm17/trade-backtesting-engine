@@ -2,9 +2,10 @@ yarn-error.log
 node_modules
 .eslintcache
 .env
-lib
+dist
 .yarn/*
 !.yarn/releases
 !.yarn/plugins
 .pnp.*
 .DS_Store
+# Note: dist folder is included in git for distribution

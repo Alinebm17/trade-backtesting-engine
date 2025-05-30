@@ -51,7 +51,7 @@ import {
   PriorPivotResult,
   QFLResult,
   SuperTrendResult,
-} from '../../../../indicators/src'
+} from '@gainium/indicators'
 
 type Status = {
   status: boolean

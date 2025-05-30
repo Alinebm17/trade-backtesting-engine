@@ -67,12 +67,12 @@ import type {
   Sizes,
 } from '../../types'
 import {
-  FasterBandsResult,
+  BandsResult,
   PivotResult,
   PriorPivotResult,
   QFLResult,
   SuperTrendResult,
-} from '../../../indicators/src'
+} from '@gainium/indicators'
 
 export type Bar = BarTV
 
@@ -1013,7 +1013,7 @@ export abstract class Strategy implements StrategyInterface {
         }
         if (type === IndicatorEnum.bb || type === IndicatorEnum.kc) {
           const data = last.value as {
-            result: FasterBandsResult
+            result: BandsResult
             price: number
           }
           value =
@@ -4407,14 +4407,14 @@ export abstract class Strategy implements StrategyInterface {
     }
     const fullSymbol = this.symbols.get(b.symbol)
     if (fullSymbol) {
-      const key = this.futures
+      const k = this.futures
         ? this.coinm
           ? fullSymbol.baseAsset.name
           : fullSymbol.quoteAsset.name
         : this.long
         ? fullSymbol.quoteAsset.name
         : fullSymbol.baseAsset.name
-      if (!Strategy.balance.has(key)) {
+      if (!Strategy.balance.has(k)) {
         this.openDeal(b.close, b.time, b.high, b.low, b.symbol, true)
       }
     }

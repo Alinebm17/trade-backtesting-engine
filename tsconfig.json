@@ -8,7 +8,9 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "outDir": "lib",
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
     "allowSyntheticDefaultImports": true,
     "jsx": "preserve",
     "alwaysStrict": true,
@@ -21,6 +23,6 @@
     "baseUrl": ".",
     "experimentalDecorators": true
   },
-  "exclude": ["node_modules", "indicators"],
+  "exclude": ["node_modules", "indicators", "dist"],
   "include": ["**/*.ts", "**/*.tsx"]
 }

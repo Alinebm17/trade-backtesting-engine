@@ -1,46 +1,46 @@
 import {
-  FasterRSI,
-  FasterMFI,
-  FasterADX,
-  FasterBollingerBandsWidth,
-  FasterBollingerBands,
-  FasterMACD,
-  FasterEMA,
-  FasterVWMA,
-  FasterHMA,
-  FasterSMA,
-  FasterTVTA,
-  FasterWMATV,
-  FasterDEMA,
-  FasterTEMA,
-  FasterRMA,
-  FasterStochasticOscillator,
-  FasterStochasticRSITV,
+  RSI,
+  MFI,
+  ADX,
+  BollingerBandsWidth,
+  BollingerBands,
+  MACD,
+  EMA,
+  VWMA,
+  HMA,
+  SMA,
+  TVTA,
+  WMA,
+  DEMA,
+  TEMA,
+  RMA,
+  StochasticOscillator,
+  StochasticRSI,
   SupportResistance,
   QFL,
-  FasterPSAR,
-  FasterVO,
-  FasterCCI,
-  FasterAO,
-  FasterWilliamsR,
-  FasterUltimateOscillator,
-  FasterMOM,
-  FasterBBWP,
-  FasterECD,
-  FasterMAR,
-  FasterBBPB,
-  FasterDIV,
+  PSAR,
+  VO,
+  CCI,
+  AO,
+  WilliamsR,
+  UltimateOscillator,
+  MOM,
+  BBWP,
+  ECD,
+  MAR,
+  BBPB,
+  DIV,
   DIVUsableOscillators,
   SuperTrend,
-  FasterPC,
-  FasterATRTV,
+  PC,
+  ATR,
   PriorPivot,
-  FasterADR,
-  FasterATH,
-  FasterKeltnerChannel,
-  FasterKeltnerChannelPB,
-  FasterDonchianChannels,
-} from '../../../../indicators/src'
+  ADR,
+  ATH,
+  KeltnerChannel,
+  KeltnerChannelPB,
+  DonchianChannels,
+} from '@gainium/indicators'
 import { MAEnum, IndicatorEnum, RangeType } from '../../../types'
 
 import type {
@@ -50,46 +50,46 @@ import type {
 
 export default class InternalIndicator {
   private readonly indicator?:
-    | FasterRSI
-    | FasterMFI
-    | FasterADX
-    | FasterBollingerBandsWidth
-    | FasterBollingerBands
-    | FasterMACD
-    | FasterEMA
-    | FasterVWMA
-    | FasterHMA
-    | FasterSMA
-    | FasterTVTA
-    | FasterWMATV
-    | FasterDEMA
-    | FasterTEMA
-    | FasterRMA
-    | FasterStochasticOscillator
-    | FasterStochasticRSITV
+    | RSI
+    | MFI
+    | ADX
+    | BollingerBandsWidth
+    | BollingerBands
+    | MACD
+    | EMA
+    | VWMA
+    | HMA
+    | SMA
+    | TVTA
+    | WMA
+    | DEMA
+    | TEMA
+    | RMA
+    | StochasticOscillator
+    | StochasticRSI
     | SupportResistance
     | QFL
-    | FasterPSAR
-    | FasterVO
-    | FasterCCI
-    | FasterAO
-    | FasterWilliamsR
-    | FasterUltimateOscillator
-    | FasterMOM
-    | FasterBBWP
-    | FasterECD
-    | FasterMAR
-    | FasterBBPB
-    | FasterDIV
+    | PSAR
+    | VO
+    | CCI
+    | AO
+    | WilliamsR
+    | UltimateOscillator
+    | MOM
+    | BBWP
+    | ECD
+    | MAR
+    | BBPB
+    | DIV
     | SuperTrend
-    | FasterPC
-    | FasterATRTV
+    | PC
+    | ATR
     | PriorPivot
-    | FasterADR
-    | FasterATH
-    | FasterKeltnerChannel
-    | FasterKeltnerChannelPB
-    | FasterDonchianChannels
+    | ADR
+    | ATH
+    | KeltnerChannel
+    | KeltnerChannelPB
+    | DonchianChannels
   private data: IndicatorHistory[] = []
 
   private readonly type: IndicatorEnum
@@ -105,7 +105,7 @@ export default class InternalIndicator {
         : indicatorConfig.type
     const add = 4
     if (indicatorConfig.type === IndicatorEnum.psar) {
-      this.indicator = new FasterPSAR(
+      this.indicator = new PSAR(
         indicatorConfig.start,
         indicatorConfig.inc,
         indicatorConfig.max,
@@ -113,7 +113,7 @@ export default class InternalIndicator {
       this.length = add
     }
     if (indicatorConfig.type === IndicatorEnum.ath) {
-      this.indicator = new FasterATH(indicatorConfig.lookback)
+      this.indicator = new ATH(indicatorConfig.lookback)
       this.length = add + indicatorConfig.lookback
     }
     if (indicatorConfig.type === IndicatorEnum.st) {
@@ -124,7 +124,7 @@ export default class InternalIndicator {
       this.length = indicatorConfig.atrPeriod + add
     }
     if (indicatorConfig.type === IndicatorEnum.dc) {
-      this.indicator = new FasterDonchianChannels(indicatorConfig.length)
+      this.indicator = new DonchianChannels(indicatorConfig.length)
       this.length = indicatorConfig.length + 1 + add
     }
     if (indicatorConfig.type === IndicatorEnum.pp) {
@@ -144,16 +144,12 @@ export default class InternalIndicator {
         1000
     }
     if (indicatorConfig.type === IndicatorEnum.pc) {
-      this.indicator = new FasterPC(
-        indicatorConfig.pcUp,
-        indicatorConfig.pcDown,
-      )
+      this.indicator = new PC(indicatorConfig.pcUp, indicatorConfig.pcDown)
       this.length = 2 + add
     }
     if (indicatorConfig.type === IndicatorEnum.rsi) {
-      this.indicator = new FasterRSI(
+      this.indicator = new RSI(
         indicatorConfig.interval,
-        undefined,
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
         indicatorConfig.percentilePercentage,
@@ -166,15 +162,15 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.atr) {
-      this.indicator = new FasterATRTV(indicatorConfig.interval)
+      this.indicator = new ATR(indicatorConfig.interval)
       this.length = indicatorConfig.interval + add
     }
     if (indicatorConfig.type === IndicatorEnum.adr) {
-      this.indicator = new FasterADR(indicatorConfig.interval)
+      this.indicator = new ADR(indicatorConfig.interval)
       this.length = indicatorConfig.interval + add
     }
     if (indicatorConfig.type === IndicatorEnum.mar) {
-      this.indicator = new FasterMAR(
+      this.indicator = new MAR(
         indicatorConfig.mar1type,
         indicatorConfig.mar1length,
         indicatorConfig.mar2type,
@@ -198,11 +194,11 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.ecd) {
-      this.indicator = new FasterECD()
+      this.indicator = new ECD()
       this.length = 2 + add
     }
     if (indicatorConfig.type === IndicatorEnum.cci) {
-      this.indicator = new FasterCCI(
+      this.indicator = new CCI(
         indicatorConfig.interval,
         'hlc3',
         indicatorConfig.percentile,
@@ -222,7 +218,7 @@ export default class InternalIndicator {
         (indicatorConfig.leftBars ?? 3) +
         (indicatorConfig.rightBars ?? 1) +
         add
-      this.indicator = new FasterDIV(
+      this.indicator = new DIV(
         indicatorConfig.oscillators.map((v) =>
           v.toLowerCase(),
         ) as DIVUsableOscillators[],
@@ -233,10 +229,9 @@ export default class InternalIndicator {
       )
     }
     if (indicatorConfig.type === IndicatorEnum.ao) {
-      this.indicator = new FasterAO(
+      this.indicator = new AO(
         5,
         34,
-        undefined,
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
         indicatorConfig.percentilePercentage,
@@ -249,7 +244,7 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.wr) {
-      this.indicator = new FasterWilliamsR(
+      this.indicator = new WilliamsR(
         indicatorConfig.interval,
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
@@ -263,7 +258,7 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.uo) {
-      this.indicator = new FasterUltimateOscillator(
+      this.indicator = new UltimateOscillator(
         indicatorConfig.fast,
         indicatorConfig.middle,
         indicatorConfig.slow,
@@ -289,7 +284,7 @@ export default class InternalIndicator {
           ? indicatorConfig.percentileLookback ?? 0
           : 0) +
         add
-      this.indicator = new FasterMOM(
+      this.indicator = new MOM(
         indicatorConfig.interval,
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         //@ts-ignore
@@ -300,7 +295,7 @@ export default class InternalIndicator {
       )
     }
     if (indicatorConfig.type === IndicatorEnum.vo) {
-      this.indicator = new FasterVO(
+      this.indicator = new VO(
         indicatorConfig.voShort,
         indicatorConfig.voLong,
         indicatorConfig.percentile,
@@ -315,7 +310,7 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.mfi) {
-      this.indicator = new FasterMFI(
+      this.indicator = new MFI(
         indicatorConfig.interval,
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
@@ -329,9 +324,8 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.adx) {
-      this.indicator = new FasterADX(
+      this.indicator = new ADX(
         indicatorConfig.interval,
-        undefined,
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
         indicatorConfig.percentilePercentage,
@@ -344,13 +338,13 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.bbw) {
-      const bb = new FasterBollingerBands(
+      const bb = new BollingerBands(
         indicatorConfig.interval,
         indicatorConfig.bbwMult ?? 2,
         indicatorConfig.bbwMa ?? MAEnum.sma,
         indicatorConfig.bbwMaLength ?? 20,
       )
-      this.indicator = new FasterBollingerBandsWidth(
+      this.indicator = new BollingerBandsWidth(
         bb,
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
@@ -370,14 +364,14 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.kcpb) {
-      const kc = new FasterKeltnerChannel(
+      const kc = new KeltnerChannel(
         indicatorConfig.interval,
         indicatorConfig.multiplier ?? 2,
         indicatorConfig.ma ?? MAEnum.ema,
         indicatorConfig.range ?? RangeType.atr,
         indicatorConfig.rangeLength ?? 10,
       )
-      this.indicator = new FasterKeltnerChannelPB(
+      this.indicator = new KeltnerChannelPB(
         kc,
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
@@ -392,7 +386,7 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.kc) {
-      this.indicator = new FasterKeltnerChannel(
+      this.indicator = new KeltnerChannel(
         indicatorConfig.interval,
         indicatorConfig.multiplier ?? 2,
         indicatorConfig.ma ?? MAEnum.ema,
@@ -403,13 +397,13 @@ export default class InternalIndicator {
         indicatorConfig.interval + (indicatorConfig.rangeLength ?? 10) + add
     }
     if (indicatorConfig.type === IndicatorEnum.bbpb) {
-      const bb = new FasterBollingerBands(
+      const bb = new BollingerBands(
         indicatorConfig.interval,
         indicatorConfig.bbwMult ?? 2,
         indicatorConfig.bbwMa ?? MAEnum.sma,
         indicatorConfig.bbwMaLength ?? 20,
       )
-      this.indicator = new FasterBBPB(
+      this.indicator = new BBPB(
         bb,
         indicatorConfig.percentile,
         indicatorConfig.percentileLookback,
@@ -429,21 +423,12 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.bbwp) {
-      const bb = new FasterBollingerBands(
-        indicatorConfig.interval,
-        1,
-        MAEnum.sma,
-        20,
-      )
-      this.indicator = new FasterBBWP(
-        bb,
-        indicatorConfig.lookback,
-        indicatorConfig.source,
-      )
+      const bb = new BollingerBands(indicatorConfig.interval, 1, MAEnum.sma, 20)
+      this.indicator = new BBWP(bb, indicatorConfig.lookback)
       this.length = indicatorConfig.interval + indicatorConfig.lookback + add
     }
     if (indicatorConfig.type === IndicatorEnum.bb) {
-      this.indicator = new FasterBollingerBands(
+      this.indicator = new BollingerBands(
         indicatorConfig.interval,
         indicatorConfig.bbwMult ?? 2,
         indicatorConfig.bbwMa ?? MAEnum.sma,
@@ -460,11 +445,9 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.macd) {
-      const maSource =
-        indicatorConfig.maSource === MAEnum.sma ? FasterSMA : FasterEMA
-      const maSignal =
-        indicatorConfig.maSignal === MAEnum.sma ? FasterSMA : FasterEMA
-      this.indicator = new FasterMACD(
+      const maSource = indicatorConfig.maSource === MAEnum.sma ? SMA : EMA
+      const maSignal = indicatorConfig.maSignal === MAEnum.sma ? SMA : EMA
+      this.indicator = new MACD(
         new maSource(indicatorConfig.shortInterval),
         new maSource(indicatorConfig.longInterval),
         new maSignal(indicatorConfig.signalInterval),
@@ -482,47 +465,47 @@ export default class InternalIndicator {
     }
     if (indicatorConfig.type === IndicatorEnum.ma) {
       if (indicatorConfig.maType === MAEnum.ema) {
-        this.indicator = new FasterEMA(indicatorConfig.interval)
+        this.indicator = new EMA(indicatorConfig.interval)
         this.length = indicatorConfig.interval + 300
       }
       if (indicatorConfig.maType === MAEnum.sma) {
-        this.indicator = new FasterSMA(indicatorConfig.interval)
+        this.indicator = new SMA(indicatorConfig.interval)
         this.length = indicatorConfig.interval + add
       }
       if (indicatorConfig.maType === MAEnum.wma) {
-        this.indicator = new FasterWMATV(indicatorConfig.interval)
+        this.indicator = new WMA(indicatorConfig.interval)
         this.length = indicatorConfig.interval + add
       }
       if (indicatorConfig.maType === MAEnum.hma) {
-        this.indicator = new FasterHMA(indicatorConfig.interval)
+        this.indicator = new HMA(indicatorConfig.interval)
         this.length = indicatorConfig.interval * 2 + add
       }
       if (indicatorConfig.maType === MAEnum.vwma) {
-        this.indicator = new FasterVWMA(indicatorConfig.interval)
+        this.indicator = new VWMA(indicatorConfig.interval)
         this.length = indicatorConfig.interval + add
       }
       if (indicatorConfig.maType === MAEnum.dema) {
-        this.indicator = new FasterDEMA(indicatorConfig.interval)
+        this.indicator = new DEMA(indicatorConfig.interval)
         this.length = 2 * indicatorConfig.interval + add
       }
       if (indicatorConfig.maType === MAEnum.tema) {
-        this.indicator = new FasterTEMA(indicatorConfig.interval)
+        this.indicator = new TEMA(indicatorConfig.interval)
         this.length = 3 * indicatorConfig.interval + add
       }
       if (indicatorConfig.maType === MAEnum.rma) {
-        this.indicator = new FasterRMA(indicatorConfig.interval)
+        this.indicator = new RMA(indicatorConfig.interval)
         this.length = indicatorConfig.interval + add
       }
     }
     if (indicatorConfig.type === IndicatorEnum.tv) {
-      this.indicator = new FasterTVTA(
+      this.indicator = new TVTA(
         indicatorConfig.checkLevel,
         indicatorConfig.useAsEntryExitPoints,
       )
       this.length = 3000
     }
     if (indicatorConfig.type === IndicatorEnum.stoch) {
-      this.indicator = new FasterStochasticOscillator(
+      this.indicator = new StochasticOscillator(
         indicatorConfig.length,
         indicatorConfig.smoothK,
         indicatorConfig.smoothD,
@@ -534,7 +517,7 @@ export default class InternalIndicator {
         add
     }
     if (indicatorConfig.type === IndicatorEnum.stochRSI) {
-      this.indicator = new FasterStochasticRSITV(
+      this.indicator = new StochasticRSI(
         indicatorConfig.rsiLength,
         indicatorConfig.length,
         indicatorConfig.smoothK,
@@ -579,41 +562,41 @@ export default class InternalIndicator {
     time: number,
     cb: (data: IndicatorHistory[]) => void,
   ) {
-    if (this.indicator && this.indicator instanceof FasterVO) {
-      this.indicator.update(+value.v)
+    if (this.indicator && this.indicator instanceof VO) {
+      this.indicator.next(+value.v)
     }
     if (
       this.indicator &&
-      (this.indicator instanceof FasterRSI ||
-        this.indicator instanceof FasterMACD ||
-        this.indicator instanceof FasterEMA ||
-        this.indicator instanceof FasterDEMA ||
-        this.indicator instanceof FasterTEMA ||
-        this.indicator instanceof FasterRMA ||
-        this.indicator instanceof FasterSMA ||
-        this.indicator instanceof FasterWMATV ||
-        this.indicator instanceof FasterHMA)
+      (this.indicator instanceof RSI ||
+        this.indicator instanceof MACD ||
+        this.indicator instanceof EMA ||
+        this.indicator instanceof DEMA ||
+        this.indicator instanceof TEMA ||
+        this.indicator instanceof RMA ||
+        this.indicator instanceof SMA ||
+        this.indicator instanceof WMA ||
+        this.indicator instanceof HMA)
     ) {
-      this.indicator?.update(+value.c)
+      this.indicator?.next(+value.c)
     }
     if (
       this.indicator &&
-      (this.indicator instanceof FasterADX ||
-        this.indicator instanceof FasterStochasticOscillator ||
-        this.indicator instanceof FasterStochasticRSITV ||
-        this.indicator instanceof FasterWilliamsR ||
-        this.indicator instanceof FasterUltimateOscillator ||
+      (this.indicator instanceof ADX ||
+        this.indicator instanceof StochasticOscillator ||
+        this.indicator instanceof StochasticRSI ||
+        this.indicator instanceof WilliamsR ||
+        this.indicator instanceof UltimateOscillator ||
         this.indicator instanceof SupportResistance ||
         this.indicator instanceof QFL ||
-        this.indicator instanceof FasterCCI ||
-        this.indicator instanceof FasterPSAR ||
+        this.indicator instanceof CCI ||
+        this.indicator instanceof PSAR ||
         this.indicator instanceof SuperTrend ||
-        this.indicator instanceof FasterATRTV ||
-        this.indicator instanceof FasterADR ||
+        this.indicator instanceof ATR ||
+        this.indicator instanceof ADR ||
         this.indicator instanceof PriorPivot ||
-        this.indicator instanceof FasterATH)
+        this.indicator instanceof ATH)
     ) {
-      this.indicator?.update({
+      this.indicator?.next({
         high: +value.h,
         low: +value.l,
         close: +value.c,
@@ -621,20 +604,20 @@ export default class InternalIndicator {
     }
     if (
       this.indicator &&
-      (this.indicator instanceof FasterVWMA ||
-        this.indicator instanceof FasterMFI ||
-        this.indicator instanceof FasterTVTA ||
-        this.indicator instanceof FasterMAR ||
-        this.indicator instanceof FasterBollingerBandsWidth ||
-        this.indicator instanceof FasterKeltnerChannel ||
-        this.indicator instanceof FasterKeltnerChannelPB ||
-        this.indicator instanceof FasterBBWP ||
-        this.indicator instanceof FasterBBPB ||
-        this.indicator instanceof FasterBollingerBands ||
-        this.indicator instanceof FasterDIV ||
-        this.indicator instanceof FasterPC)
+      (this.indicator instanceof VWMA ||
+        this.indicator instanceof MFI ||
+        this.indicator instanceof TVTA ||
+        this.indicator instanceof MAR ||
+        this.indicator instanceof BollingerBandsWidth ||
+        this.indicator instanceof KeltnerChannel ||
+        this.indicator instanceof KeltnerChannelPB ||
+        this.indicator instanceof BBWP ||
+        this.indicator instanceof BBPB ||
+        this.indicator instanceof BollingerBands ||
+        this.indicator instanceof DIV ||
+        this.indicator instanceof PC)
     ) {
-      this.indicator?.update({
+      this.indicator?.next({
         high: +value.h,
         low: +value.l,
         close: +value.c,
@@ -644,26 +627,26 @@ export default class InternalIndicator {
     }
     if (
       this.indicator &&
-      (this.indicator instanceof FasterMOM ||
-        this.indicator instanceof FasterECD ||
-        this.indicator instanceof FasterDonchianChannels)
+      (this.indicator instanceof MOM ||
+        this.indicator instanceof ECD ||
+        this.indicator instanceof DonchianChannels)
     ) {
-      this.indicator?.update({
+      this.indicator?.next({
         high: +value.h,
         low: +value.l,
         close: +value.c,
         open: +value.o,
       })
     }
-    if (this.indicator && this.indicator instanceof FasterAO) {
-      this.indicator?.update({
+    if (this.indicator && this.indicator instanceof AO) {
+      this.indicator?.next({
         high: +value.h,
         low: +value.l,
       })
     }
     try {
-      const result = this.indicator?.getResult()
-      if (result !== undefined) {
+      const result = this.indicator?.result
+      if (result !== null) {
         this.data.push({
           time,
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
