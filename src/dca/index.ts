@@ -300,8 +300,9 @@ class DCABacktesting extends Backtesting {
             })
             .on('error', () => res([])),
         )
-        if (_lastBar.values().next().value) {
-          lastTime = _lastBar.values().next().value.time
+        const firstValue = _lastBar.values().next().value
+        if (firstValue) {
+          lastTime = firstValue.time
         }
         startBar = _startBar
         lastBar = _lastBar

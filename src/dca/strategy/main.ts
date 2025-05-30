@@ -1490,7 +1490,7 @@ export abstract class Strategy implements StrategyInterface {
       initialOrders: [],
       filledOrders: [],
       activeOrders: [],
-      id: this.botFunctions.values().next().value.utils.id(20),
+      id: this.botFunctions.values().next().value?.utils.id(20) ?? 'unknown',
       dealId: deal.id,
       dcaOrderId: startOrder.id,
       grids: { buy: 0, sell: 0 },
@@ -6375,7 +6375,7 @@ export abstract class Strategy implements StrategyInterface {
         liquidationEvents: allDeals.filter((d) => !!d.liquidationPrice).length,
       },
       ratios: {
-        cwr: this.calculateCwr(closedDeals, lastDataItem),
+        cwr: lastDataItem ? this.calculateCwr(closedDeals, lastDataItem) : 0,
         profitFactor:
           allLoss !== 0
             ? this.math.round(Math.abs(allProfit / allLoss), 3)
