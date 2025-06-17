@@ -35,8 +35,8 @@
   integrity sha512-ElyB54bJIhXQYVKjDSvCkPO1iU1tSAeVQJbllWJq1XQSmmA4dgFk8CbiBGpiOPxleE48vDogxCtmMYku4HSVLA==
 
 "@gainium/indicators@git+https://github.com/Gainium/indicators.git":
-  version "1.0.2"
-  resolved "git+https://github.com/Gainium/indicators.git#71c3cf4f498b00373aa4d3d2b5e0c22d1f858b5a"
+  version "1.0.3"
+  resolved "git+https://github.com/Gainium/indicators.git#3fd49b80094055e429693937f265b0a465880a9b"
   dependencies:
     typescript "^5.8.3"
 
