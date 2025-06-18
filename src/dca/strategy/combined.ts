@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 import { Strategy, StrategyInterface } from './main'
 
 import type { StrategyInput } from './main'

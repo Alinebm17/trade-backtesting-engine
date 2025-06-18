@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 import Backtesting from '..'
 import { v4 } from 'uuid'
 
