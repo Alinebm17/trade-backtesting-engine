@@ -83,8 +83,8 @@
     levn "^0.4.1"
 
 "@gainium/indicators@git+https://github.com/Gainium/indicators.git":
-  version "1.0.4"
-  resolved "git+https://github.com/Gainium/indicators.git#bfa01b5138aeb4997d134af1d1c1d15cea50ba12"
+  version "1.0.5"
+  resolved "git+https://github.com/Gainium/indicators.git#408a20f95d03f5d56a49b87df5dbe7c9e72391fd"
 
 "@humanfs/core@^0.19.1":
   version "0.19.1"

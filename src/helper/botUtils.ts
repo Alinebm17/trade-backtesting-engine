@@ -128,7 +128,7 @@ class BotUtils {
   }
 
   getSellBuyCount(
-    prices: ReturnType<typeof this.getPrices>,
+    prices: { buy: number; sell: number }[],
     {
       useStartPrice,
       startPrice,
