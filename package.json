@@ -1,6 +1,6 @@
 {
   "name": "@gainium/backtester",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -74,7 +74,7 @@
     "lint": "tsc --project tsconfig.json --noEmit && eslint . --cache",
     "lint:fix": "eslint . --fix",
     "build:indicators": "cd node_modules/@gainium/indicators && npm run build",
-    "update:indicators": "export GAINIUM_INDICATORS=@gainium/indicators && yarn remove $GAINIUM_INDICATORS && yarn cache clean $GAINIUM_INDICATORS && rm -rf node_modules/$GAINIUM_INDICATORS && yarn add $GAINIUM_INDICATORS@git+https://github.com/Gainium/indicators.git && export -n GAINIUM_INDICATORS",
+    "update:indicators": "export GAINIUM_INDICATORS=@gainium/indicators && yarn remove $GAINIUM_INDICATORS && yarn cache clean $GAINIUM_INDICATORS && rm -rf node_modules/$GAINIUM_INDICATORS && yarn add $GAINIUM_INDICATORS@git+https://github.com/Gainium/indicators.git && unset GAINIUM_INDICATORS",
     "postinstall": "yarn build:if-needed",
     "build:if-needed": "./scripts/build-if-needed.sh || npm run build",
     "prepare": "npm run build"
