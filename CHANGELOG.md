@@ -1,0 +1,25 @@
+# Changelog
+
+All notable changes to the Gainium Backtester library will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.7] - 2025-06-30
+
+### Changed
+- Migrated package manager from Yarn to npm
+- Removed yarn.lock in favor of package-lock.json
+- Updated npm scripts to use npm instead of yarn commands
+- Updated dependency management scripts for npm compatibility
+
+## [1.0.6] - 2025-06-30
+
+### Added
+- Initial release of Gainium Backtester
+- Professional backtesting engine for trading strategies
+- Support for DCA (Dollar Cost Averaging) strategies
+- Support for Grid trading strategies
+- TypeScript support with comprehensive type definitions
+- High-performance backtesting capabilities
+- Integration with @gainium/indicators library
