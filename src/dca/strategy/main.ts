@@ -661,11 +661,11 @@ export abstract class Strategy implements StrategyInterface {
                 ? 1 + overValue / 100
                 : 1
               : settings.dynamicPriceFilterDirection ===
-                  DynamicPriceFilterDirectionEnum.under ||
-                settings.dynamicPriceFilterDirection ===
-                  DynamicPriceFilterDirectionEnum.overAndUnder
-              ? 1 - underValue / 100
-              : 1) /* d.startPrice */,
+                    DynamicPriceFilterDirectionEnum.under ||
+                  settings.dynamicPriceFilterDirection ===
+                    DynamicPriceFilterDirectionEnum.overAndUnder
+                ? 1 - underValue / 100
+                : 1) /* d.startPrice */,
           end:
             /*  ([...d.initialOrders].sort((a, b) =>
               this.long ? a.price - b.price : b.price - a.price,
@@ -681,11 +681,11 @@ export abstract class Strategy implements StrategyInterface {
                 ? 1 - underValue / 100
                 : 1
               : settings.dynamicPriceFilterDirection ===
-                  DynamicPriceFilterDirectionEnum.over ||
-                settings.dynamicPriceFilterDirection ===
-                  DynamicPriceFilterDirectionEnum.overAndUnder
-              ? 1 + overValue / 100
-              : 1),
+                    DynamicPriceFilterDirectionEnum.over ||
+                  settings.dynamicPriceFilterDirection ===
+                    DynamicPriceFilterDirectionEnum.overAndUnder
+                ? 1 + overValue / 100
+                : 1),
         }))
         /* const orders = this.botFunctions
           .get(symbol)
@@ -1020,8 +1020,8 @@ export abstract class Strategy implements StrategyInterface {
             bbCrossingValue === BBCrossingEnum.lower
               ? data.result.lower
               : bbCrossingValue === BBCrossingEnum.middle
-              ? data.result.middle
-              : data.result.upper
+                ? data.result.middle
+                : data.result.upper
         }
         if (type === IndicatorEnum.ma) {
           const data = last.value as MAResult
@@ -1053,8 +1053,8 @@ export abstract class Strategy implements StrategyInterface {
             typeof riskMinSl !== 'undefined' && `${riskMinSl}` !== 'null'
               ? Math.abs(+riskMinSl) / 100
               : riskSlType === RiskSlTypeEnum.perc && riskSlAmountPerc
-              ? Math.abs(+riskSlAmountPerc) / 100
-              : null
+                ? Math.abs(+riskSlAmountPerc) / 100
+                : null
           const maxSl = riskMaxSl ? Math.abs(+riskMaxSl) / 100 : 1
           let currentSl = Math.abs((currentRiskSlPrice - price) / price)
           if (minSl && currentSl < minSl) {
@@ -1079,8 +1079,8 @@ export abstract class Strategy implements StrategyInterface {
               ? precisionBase
               : precisionQuote
             : this.long
-            ? precisionQuote
-            : precisionBase
+              ? precisionQuote
+              : precisionBase
 
           let riskBalance = symbol
             ? +(
@@ -1092,8 +1092,8 @@ export abstract class Strategy implements StrategyInterface {
                         ? symbol.baseAsset.name
                         : symbol.quoteAsset.name
                       : this.long
-                      ? symbol.quoteAsset.name
-                      : symbol.baseAsset.name),
+                        ? symbol.quoteAsset.name
+                        : symbol.baseAsset.name),
                 )?.free || '0'
               )
             : 0
@@ -1108,8 +1108,8 @@ export abstract class Strategy implements StrategyInterface {
                   ? symbol?.baseAsset.minAmount
                   : symbol?.quoteAsset.minAmount
                 : this.long
-                ? symbol?.quoteAsset.minAmount
-                : symbol?.baseAsset.minAmount) ?? 0) * 10
+                  ? symbol?.quoteAsset.minAmount
+                  : symbol?.baseAsset.minAmount) ?? 0) * 10
           }
           const riskSize = this.math.round(
             riskSlType === RiskSlTypeEnum.fixed
@@ -1231,10 +1231,10 @@ export abstract class Strategy implements StrategyInterface {
       (units === CooldownUnits.seconds
         ? 1000
         : units === CooldownUnits.minutes
-        ? 60 * 1000
-        : units === CooldownUnits.hours
-        ? 60 * 60 * 1000
-        : 24 * 60 * 60 * 1000)
+          ? 60 * 1000
+          : units === CooldownUnits.hours
+            ? 60 * 60 * 1000
+            : 24 * 60 * 60 * 1000)
     )
   }
 
@@ -1247,7 +1247,7 @@ export abstract class Strategy implements StrategyInterface {
       const lastTime =
         cooldownAfterDealStartOption === CooldownOptionsEnum.bot
           ? Strategy.lastOpenedDeal
-          : Strategy.lastOpenedDealPerSymbol.get(symbol) ?? 0
+          : (Strategy.lastOpenedDealPerSymbol.get(symbol) ?? 0)
       return (
         time - lastTime >=
         this.convertCooldown(
@@ -1269,7 +1269,7 @@ export abstract class Strategy implements StrategyInterface {
         time -
           (cooldownAfterDealStartOption === CooldownOptionsEnum.bot
             ? Strategy.lastClosedDeal
-            : Strategy.lastClosedDealPerSymbol.get(symbol) ?? 0) >=
+            : (Strategy.lastClosedDealPerSymbol.get(symbol) ?? 0)) >=
         this.convertCooldown(
           this.settings.cooldownAfterDealStopInterval,
           this.settings.cooldownAfterDealStopUnits,
@@ -1282,7 +1282,7 @@ export abstract class Strategy implements StrategyInterface {
   get leverage() {
     return this.settings.futures
       ? this.settings.marginType !== BotMarginTypeEnum.inherit
-        ? this.settings.leverage ?? 1
+        ? (this.settings.leverage ?? 1)
         : 1
       : 1
   }
@@ -1316,8 +1316,8 @@ export abstract class Strategy implements StrategyInterface {
           ? 1 + (1 / this.leverage) * (pos === PositionSide.LONG ? -1 : 1) /* *
               (1 + this.userFee * (position === PositionSide.LONG ? 1 : -1)) */
           : pos === PositionSide.LONG
-          ? this.userFee
-          : 1 / this.userFee)
+            ? this.userFee
+            : 1 / this.userFee)
 
       if (sameDirection || position.qty === 0) {
         const entryPrice =
@@ -1405,8 +1405,8 @@ export abstract class Strategy implements StrategyInterface {
     const feeOrder = settings.futures
       ? undefined
       : typeof settings.feeOrder !== 'undefined' && settings.feeOrder
-      ? false
-      : undefined
+        ? false
+        : undefined
     const key = `${JSON.stringify(
       gridSettings,
     )}, ${true}, ${false}, ${!long}, ${feeOrder}, ${true}`
@@ -1462,8 +1462,8 @@ export abstract class Strategy implements StrategyInterface {
     const topPrice = this.long ? startPrice + gridStep : startPrice
     const levels = Math.floor(
       +(baseOrder
-        ? settings.baseGridLevels ?? settings.gridLevel ?? '1'
-        : settings.gridLevel ?? '1'),
+        ? (settings.baseGridLevels ?? settings.gridLevel ?? '1')
+        : (settings.gridLevel ?? '1')),
     )
     const fee = userFee
     const sellDisplacement = fee * 2 * 100
@@ -1473,8 +1473,8 @@ export abstract class Strategy implements StrategyInterface {
         ? ('quote' as const)
         : ('base' as const)
       : settings.profitCurrency === 'quote'
-      ? ('base' as const)
-      : ('quote' as const)
+        ? ('base' as const)
+        : ('quote' as const)
     let asset = {
       base: 0,
       quote: 0,
@@ -1634,16 +1634,16 @@ export abstract class Strategy implements StrategyInterface {
         ? symbol.baseAsset.name
         : symbol.quoteAsset.name
       : this.long
-      ? symbol.quoteAsset.name
-      : symbol.baseAsset.name
+        ? symbol.quoteAsset.name
+        : symbol.baseAsset.name
     const balanceAsset = (this.balances ?? []).find((b) => b.asset === asset)
     const balanceItem = +(balanceAsset?.free ?? '0')
     const fullBalance = balanceItem + Strategy.totalProfit
     const free = this.futures
       ? fullBalance
       : this.long
-      ? balanceItem + Strategy.totalProfit * (this.profitBase ? 0 : 1)
-      : balanceItem + Strategy.totalProfit * (this.profitBase ? 1 : 0)
+        ? balanceItem + Strategy.totalProfit * (this.profitBase ? 0 : 1)
+        : balanceItem + Strategy.totalProfit * (this.profitBase ? 1 : 0)
     const balance = {
       asset,
       free: `${free}`,
@@ -2142,11 +2142,11 @@ export abstract class Strategy implements StrategyInterface {
                 (si) => si.indicatorAction === IndicatorAction.startDca,
               ).length + 1
             : this.settings.dcaCondition === DCAConditionEnum.custom
-            ? (this.settings.dcaCustom ?? []).length + 1
-            : initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca)
-                .length +
-              1 +
-              hiddenDCA.length
+              ? (this.settings.dcaCustom ?? []).length + 1
+              : initialOrders.filter((o) => o.type === DCAOrderTypeEnum.dca)
+                  .length +
+                1 +
+                hiddenDCA.length
           : 1,
         complete: hiddenDCA.length + 1,
         max: hiddenDCA.length + 1,
@@ -2159,15 +2159,15 @@ export abstract class Strategy implements StrategyInterface {
               ? baseUsage
               : 0
             : this.long
-            ? 0
-            : baseUsage,
+              ? 0
+              : baseUsage,
           quote: this.futures
             ? this.coinm
               ? 0
               : quoteUsage
             : this.long
-            ? quoteUsage
-            : 0,
+              ? quoteUsage
+              : 0,
         },
         max: {
           base: this.futures
@@ -2175,15 +2175,15 @@ export abstract class Strategy implements StrategyInterface {
               ? maxBase
               : 0
             : this.long
-            ? 0
-            : maxBase,
+              ? 0
+              : maxBase,
           quote: this.futures
             ? this.coinm
               ? 0
               : maxQuote
             : this.long
-            ? maxQuote
-            : 0,
+              ? maxQuote
+              : 0,
         },
       },
     }
@@ -2214,8 +2214,8 @@ export abstract class Strategy implements StrategyInterface {
         ? deal.symbol.baseAsset.name
         : deal.symbol.quoteAsset.name
       : this.long
-      ? deal.symbol.quoteAsset.name
-      : deal.symbol.baseAsset.name
+        ? deal.symbol.quoteAsset.name
+        : deal.symbol.baseAsset.name
     if (!Strategy.balance.has(key)) {
       const usdRateQuote = this.usdRateQuote.get(s) ?? 1
       const usdRate = this.usdRate.get(s) ?? 1
@@ -2226,8 +2226,8 @@ export abstract class Strategy implements StrategyInterface {
             ? deal.usage.max.base
             : deal.usage.max.quote
           : this.long
-          ? deal.usage.max.quote * (this.profitBase ? 1 / deal.startPrice : 1)
-          : deal.usage.max.base * (this.profitBase ? 1 : deal.startPrice)) /
+            ? deal.usage.max.quote * (this.profitBase ? 1 / deal.startPrice : 1)
+            : deal.usage.max.base * (this.profitBase ? 1 : deal.startPrice)) /
         this.leverage
       let balance =
         (this.futures
@@ -2235,8 +2235,8 @@ export abstract class Strategy implements StrategyInterface {
             ? deal.usage.max.base
             : deal.usage.max.quote
           : this.long
-          ? deal.usage.max.quote
-          : deal.usage.max.base) / this.leverage
+            ? deal.usage.max.quote
+            : deal.usage.max.base) / this.leverage
       const { maxNumberOfOpenDeals, maxDealsPerPair, useMulti } = this.settings
       if (
         maxNumberOfOpenDeals &&
@@ -2285,10 +2285,10 @@ export abstract class Strategy implements StrategyInterface {
       type === 'base'
         ? s.baseAsset.name
         : type === 'quote'
-        ? s.quoteAsset.name
-        : this.profitBase
-        ? s.baseAsset.name
-        : s.quoteAsset.name,
+          ? s.quoteAsset.name
+          : this.profitBase
+            ? s.baseAsset.name
+            : s.quoteAsset.name,
       [{ symbol, price }, ...this.prices.filter((p) => p.symbol !== symbol)],
     )
   }
@@ -2318,8 +2318,8 @@ export abstract class Strategy implements StrategyInterface {
           ? usageBase
           : usageQuote
         : this.long
-        ? usageQuote * (this.profitBase ? 1 / deal.avgPrice : 1)
-        : usageBase * (this.profitBase ? 1 : deal.avgPrice)) *
+          ? usageQuote * (this.profitBase ? 1 / deal.avgPrice : 1)
+          : usageBase * (this.profitBase ? 1 : deal.avgPrice)) *
         (this.profitBase ? deal.avgPrice : 1) *
         (this.profitBase ? usdRateQuote : usdRate),
       3,
@@ -2524,7 +2524,7 @@ export abstract class Strategy implements StrategyInterface {
     const minigrids =
       deal?.mingrids.filter((m) => m.status === 'open').map((m) => m.id) ?? []
     const filledDealOrder = (
-      deal ? deal.filledOrders : minigrid?.filledOrders ?? []
+      deal ? deal.filledOrders : (minigrid?.filledOrders ?? [])
     )
       .filter(
         (o) =>
@@ -2972,8 +2972,8 @@ export abstract class Strategy implements StrategyInterface {
           ? symbol.baseAsset.name
           : symbol.quoteAsset.name
         : this.profitBase
-        ? symbol.baseAsset.name
-        : symbol.quoteAsset.name,
+          ? symbol.baseAsset.name
+          : symbol.quoteAsset.name,
       index: Strategy.transactionIndex,
       idBuy: o.side === BotOrderSideEnum.buy ? o.id : matchedId,
       idSell: o.side === BotOrderSideEnum.buy ? matchedId : o.id,
@@ -3339,7 +3339,7 @@ export abstract class Strategy implements StrategyInterface {
           ? o.levelNumber
             ? o.levelNumber + 1
             : d.lastFilled
-          : o.levelNumber ?? d.lastFilled
+          : (o.levelNumber ?? d.lastFilled)
         if (Strategy.combo) {
           const m = this.createMinigrid(d, o, false, d.symbol.pair)
           if (m) {
@@ -3428,9 +3428,9 @@ export abstract class Strategy implements StrategyInterface {
       !this.settings.useSl
       ? ComboTpBase.filled
       : !this.settings.comboTpBase ||
-        this.settings.comboTpBase === ComboTpBase.full
-      ? ComboTpBase.full
-      : ComboTpBase.filled
+          this.settings.comboTpBase === ComboTpBase.full
+        ? ComboTpBase.full
+        : ComboTpBase.filled
   }
 
   private getSLOrder(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
@@ -3642,8 +3642,8 @@ export abstract class Strategy implements StrategyInterface {
               ? usageBase
               : usageQuote
             : this.long
-            ? usageQuote * (this.profitBase ? 1 / price : 1)
-            : usageBase * (this.profitBase ? 1 : price)) / this.leverage
+              ? usageQuote * (this.profitBase ? 1 / price : 1)
+              : usageBase * (this.profitBase ? 1 : price)) / this.leverage
         const perc = total / denominator
         if (
           isFinite(Math.abs(perc)) &&
@@ -3735,11 +3735,11 @@ export abstract class Strategy implements StrategyInterface {
       ) {
         const slConditionGt =
           (foundInSl
-            ? foundInSl?.unpnlCondition ?? this.defaultUnpnlCondition
+            ? (foundInSl?.unpnlCondition ?? this.defaultUnpnlCondition)
             : null) === IndicatorStartConditionEnum.gt
         const tpConditionGt =
           (foundInTp
-            ? foundInTp?.unpnlCondition ?? this.defaultUnpnlCondition
+            ? (foundInTp?.unpnlCondition ?? this.defaultUnpnlCondition)
             : null) === IndicatorStartConditionEnum.gt
 
         const slValue = (foundInSl?.unpnlValue ?? this.defaultUnpnl) / 100
@@ -3777,19 +3777,19 @@ export abstract class Strategy implements StrategyInterface {
           (Strategy.combo || (d.trailingLevel && d.trailingMode)
             ? 1
             : this.long
-            ? 1 + this.userFee * 2
-            : 1 - this.userFee * 2)
+              ? 1 + this.userFee * 2
+              : 1 - this.userFee * 2)
       const min = Math.min(b.low, b.close, b.open)
       const max = Math.max(b.high, b.close, b.open)
       slOrder.price = lock
         ? closePrice
         : slOrder.price >= min && slOrder.price <= max
-        ? slOrder.price
-        : slOrder.price >= max
-        ? max
-        : slOrder.price <= min
-        ? min
-        : min
+          ? slOrder.price
+          : slOrder.price >= max
+            ? max
+            : slOrder.price <= min
+              ? min
+              : min
       if (Strategy.combo && this.profitBase) {
         slOrder = this.getTP(d, slOrder.price, false, true)[0]
       }
@@ -3937,8 +3937,8 @@ export abstract class Strategy implements StrategyInterface {
             ? usageBase
             : usageQuote
           : this.long
-          ? usageQuote * (this.profitBase ? 1 / d.lastPrice : 1)
-          : usageBase * (this.profitBase ? 1 : d.lastPrice)) / this.leverage
+            ? usageQuote * (this.profitBase ? 1 / d.lastPrice : 1)
+            : usageBase * (this.profitBase ? 1 : d.lastPrice)) / this.leverage
       d.profit.perc = this.math.round((d.profit.total / denominator) * 100, 2)
       const precision = this.precision.get(d.symbol.pair) ?? 8
       d.profit.total = this.math.round(d.profit.total, precision + 3)
@@ -4143,8 +4143,8 @@ export abstract class Strategy implements StrategyInterface {
       ? d.trailingMode === TrailingModeEnum.tsl && slPerc
         ? d.bestPrice * (1 + sl)
         : d.trailingMode === TrailingModeEnum.ttp && trailingTpPerc
-        ? d.bestPrice * (1 - tp)
-        : 0
+          ? d.bestPrice * (1 - tp)
+          : 0
       : 0
     if (newTrailingLevel !== d.trailingLevel && !Strategy.combo) {
       d.trailingLevel = newTrailingLevel
@@ -4203,10 +4203,10 @@ export abstract class Strategy implements StrategyInterface {
           (this.settings.closeByTimerUnits === CooldownUnits.seconds
             ? 1000
             : this.settings.closeByTimerUnits === CooldownUnits.minutes
-            ? 60 * 1000
-            : this.settings.closeByTimerUnits === CooldownUnits.hours
-            ? 60 * 60 * 1000
-            : 24 * 60 * 60 * 1000)
+              ? 60 * 1000
+              : this.settings.closeByTimerUnits === CooldownUnits.hours
+                ? 60 * 60 * 1000
+                : 24 * 60 * 60 * 1000)
       if (closeTime <= b.time) {
         const order = this.getTP(d, b.open, true, false, closeTime)[0]
         this.updatePositionWithOrder(order, b.symbol)
@@ -4412,8 +4412,8 @@ export abstract class Strategy implements StrategyInterface {
           ? fullSymbol.baseAsset.name
           : fullSymbol.quoteAsset.name
         : this.long
-        ? fullSymbol.quoteAsset.name
-        : fullSymbol.baseAsset.name
+          ? fullSymbol.quoteAsset.name
+          : fullSymbol.baseAsset.name
       if (!Strategy.balance.has(k)) {
         this.openDeal(b.close, b.time, b.high, b.low, b.symbol, true)
       }
@@ -4673,8 +4673,8 @@ export abstract class Strategy implements StrategyInterface {
             (_price || deal.avgPrice)
           : deal.currentBalance.base
         : this.profitBase
-        ? deal.currentBalance.quote / (_price || deal.avgPrice)
-        : deal.initialBalance.base - deal.currentBalance.base
+          ? deal.currentBalance.quote / (_price || deal.avgPrice)
+          : deal.initialBalance.base - deal.currentBalance.base
       : filledRegular.reduce((acc, g) => acc + g.qty, 0) -
         filledTP.reduce((acc, g) => acc + g.qty, 0)
     const origQty = qty
@@ -4764,10 +4764,10 @@ export abstract class Strategy implements StrategyInterface {
       tpOrder.qty = this.coinm
         ? newQty
         : this.long
-        ? Math.min(tpOrder.qty, newQty)
-        : sl
-        ? Math.min(tpOrder.qty, newQty)
-        : Math.max(tpOrder.qty, newQty)
+          ? Math.min(tpOrder.qty, newQty)
+          : sl
+            ? Math.min(tpOrder.qty, newQty)
+            : Math.max(tpOrder.qty, newQty)
     }
     if (
       tpOrder.price * tpOrder.qty < symbol.quoteAsset.minAmount &&
@@ -4964,18 +4964,18 @@ export abstract class Strategy implements StrategyInterface {
           : d.initialBalance.base - (d.currentBalance.base - _b)
         : 0
       : this.long
-      ? 0
-      : d.initialBalance.base - (d.currentBalance.base - _b)
+        ? 0
+        : d.initialBalance.base - (d.currentBalance.base - _b)
 
     const quote = this.futures
       ? this.coinm
         ? 0
         : !this.long
-        ? d.currentBalance.quote
-        : d.initialBalance.quote - (d.currentBalance.quote - _q)
+          ? d.currentBalance.quote
+          : d.initialBalance.quote - (d.currentBalance.quote - _q)
       : this.long
-      ? d.initialBalance.quote - (d.currentBalance.quote - _q)
-      : 0
+        ? d.initialBalance.quote - (d.currentBalance.quote - _q)
+        : 0
 
     const usage = {
       current: {
@@ -5062,11 +5062,11 @@ export abstract class Strategy implements StrategyInterface {
           ? usageBase
           : usageQuote
         : this.long
-        ? usageQuote * (this.profitBase ? 1 / d.lastPrice : 1)
-        : usageBase * (this.profitBase ? 1 : d.lastPrice)
+          ? usageQuote * (this.profitBase ? 1 / d.lastPrice : 1)
+          : usageBase * (this.profitBase ? 1 : d.lastPrice)
       : this.profitBase
-      ? base
-      : quote
+        ? base
+        : quote
     const perc = this.math.round(
       (total / denominator) * 100 * /* Strategy.combo ? 1 : */ this.leverage,
       2,
@@ -5120,12 +5120,12 @@ export abstract class Strategy implements StrategyInterface {
     return this.futures
       ? usdRate
       : this.long
-      ? this.profitBase
-        ? usdRateQuote
-        : usdRate
-      : this.profitBase
-      ? usdRate
-      : usdRateBase
+        ? this.profitBase
+          ? usdRateQuote
+          : usdRate
+        : this.profitBase
+          ? usdRate
+          : usdRateBase
   }
 
   private getMaxLeverage(s: string) {
@@ -5138,11 +5138,11 @@ export abstract class Strategy implements StrategyInterface {
       return
     }
     const startPrice = this.long
-      ? Strategy.maxPrice.get(s) ?? 0
-      : Strategy.minPrice.get(s) ?? 0
+      ? (Strategy.maxPrice.get(s) ?? 0)
+      : (Strategy.minPrice.get(s) ?? 0)
     const extremum = this.long
-      ? Strategy.minPrice.get(s) ?? 0
-      : Strategy.maxPrice.get(s) ?? 0
+      ? (Strategy.minPrice.get(s) ?? 0)
+      : (Strategy.maxPrice.get(s) ?? 0)
     if (!startPrice || !extremum) {
       return
     }
@@ -5179,16 +5179,16 @@ export abstract class Strategy implements StrategyInterface {
         number < 107
           ? 'F'
           : number >= 107 && number < 133
-          ? 'E'
-          : number >= 133 && number < 164
-          ? 'D'
-          : number >= 164 && number < 208
-          ? 'C'
-          : number >= 208 && number < 273
-          ? 'B'
-          : number >= 273 && number < 385
-          ? 'A'
-          : 'A+',
+            ? 'E'
+            : number >= 133 && number < 164
+              ? 'D'
+              : number >= 164 && number < 208
+                ? 'C'
+                : number >= 208 && number < 273
+                  ? 'B'
+                  : number >= 273 && number < 385
+                    ? 'A'
+                    : 'A+',
       number,
     }
   }
@@ -5300,13 +5300,13 @@ export abstract class Strategy implements StrategyInterface {
                 ? v.usage.max.base
                 : v.usage.current.base
               : Strategy.combo
-              ? v.usage.max.quote
-              : v.usage.current.quote
+                ? v.usage.max.quote
+                : v.usage.current.quote
             : this.long
-            ? (Strategy.combo ? v.usage.max.quote : v.usage.current.quote) *
-              (this.profitBase ? 1 / v.startPrice : 1)
-            : (Strategy.combo ? v.usage.max.base : v.usage.current.base) *
-              (this.profitBase ? 1 : v.startPrice)),
+              ? (Strategy.combo ? v.usage.max.quote : v.usage.current.quote) *
+                (this.profitBase ? 1 / v.startPrice : 1)
+              : (Strategy.combo ? v.usage.max.base : v.usage.current.base) *
+                (this.profitBase ? 1 : v.startPrice)),
         0,
       )
       x.push(day)
@@ -5472,8 +5472,8 @@ export abstract class Strategy implements StrategyInterface {
                     ? (acc += d.qty)
                     : (acc += d.qty * d.price)
                   : !this.long
-                  ? (acc += d.qty)
-                  : (acc += d.qty * d.price),
+                    ? (acc += d.qty)
+                    : (acc += d.qty * d.price),
               0,
             )
         : 0
@@ -5567,8 +5567,8 @@ export abstract class Strategy implements StrategyInterface {
                     ? (acc += d.usage.current.base)
                     : (acc += d.usage.current.quote)
                   : !this.long
-                  ? (acc += d.usage.current.base)
-                  : (acc += d.usage.current.quote),
+                    ? (acc += d.usage.current.base)
+                    : (acc += d.usage.current.quote),
               0,
             ) /
               allDeals.length /
@@ -5658,15 +5658,19 @@ export abstract class Strategy implements StrategyInterface {
                   ? od.usage.max.base /* * (this.profitBase ? 1 : tpPrice) */
                   : od.usage.max.quote /* / (this.profitBase ? tpPrice : 1) */
                 : this.long
-                ? od.usage.max.quote /* / (this.profitBase ? tpPrice : 1) */
-                : od.usage.max.base /* * (this.profitBase ? 1 : tpPrice) */
+                  ? od.usage.max.quote /* / (this.profitBase ? tpPrice : 1) */
+                  : od.usage.max.base /* * (this.profitBase ? 1 : tpPrice) */
               : this.futures
-              ? this.coinm
-                ? od.usage.current.base /* * (this.profitBase ? 1 : tpPrice) */
-                : od.usage.current.quote /* / (this.profitBase ? tpPrice : 1) */
-              : this.long
-              ? od.usage.current.quote /*  / (this.profitBase ? tpPrice : 1) */
-              : od.usage.current.base) /* * (this.profitBase ? 1 : tpPrice) */ /
+                ? this.coinm
+                  ? od.usage.current
+                      .base /* * (this.profitBase ? 1 : tpPrice) */
+                  : od.usage.current
+                      .quote /* / (this.profitBase ? tpPrice : 1) */
+                : this.long
+                  ? od.usage.current
+                      .quote /*  / (this.profitBase ? tpPrice : 1) */
+                  : od.usage.current
+                      .base) /* * (this.profitBase ? 1 : tpPrice) */ /
               this.leverage) *
             this.getRate()
           /* const baseAmount = od.currentBalance.base / this.leverage
@@ -5821,8 +5825,8 @@ export abstract class Strategy implements StrategyInterface {
                         ? d.usage.current.base
                         : d.usage.current.quote
                       : !this.long
-                      ? d.usage.current.base
-                      : d.usage.current.quote) / this.leverage,
+                        ? d.usage.current.base
+                        : d.usage.current.quote) / this.leverage,
                 ),
               ) *
               this.getRate() *
@@ -5889,8 +5893,8 @@ export abstract class Strategy implements StrategyInterface {
                   ),
           },
           profitAsset: this.profitBase
-            ? symbol?.baseAsset?.name ?? ''
-            : symbol?.quoteAsset?.name ?? '',
+            ? (symbol?.baseAsset?.name ?? '')
+            : (symbol?.quoteAsset?.name ?? ''),
           winRate: closedDeals
             ? this.math.round(
                 (profitDealsStats.length / closedDealsStats) * 100,
@@ -6090,8 +6094,8 @@ export abstract class Strategy implements StrategyInterface {
           ? quoteRate
           : 1
         : this.settings.strategy === StrategyEnum.long
-        ? 1
-        : quoteRate) /
+          ? 1
+          : quoteRate) /
       (this.settings.profitCurrency === 'base' || this.settings.coinm
         ? quoteRate
         : 1)

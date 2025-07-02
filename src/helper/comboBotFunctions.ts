@@ -75,8 +75,8 @@ class ComboBotFunctions extends DcaBotFunctions {
     const feeOrder = settings.futures
       ? undefined
       : typeof settings.feeOrder !== 'undefined' && settings.feeOrder
-      ? false
-      : undefined
+        ? false
+        : undefined
     let baseQty =
       orderSizeType === OrderSizeTypeEnum.usd
         ? this.math.round(
@@ -85,22 +85,22 @@ class ComboBotFunctions extends DcaBotFunctions {
             true,
           )
         : orderSizeType === OrderSizeTypeEnum.base
-        ? this.math.round(baseOrderSize + (sizes?.base ?? 0), precision, true)
-        : orderSizeType === OrderSizeTypeEnum.quote
-        ? this.math.round(
-            (baseOrderSize * (coinm ? symbol.quoteAsset.minAmount : 1)) /
-              latestPrice +
-              (sizes?.base ?? 0),
-            precision,
-            true,
-          )
-        : this.math.round(
-            symbol.quoteAsset.minAmount
-              ? symbol.quoteAsset.minAmount / latestPrice
-              : symbol.baseAsset.minAmount,
-            precision,
-            true,
-          )
+          ? this.math.round(baseOrderSize + (sizes?.base ?? 0), precision, true)
+          : orderSizeType === OrderSizeTypeEnum.quote
+            ? this.math.round(
+                (baseOrderSize * (coinm ? symbol.quoteAsset.minAmount : 1)) /
+                  latestPrice +
+                  (sizes?.base ?? 0),
+                precision,
+                true,
+              )
+            : this.math.round(
+                symbol.quoteAsset.minAmount
+                  ? symbol.quoteAsset.minAmount / latestPrice
+                  : symbol.baseAsset.minAmount,
+                precision,
+                true,
+              )
     let qtyToUse = 0
     if (
       orderSizeType === OrderSizeTypeEnum.percFree ||
@@ -114,12 +114,12 @@ class ComboBotFunctions extends DcaBotFunctions {
               ? symbol.baseAsset.name
               : symbol.quoteAsset.name
             : settings.terminalDealType === TerminalDealTypeEnum.import
-            ? settings.strategy === StrategyEnum.long
-              ? symbol.baseAsset.name
-              : symbol.quoteAsset.name
-            : settings.strategy === StrategyEnum.short
-            ? symbol.baseAsset.name
-            : symbol.quoteAsset.name),
+              ? settings.strategy === StrategyEnum.long
+                ? symbol.baseAsset.name
+                : symbol.quoteAsset.name
+              : settings.strategy === StrategyEnum.short
+                ? symbol.baseAsset.name
+                : symbol.quoteAsset.name),
       )
       qtyToUse = findBalance
         ? orderSizeType === OrderSizeTypeEnum.percFree
@@ -129,7 +129,7 @@ class ComboBotFunctions extends DcaBotFunctions {
       if (settings.futures) {
         qtyToUse *=
           settings.marginType !== BotMarginTypeEnum.inherit
-            ? settings.leverage ?? 1
+            ? (settings.leverage ?? 1)
             : 1
       }
       baseQty = this.math.round(
@@ -143,12 +143,12 @@ class ComboBotFunctions extends DcaBotFunctions {
                 ? 1
                 : latestPrice
               : settings.terminalDealType === TerminalDealTypeEnum.import
-              ? settings.strategy === StrategyEnum.long
-                ? 1
-                : latestPrice
-              : settings.strategy === StrategyEnum.short
-              ? 1
-              : latestPrice),
+                ? settings.strategy === StrategyEnum.long
+                  ? 1
+                  : latestPrice
+                : settings.strategy === StrategyEnum.short
+                  ? 1
+                  : latestPrice),
         ),
         precision,
         true,
@@ -210,7 +210,7 @@ class ComboBotFunctions extends DcaBotFunctions {
       symbol.priceAssetPrecision,
     )
     baseOrder.minigridBudget =
-      +(coinm ? baseOrder.base : baseOrder.quote ?? '0') *
+      +(coinm ? baseOrder.base : (baseOrder.quote ?? '0')) *
       (settings.futures ? 1 : !long ? 2 - feeFactor : 1)
 
     const gridSettings = {
@@ -238,8 +238,8 @@ class ComboBotFunctions extends DcaBotFunctions {
           ? ('quote' as const)
           : ('base' as const)
         : settings.profitCurrency === 'quote'
-        ? ('base' as const)
-        : ('quote' as const),
+          ? ('base' as const)
+          : ('quote' as const),
       futuresStrategy: long
         ? FuturesStrategyEnum.long
         : FuturesStrategyEnum.short,
@@ -434,48 +434,48 @@ class ComboBotFunctions extends DcaBotFunctions {
                 true,
               )
             : orderSizeType === OrderSizeTypeEnum.quote
-            ? this.math.round(
-                ((orderSize * (coinm ? symbol.quoteAsset.minAmount : 1)) /
-                  price) *
-                  volumeVal +
-                  (sizes?.dca?.[i - 1] ?? 0),
-                precision,
-              )
-            : orderSizeType === OrderSizeTypeEnum.base
-            ? this.math.round(
-                orderSize * volumeVal + (sizes?.dca?.[i - 1] ?? 0),
-                precision,
-              )
-            : orderSizeType === OrderSizeTypeEnum.percFree ||
-              orderSizeType === OrderSizeTypeEnum.percTotal
-            ? precOrderSize !== 0
-              ? this.math.round(precOrderSize * volumeVal, precision)
-              : this.math.round(
-                  ((qtyToUse * (+orderSize / 100)) /
-                    (settings.futures
-                      ? settings.coinm
-                        ? 1
-                        : price
-                      : settings.terminalDealType ===
-                        TerminalDealTypeEnum.import
-                      ? settings.strategy === StrategyEnum.long
-                        ? 1
-                        : price
-                      : settings.strategy === StrategyEnum.short
-                      ? 1
-                      : price)) *
-                    volumeVal,
+              ? this.math.round(
+                  ((orderSize * (coinm ? symbol.quoteAsset.minAmount : 1)) /
+                    price) *
+                    volumeVal +
+                    (sizes?.dca?.[i - 1] ?? 0),
                   precision,
                 )
-            : this.math.round(
-                Math.max(
-                  symbol.quoteAsset.minAmount
-                    ? symbol.quoteAsset.minAmount / price
-                    : symbol.baseAsset.minAmount,
-                  (qtyToUse * orderSize) / 100 / price,
-                ),
-                precision,
-              )
+              : orderSizeType === OrderSizeTypeEnum.base
+                ? this.math.round(
+                    orderSize * volumeVal + (sizes?.dca?.[i - 1] ?? 0),
+                    precision,
+                  )
+                : orderSizeType === OrderSizeTypeEnum.percFree ||
+                    orderSizeType === OrderSizeTypeEnum.percTotal
+                  ? precOrderSize !== 0
+                    ? this.math.round(precOrderSize * volumeVal, precision)
+                    : this.math.round(
+                        ((qtyToUse * (+orderSize / 100)) /
+                          (settings.futures
+                            ? settings.coinm
+                              ? 1
+                              : price
+                            : settings.terminalDealType ===
+                                TerminalDealTypeEnum.import
+                              ? settings.strategy === StrategyEnum.long
+                                ? 1
+                                : price
+                              : settings.strategy === StrategyEnum.short
+                                ? 1
+                                : price)) *
+                          volumeVal,
+                        precision,
+                      )
+                  : this.math.round(
+                      Math.max(
+                        symbol.quoteAsset.minAmount
+                          ? symbol.quoteAsset.minAmount / price
+                          : symbol.baseAsset.minAmount,
+                        (qtyToUse * orderSize) / 100 / price,
+                      ),
+                      precision,
+                    )
         if (qty < symbol.baseAsset.minAmount) {
           qty = symbol.baseAsset.minAmount
         }
@@ -677,8 +677,8 @@ class ComboBotFunctions extends DcaBotFunctions {
             price < 0
               ? `This order won't be placed, because price deviation more than 100%`
               : qty * price < symbol.quoteAsset.minAmount
-              ? `This order won't be placed, because order amount is less than min allowed by the exchange: ${symbol.quoteAsset.minAmount} ${symbol.quoteAsset.name}`
-              : '',
+                ? `This order won't be placed, because order amount is less than min allowed by the exchange: ${symbol.quoteAsset.minAmount} ${symbol.quoteAsset.name}`
+                : '',
           base: this.math.round(base, precision),
           quote: this.math.round(quote, symbol.priceAssetPrecision),
           levelNumber: i,

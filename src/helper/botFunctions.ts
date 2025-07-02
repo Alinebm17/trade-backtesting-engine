@@ -257,7 +257,7 @@ class BotFunctions {
       ) || { sell: { qty: 0, qtyQuote: 0 }, buy: { qty: 0, qtyBase: 0 } }
       res.buy.qty /=
         this.settings.marginType !== BotMarginTypeEnum.inherit
-          ? this.settings.leverage ?? 1
+          ? (this.settings.leverage ?? 1)
           : 1
       if (this.settings.coinm) {
         res = grids.reduce(
@@ -280,7 +280,7 @@ class BotFunctions {
         ) || { sell: { qty: 0, qtyQuote: 0 }, buy: { qty: 0, qtyBase: 0 } }
         res.sell.qty /=
           this.settings.marginType !== BotMarginTypeEnum.inherit
-            ? this.settings.leverage ?? 1
+            ? (this.settings.leverage ?? 1)
             : 1
       }
     } else {

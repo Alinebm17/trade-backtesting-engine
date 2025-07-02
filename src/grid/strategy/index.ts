@@ -424,8 +424,8 @@ export class Strategy implements StrategyInterface {
           ? base
           : quote
         : this.profitBase
-        ? quote / price + base
-        : base * price + quote
+          ? quote / price + base
+          : base * price + quote
       this.initialBalancesUsd =
         this.initialBalances * (this.firstUsdRate || this.usdRate)
       this.initialBalancesByAsset = {
@@ -824,8 +824,8 @@ export class Strategy implements StrategyInterface {
           ? this.symbol.baseAsset.name
           : this.symbol.quoteAsset.name
         : this.profitBase
-        ? this.symbol.baseAsset.name
-        : this.symbol.quoteAsset.name,
+          ? this.symbol.baseAsset.name
+          : this.symbol.quoteAsset.name,
       index: this.transactionIndex,
       idBuy: order.side === BotOrderSideEnum.buy ? order.id : matchedId,
       idSell: order.side === BotOrderSideEnum.buy ? matchedId : order.id,
@@ -1014,8 +1014,8 @@ export class Strategy implements StrategyInterface {
             (1 / this.leverage) * (position === PositionSide.LONG ? -1 : 1)) *
           (1 + this.userFee * (position === PositionSide.LONG ? -1 : 1))
         : position === PositionSide.LONG
-        ? this.userFee
-        : 1 / this.userFee)
+          ? this.userFee
+          : 1 / this.userFee)
     )
   }
 
@@ -1074,7 +1074,7 @@ export class Strategy implements StrategyInterface {
   get leverage() {
     return this.settings.futures
       ? this.settings.marginType !== BotMarginTypeEnum.inherit
-        ? this.settings.leverage ?? 1
+        ? (this.settings.leverage ?? 1)
         : 1
       : 1
   }
@@ -1118,8 +1118,8 @@ export class Strategy implements StrategyInterface {
       currentValue > initialValue
         ? cg.side === BotOrderSideEnum.buy
         : currentValue < initialValue
-        ? cg.side === BotOrderSideEnum.sell
-        : false,
+          ? cg.side === BotOrderSideEnum.sell
+          : false,
     )) {
       const currentGridsOnPrice = [
         ...this.createOrders(true, false, g.side, g.price),
@@ -1317,17 +1317,17 @@ export class Strategy implements StrategyInterface {
             ? this.currentBalancesByAsset.base
             : 0
           : this.profitBase
-          ? this.currentBalancesByAsset.base +
-            this.currentBalancesByAsset.quote / price
-          : 0,
+            ? this.currentBalancesByAsset.base +
+              this.currentBalancesByAsset.quote / price
+            : 0,
         quote: this.futures
           ? this.coinm
             ? 0
             : this.currentBalancesByAsset.quote
           : this.profitBase
-          ? 0
-          : this.currentBalancesByAsset.base * price +
-            this.currentBalancesByAsset.quote,
+            ? 0
+            : this.currentBalancesByAsset.base * price +
+              this.currentBalancesByAsset.quote,
       }
     }
     this.currentBalances = this.futures
@@ -1335,10 +1335,10 @@ export class Strategy implements StrategyInterface {
         ? this.currentBalancesByAsset.base
         : this.currentBalancesByAsset.quote
       : this.profitBase
-      ? this.currentBalancesByAsset.base +
-        this.currentBalancesByAsset.quote / price
-      : this.currentBalancesByAsset.base * price +
-        this.currentBalancesByAsset.quote
+        ? this.currentBalancesByAsset.base +
+          this.currentBalancesByAsset.quote / price
+        : this.currentBalancesByAsset.base * price +
+          this.currentBalancesByAsset.quote
     this.currentBalancesUsd = this.currentBalances * this.usdRate
   }
 

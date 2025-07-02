@@ -101,7 +101,7 @@ export default class InternalIndicator {
   constructor(indicatorConfig: IndicatorConfigBackTesting) {
     this.indicatorName =
       indicatorConfig.type === IndicatorEnum.ma
-        ? indicatorConfig.maType ?? indicatorConfig.type
+        ? (indicatorConfig.maType ?? indicatorConfig.type)
         : indicatorConfig.type
     const add = 4
     if (indicatorConfig.type === IndicatorEnum.psar) {
@@ -157,7 +157,7 @@ export default class InternalIndicator {
       this.length =
         indicatorConfig.interval +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -186,10 +186,10 @@ export default class InternalIndicator {
       this.length =
         Math.max(indicatorConfig.mar1length, indicatorConfig.mar2length) +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         (indicatorConfig.trendFilter
-          ? indicatorConfig.trendFilterLookback ?? 0
+          ? (indicatorConfig.trendFilterLookback ?? 0)
           : 0) +
         add
     }
@@ -208,7 +208,7 @@ export default class InternalIndicator {
       this.length =
         indicatorConfig.interval +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -239,7 +239,7 @@ export default class InternalIndicator {
       this.length =
         34 +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -253,7 +253,7 @@ export default class InternalIndicator {
       this.length =
         indicatorConfig.interval +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -273,7 +273,7 @@ export default class InternalIndicator {
           indicatorConfig.slow,
         ) +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -281,7 +281,7 @@ export default class InternalIndicator {
       this.length =
         indicatorConfig.interval +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
       this.indicator = new MOM(
@@ -305,7 +305,7 @@ export default class InternalIndicator {
       this.length =
         Math.max(indicatorConfig.voLong, indicatorConfig.voShort) +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -319,7 +319,7 @@ export default class InternalIndicator {
       this.length =
         indicatorConfig.interval +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -333,7 +333,7 @@ export default class InternalIndicator {
       this.length =
         indicatorConfig.interval * 2 +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -356,10 +356,10 @@ export default class InternalIndicator {
           (indicatorConfig.bbwMa === MAEnum.tema
             ? 3
             : indicatorConfig.bbwMa === MAEnum.dema
-            ? 2
-            : 1) +
+              ? 2
+              : 1) +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -381,7 +381,7 @@ export default class InternalIndicator {
         indicatorConfig.interval +
         (indicatorConfig.rangeLength ?? 10) +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -415,10 +415,10 @@ export default class InternalIndicator {
           (indicatorConfig.bbwMa === MAEnum.tema
             ? 3
             : indicatorConfig.bbwMa === MAEnum.dema
-            ? 2
-            : 1) +
+              ? 2
+              : 1) +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -440,8 +440,8 @@ export default class InternalIndicator {
           (indicatorConfig.bbwMa === MAEnum.tema
             ? 3
             : indicatorConfig.bbwMa === MAEnum.dema
-            ? 2
-            : 1) +
+              ? 2
+              : 1) +
         add
     }
     if (indicatorConfig.type === IndicatorEnum.macd) {
@@ -459,7 +459,7 @@ export default class InternalIndicator {
         Math.max(indicatorConfig.longInterval + indicatorConfig.shortInterval) +
         indicatorConfig.signalInterval +
         (indicatorConfig.percentile
-          ? indicatorConfig.percentileLookback ?? 0
+          ? (indicatorConfig.percentileLookback ?? 0)
           : 0) +
         add
     }
@@ -658,17 +658,18 @@ export default class InternalIndicator {
                   price: value.c,
                 }
               : this.type !== IndicatorEnum.ma
-              ? this.type !== IndicatorEnum.bb && this.type !== IndicatorEnum.kc
-                ? result
+                ? this.type !== IndicatorEnum.bb &&
+                  this.type !== IndicatorEnum.kc
+                  ? result
+                  : {
+                      result,
+                      price: value.c,
+                    }
                 : {
-                    result,
+                    ma: result as unknown as number,
                     price: value.c,
-                  }
-              : {
-                  ma: result as unknown as number,
-                  price: value.c,
-                  maType: this.indicatorName,
-                },
+                    maType: this.indicatorName,
+                  },
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore
           type: this.type,
