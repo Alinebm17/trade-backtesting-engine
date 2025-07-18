@@ -4391,6 +4391,12 @@ export abstract class Strategy implements StrategyInterface {
       return
     }
     Strategy.candleTimes.add(key)
+    if (Strategy.candleTimes.size > 100) {
+      const oldest = Strategy.candleTimes.keys().next().value
+      if (oldest) {
+        Strategy.candleTimes.delete(oldest)
+      }
+    }
     if (!this.settings.useMulti && !Strategy.edge) {
       if (Strategy.priceMin === 0 || b.low < Strategy.priceMin) {
         Strategy.priceMin = b.low
