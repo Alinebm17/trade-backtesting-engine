@@ -370,6 +370,98 @@ class DCABacktesting extends Backtesting {
     )
     return this.calculatePeriod(lowestInterval)
   }
+
+  // Method to check if the strategy supports controlled bar processing
+  public supportsControlledProcessing(): boolean {
+    return this.strategy
+      ? typeof this.strategy.processBar === 'function'
+      : false
+  }
+
+  // Method to process a single bar in controlled mode
+  public async processBar(
+    bar: FullBar,
+    interval?: ExchangeIntervals,
+    checkPortfolio: boolean = false,
+  ): Promise<void> {
+    if (this.strategy && this.strategy.processBar) {
+      await this.strategy.processBar(checkPortfolio, bar, interval)
+    }
+  }
+
+  // Method to get current unrealized PnL
+  public getCurrentUnrealizedPnL(): {
+    totalUnrealizedPnL: number
+    totalUnrealizedPnLUsd: number
+    dealCount: number
+  } {
+    if (!this.strategy) {
+      return { totalUnrealizedPnL: 0, totalUnrealizedPnLUsd: 0, dealCount: 0 }
+    }
+
+    // Try to access the strategy's internal state for open deals
+    // This is a simplified implementation - in reality, this would need to
+    // access the actual open deals from the strategy and calculate their
+    // current unrealized P&L based on current price vs average price
+
+    // For now, we can try to get this information if the strategy exposes it
+    // Otherwise, return zeros as placeholder
+    const strategyWithPnL = this.strategy as unknown as {
+      getOpenDealsUnrealizedPnL?: () => {
+        totalUnrealizedPnL: number
+        totalUnrealizedPnLUsd: number
+        dealCount: number
+      }
+    }
+
+    if (typeof strategyWithPnL.getOpenDealsUnrealizedPnL === 'function') {
+      return strategyWithPnL.getOpenDealsUnrealizedPnL()
+    }
+
+    // Placeholder implementation - this should be replaced with actual
+    // calculation from the strategy's open deals
+    return { totalUnrealizedPnL: 0, totalUnrealizedPnLUsd: 0, dealCount: 0 }
+  }
+
+  // Method to initialize strategy for controlled processing
+  public async initializeForControlledProcessing(
+    bars: { bar: FullBar[]; interval: ExchangeIntervals }[],
+  ): Promise<boolean> {
+    if (!this.strategy) {
+      return false
+    }
+
+    // Set up the strategy with initial data similar to the test method
+    const otherIntervals = this.strategy.getOtherIntervals()
+    const intervals = otherIntervals.map((oi) => oi.interval)
+    intervals.push(this.interval)
+    const [lowestInterval] = intervals.sort(
+      (a, b) => timeIntervalMap[a] - timeIntervalMap[b],
+    )
+    this.interval = lowestInterval
+    this.period = this.calculatePeriod(lowestInterval)
+
+    const startTime = Math.max(
+      bars[0]?.bar?.[0]?.time ?? this.period.from * 1000,
+      this.period.from * 1000,
+    )
+
+    this.strategy.loadData(bars, startTime)
+
+    // Initialize the strategy
+    await this.strategy.preTest()
+
+    return true
+  }
+
+  // Getters for hedge access
+  public getSymbols() {
+    return this.symbols
+  }
+
+  public getExchange() {
+    return this.exchange
+  }
 }
 
 export default DCABacktesting
