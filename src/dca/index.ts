@@ -15,6 +15,7 @@ import {
 } from '../types'
 
 import getStrategyBySettings, { StrategyInterface } from './strategy'
+import { Strategy } from './strategy/main'
 
 import CombinedStrategy from './strategy/combined'
 
@@ -28,6 +29,9 @@ import {
 
 class DCABacktesting extends Backtesting {
   private strategy?: StrategyInterface
+
+  // Track latest bars for unrealized PnL calculation
+  private latestBars: Map<string, FullBar> = new Map()
 
   private settings: DCABotSettings
 
@@ -384,6 +388,10 @@ class DCABacktesting extends Backtesting {
     interval?: ExchangeIntervals,
     checkPortfolio: boolean = false,
   ): Promise<void> {
+    // Store latest bar for unrealized PnL calculation
+    // Use just symbol since FullBar doesn't have exchange property
+    this.latestBars.set(bar.symbol, bar)
+
     if (this.strategy && this.strategy.processBar) {
       await this.strategy.processBar(checkPortfolio, bar, interval)
     }
@@ -399,28 +407,38 @@ class DCABacktesting extends Backtesting {
       return { totalUnrealizedPnL: 0, totalUnrealizedPnLUsd: 0, dealCount: 0 }
     }
 
-    // Try to access the strategy's internal state for open deals
-    // This is a simplified implementation - in reality, this would need to
-    // access the actual open deals from the strategy and calculate their
-    // current unrealized P&L based on current price vs average price
+    // Access the strategy's static methods to get open deals
+    const strategyClass = this.strategy.constructor as typeof Strategy
+    const openDeals = strategyClass.getDeals('open')
 
-    // For now, we can try to get this information if the strategy exposes it
-    // Otherwise, return zeros as placeholder
-    const strategyWithPnL = this.strategy as unknown as {
-      getOpenDealsUnrealizedPnL?: () => {
-        totalUnrealizedPnL: number
-        totalUnrealizedPnLUsd: number
-        dealCount: number
+    if (openDeals.length === 0) {
+      return { totalUnrealizedPnL: 0, totalUnrealizedPnLUsd: 0, dealCount: 0 }
+    }
+
+    let totalUnrealizedPnL = 0
+    let totalUnrealizedPnLUsd = 0
+
+    for (const deal of openDeals) {
+      // Get current price from latest bar data for this symbol
+      // Use deal.symbol.pair since that's the trading pair identifier
+      const currentBar = this.latestBars.get(deal.symbol.pair)
+
+      if (currentBar && deal.avgPrice > 0) {
+        // Calculate unrealized PnL: (currentPrice - avgPrice) / avgPrice * position size
+        const priceChange = (currentBar.close - deal.avgPrice) / deal.avgPrice
+        const unrealizedPnL = priceChange * deal.usage.current.base
+        const unrealizedPnLUsd = priceChange * deal.usage.current.quote
+
+        totalUnrealizedPnL += unrealizedPnL
+        totalUnrealizedPnLUsd += unrealizedPnLUsd
       }
     }
 
-    if (typeof strategyWithPnL.getOpenDealsUnrealizedPnL === 'function') {
-      return strategyWithPnL.getOpenDealsUnrealizedPnL()
+    return {
+      totalUnrealizedPnL,
+      totalUnrealizedPnLUsd,
+      dealCount: openDeals.length,
     }
-
-    // Placeholder implementation - this should be replaced with actual
-    // calculation from the strategy's open deals
-    return { totalUnrealizedPnL: 0, totalUnrealizedPnLUsd: 0, dealCount: 0 }
   }
 
   // Method to initialize strategy for controlled processing

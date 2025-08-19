@@ -1802,3 +1802,30 @@ export type Sizes = {
   base: number
   dca: number[]
 }
+
+export type HedgeBotSettings = Pick<
+  DCABotSettings,
+  | 'useTp'
+  | 'tpPerc'
+  | 'useSl'
+  | 'slPerc'
+  | 'comboTpBase'
+  | 'dealCloseConditionSL'
+  | 'dealCloseCondition'
+>
+
+export interface HedgeBacktestingInput
+  extends Omit<DCABacktestingInput, 'settings'> {
+  longSettings: DCABotSettings
+  shortSettings: DCABotSettings
+  sharedSettings?: HedgeBotSettings
+}
+
+export interface HedgeBacktestingResult {
+  longResult: DCABacktestingResult
+  shortResult: DCABacktestingResult
+  hedgeResult: Pick<
+    DCABacktestingResult,
+    'financial' | 'duration' | 'usage' | 'numerical' | 'ratios'
+  >
+}

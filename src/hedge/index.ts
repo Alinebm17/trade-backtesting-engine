@@ -4,37 +4,95 @@ import { v4 } from 'uuid'
 
 import {
   ExchangeIntervals,
+  ExchangeEnum,
   FullBar,
-  DCABacktestingInput,
-  DCABotSettings,
+  HedgeBotSettings,
+  HedgeBacktestingInput,
+  HedgeBacktestingResult,
   DCABacktestingResult,
 } from '../types'
 
-export type HedgeBotSettings = Pick<
-  DCABotSettings,
-  | 'useTp'
-  | 'tpPerc'
-  | 'useSl'
-  | 'slPerc'
-  | 'comboTpBase'
-  | 'dealCloseConditionSL'
-  | 'dealCloseCondition'
->
-
-export interface HedgeBacktestingInput
-  extends Omit<DCABacktestingInput, 'settings'> {
-  longSettings: DCABotSettings
-  shortSettings: DCABotSettings
-  sharedSettings?: HedgeBotSettings
-}
-
-export interface HedgeBacktestingResult {
-  longResult: DCABacktestingResult
-  shortResult: DCABacktestingResult
-  hedgeResult: Pick<
-    DCABacktestingResult,
-    'financial' | 'duration' | 'usage' | 'numerical' | 'ratios'
-  >
+// Exchange-specific supported intervals
+const exchangeSupported: Partial<Record<ExchangeEnum, ExchangeIntervals[]>> = {
+  [ExchangeEnum.binance]: [
+    ExchangeIntervals.oneM,
+    ExchangeIntervals.threeM,
+    ExchangeIntervals.fiveM,
+    ExchangeIntervals.fifteenM,
+    ExchangeIntervals.thirtyM,
+    ExchangeIntervals.oneH,
+    ExchangeIntervals.twoH,
+    ExchangeIntervals.fourH,
+    ExchangeIntervals.eightH,
+    ExchangeIntervals.oneD,
+    ExchangeIntervals.oneW,
+  ],
+  [ExchangeEnum.bybit]: [
+    ExchangeIntervals.oneM,
+    ExchangeIntervals.threeM,
+    ExchangeIntervals.fiveM,
+    ExchangeIntervals.fifteenM,
+    ExchangeIntervals.thirtyM,
+    ExchangeIntervals.oneH,
+    ExchangeIntervals.twoH,
+    ExchangeIntervals.fourH,
+    ExchangeIntervals.oneD,
+    ExchangeIntervals.oneW,
+  ],
+  [ExchangeEnum.kucoin]: [
+    ExchangeIntervals.oneM,
+    ExchangeIntervals.threeM,
+    ExchangeIntervals.fiveM,
+    ExchangeIntervals.fifteenM,
+    ExchangeIntervals.thirtyM,
+    ExchangeIntervals.oneH,
+    ExchangeIntervals.twoH,
+    ExchangeIntervals.fourH,
+    ExchangeIntervals.eightH,
+    ExchangeIntervals.oneD,
+    ExchangeIntervals.oneW,
+  ],
+  [ExchangeEnum.okx]: [
+    ExchangeIntervals.oneM,
+    ExchangeIntervals.threeM,
+    ExchangeIntervals.fiveM,
+    ExchangeIntervals.fifteenM,
+    ExchangeIntervals.thirtyM,
+    ExchangeIntervals.oneH,
+    ExchangeIntervals.twoH,
+    ExchangeIntervals.fourH,
+    ExchangeIntervals.oneD,
+    ExchangeIntervals.oneW,
+  ],
+  [ExchangeEnum.coinbase]: [
+    ExchangeIntervals.oneM,
+    ExchangeIntervals.fiveM,
+    ExchangeIntervals.fifteenM,
+    ExchangeIntervals.thirtyM,
+    ExchangeIntervals.oneH,
+    ExchangeIntervals.twoH,
+    ExchangeIntervals.oneD,
+  ],
+  [ExchangeEnum.bitget]: [
+    ExchangeIntervals.oneM,
+    ExchangeIntervals.fiveM,
+    ExchangeIntervals.fifteenM,
+    ExchangeIntervals.thirtyM,
+    ExchangeIntervals.oneH,
+    ExchangeIntervals.fourH,
+    ExchangeIntervals.oneD,
+    ExchangeIntervals.oneW,
+  ],
+  [ExchangeEnum.mexc]: [
+    ExchangeIntervals.oneM,
+    ExchangeIntervals.fiveM,
+    ExchangeIntervals.fifteenM,
+    ExchangeIntervals.thirtyM,
+    ExchangeIntervals.oneH,
+    ExchangeIntervals.fourH,
+    ExchangeIntervals.oneD,
+    ExchangeIntervals.oneW,
+  ],
 }
 
 class HedgeBacktesting extends Backtesting {
@@ -138,14 +196,83 @@ class HedgeBacktesting extends Backtesting {
   private filterSupportedIntervals(
     intervals: { interval: ExchangeIntervals; countBack: number }[],
   ) {
-    // TODO: Implement proper exchange-specific interval filtering
-    // For now, return all intervals as a placeholder
-    // This should filter based on:
-    // - Exchange capabilities (binanceSupported, bybitSupported, etc.)
-    // - Symbol requirements
-    // - Strategy-specific needs
+    const longExchange = this.longBacktester.getExchange()
+    const shortExchange = this.shortBacktester.getExchange()
 
-    return intervals
+    // Get supported intervals for both exchanges
+    const longSupported = this.getSupportedIntervalsForExchange(longExchange)
+    const shortSupported = this.getSupportedIntervalsForExchange(shortExchange)
+
+    // Filter intervals to only those supported by both exchanges
+    return intervals.filter((intervalInfo) => {
+      return (
+        longSupported.includes(intervalInfo.interval) &&
+        shortSupported.includes(intervalInfo.interval)
+      )
+    })
+  }
+
+  private getSupportedIntervalsForExchange(
+    exchange: ExchangeEnum,
+  ): ExchangeIntervals[] {
+    // Handle paper trading exchanges by mapping to real exchange
+    const realExchange = this.mapToRealExchange(exchange)
+
+    // Return supported intervals for the exchange
+    return (
+      exchangeSupported[realExchange] || [
+        // Default fallback - most common intervals
+        ExchangeIntervals.oneM,
+        ExchangeIntervals.fiveM,
+        ExchangeIntervals.fifteenM,
+        ExchangeIntervals.thirtyM,
+        ExchangeIntervals.oneH,
+        ExchangeIntervals.fourH,
+        ExchangeIntervals.oneD,
+      ]
+    )
+  }
+
+  private mapToRealExchange(exchange: ExchangeEnum): ExchangeEnum {
+    // Map paper exchanges to their real counterparts
+    switch (exchange) {
+      case ExchangeEnum.paperBinance:
+      case ExchangeEnum.paperBinanceAll:
+      case ExchangeEnum.paperBinanceSpot:
+      case ExchangeEnum.paperBinanceCoinm:
+      case ExchangeEnum.paperBinanceUsdm:
+        return ExchangeEnum.binance
+      case ExchangeEnum.paperBybit:
+      case ExchangeEnum.paperBybitAll:
+      case ExchangeEnum.paperBybitSpot:
+      case ExchangeEnum.paperBybitCoinm:
+      case ExchangeEnum.paperBybitUsdm:
+        return ExchangeEnum.bybit
+      case ExchangeEnum.paperKucoin:
+      case ExchangeEnum.paperKucoinAll:
+      case ExchangeEnum.paperKucoinSpot:
+      case ExchangeEnum.paperKucoinInverse:
+      case ExchangeEnum.paperKucoinLinear:
+        return ExchangeEnum.kucoin
+      case ExchangeEnum.paperOkx:
+      case ExchangeEnum.paperOkxAll:
+      case ExchangeEnum.paperOkxSpot:
+      case ExchangeEnum.paperOkxInverse:
+      case ExchangeEnum.paperOkxLinear:
+        return ExchangeEnum.okx
+      case ExchangeEnum.paperCoinbase:
+        return ExchangeEnum.coinbase
+      case ExchangeEnum.paperBitget:
+      case ExchangeEnum.paperBitgetAll:
+      case ExchangeEnum.paperBitgetSpot:
+      case ExchangeEnum.paperBitgetCoinm:
+      case ExchangeEnum.paperBitgetUsdm:
+        return ExchangeEnum.bitget
+      case ExchangeEnum.paperMexc:
+        return ExchangeEnum.mexc
+      default:
+        return exchange
+    }
   }
 
   public async test(
@@ -238,7 +365,8 @@ class HedgeBacktesting extends Backtesting {
               'Hedge conditions met - implementing hedge actions...',
             )
 
-            // TODO: Implement hedge actions (close deals, etc.)
+            // Implement hedge actions based on configuration
+            this.executeHedgeActions(longUnrealizedPnL, shortUnrealizedPnL)
             break
           }
         }
@@ -524,23 +652,105 @@ class HedgeBacktesting extends Backtesting {
           ),
         },
         ratios: {
-          profitFactor: 0, // Calculate properly
-          profitByPeriod: [], // Combine properly
+          profitFactor: this.calculateCombinedProfitFactor(
+            longResult.financial.grossProfit,
+            longResult.financial.grossLoss,
+            shortResult.financial.grossProfit,
+            shortResult.financial.grossLoss,
+          ),
+          profitByPeriod: this.combineProfitByPeriod(
+            longResult.ratios.profitByPeriod,
+            shortResult.ratios.profitByPeriod,
+          ),
           buyAndHold: {
-            value: 0,
-            valueUsd: 0,
-            perc: 0,
+            value:
+              longResult.ratios.buyAndHold.value +
+              shortResult.ratios.buyAndHold.value,
+            valueUsd:
+              longResult.ratios.buyAndHold.valueUsd +
+              shortResult.ratios.buyAndHold.valueUsd,
+            perc: this.calculateCombinedPercentage(
+              longResult.ratios.buyAndHold.value,
+              longResult.financial.initialBalanceUsd,
+              shortResult.ratios.buyAndHold.value,
+              shortResult.financial.initialBalanceUsd,
+            ),
           },
-          periodRatio: 0,
-          sharpe: 0,
-          sortino: 0,
-          cwr: 0,
+          periodRatio:
+            (longResult.ratios.periodRatio + shortResult.ratios.periodRatio) /
+            2,
+          sharpe: (longResult.ratios.sharpe + shortResult.ratios.sharpe) / 2,
+          sortino: (longResult.ratios.sortino + shortResult.ratios.sortino) / 2,
+          cwr: (longResult.ratios.cwr + shortResult.ratios.cwr) / 2,
         },
       },
     }
 
     updateProgress?.(100, 'Hedge backtest complete')
     return result
+  }
+
+  private executeHedgeActions(
+    longUnrealizedPnL: { totalUnrealizedPnLUsd: number; dealCount: number },
+    shortUnrealizedPnL: { totalUnrealizedPnLUsd: number; dealCount: number },
+  ): void {
+    // Based on hedge conditions, execute appropriate actions
+    const totalUnrealizedPnL =
+      longUnrealizedPnL.totalUnrealizedPnLUsd +
+      shortUnrealizedPnL.totalUnrealizedPnLUsd
+
+    // Close losing positions if total unrealized PnL is negative
+    if (totalUnrealizedPnL < 0) {
+      // TODO: Need to expose strategy methods through DCABacktesting interface
+      // to properly close deals. For now, just log the action.
+      console.log(
+        `Hedge conditions met - would close losing deals. Total unrealized PnL: ${totalUnrealizedPnL}`,
+      )
+    }
+
+    // Additional hedge actions can be implemented here
+    // For example: close all deals, stop trading, adjust position sizes, etc.
+  }
+
+  private calculateCombinedPercentage(
+    longValue: number,
+    longBase: number,
+    shortValue: number,
+    shortBase: number,
+  ): number {
+    const totalValue = longValue + shortValue
+    const totalBase = longBase + shortBase
+    return totalBase > 0 ? (totalValue / totalBase) * 100 : 0
+  }
+
+  private calculateCombinedProfitFactor(
+    longGrossProfit: number,
+    longGrossLoss: number,
+    shortGrossProfit: number,
+    shortGrossLoss: number,
+  ): number {
+    const totalGrossProfit = longGrossProfit + shortGrossProfit
+    const totalGrossLoss = Math.abs(longGrossLoss) + Math.abs(shortGrossLoss)
+    return totalGrossLoss > 0 ? totalGrossProfit / totalGrossLoss : 0
+  }
+
+  private combineProfitByPeriod(
+    longProfitByPeriod: number[],
+    shortProfitByPeriod: number[],
+  ): number[] {
+    const maxLength = Math.max(
+      longProfitByPeriod.length,
+      shortProfitByPeriod.length,
+    )
+    const combined: number[] = []
+
+    for (let i = 0; i < maxLength; i++) {
+      const longValue = longProfitByPeriod[i] || 0
+      const shortValue = shortProfitByPeriod[i] || 0
+      combined.push(longValue + shortValue)
+    }
+
+    return combined
   }
 
   public getTestingPeriod() {
