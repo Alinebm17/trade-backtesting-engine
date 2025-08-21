@@ -28,7 +28,7 @@ import {
 } from '../types'
 
 class DCABacktesting extends Backtesting {
-  private strategy?: StrategyInterface
+  public strategy?: StrategyInterface
 
   // Track latest bars for unrealized PnL calculation
   private latestBars: Map<string, FullBar> = new Map()

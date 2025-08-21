@@ -4,95 +4,21 @@ import { v4 } from 'uuid'
 
 import {
   ExchangeIntervals,
-  ExchangeEnum,
   FullBar,
   HedgeBotSettings,
   HedgeBacktestingInput,
   HedgeBacktestingResult,
   DCABacktestingResult,
+  timeIntervalMap,
 } from '../types'
+import { StrategyContextManager } from 'src/dca/strategy/context'
 
-// Exchange-specific supported intervals
-const exchangeSupported: Partial<Record<ExchangeEnum, ExchangeIntervals[]>> = {
-  [ExchangeEnum.binance]: [
-    ExchangeIntervals.oneM,
-    ExchangeIntervals.threeM,
-    ExchangeIntervals.fiveM,
-    ExchangeIntervals.fifteenM,
-    ExchangeIntervals.thirtyM,
-    ExchangeIntervals.oneH,
-    ExchangeIntervals.twoH,
-    ExchangeIntervals.fourH,
-    ExchangeIntervals.eightH,
-    ExchangeIntervals.oneD,
-    ExchangeIntervals.oneW,
-  ],
-  [ExchangeEnum.bybit]: [
-    ExchangeIntervals.oneM,
-    ExchangeIntervals.threeM,
-    ExchangeIntervals.fiveM,
-    ExchangeIntervals.fifteenM,
-    ExchangeIntervals.thirtyM,
-    ExchangeIntervals.oneH,
-    ExchangeIntervals.twoH,
-    ExchangeIntervals.fourH,
-    ExchangeIntervals.oneD,
-    ExchangeIntervals.oneW,
-  ],
-  [ExchangeEnum.kucoin]: [
-    ExchangeIntervals.oneM,
-    ExchangeIntervals.threeM,
-    ExchangeIntervals.fiveM,
-    ExchangeIntervals.fifteenM,
-    ExchangeIntervals.thirtyM,
-    ExchangeIntervals.oneH,
-    ExchangeIntervals.twoH,
-    ExchangeIntervals.fourH,
-    ExchangeIntervals.eightH,
-    ExchangeIntervals.oneD,
-    ExchangeIntervals.oneW,
-  ],
-  [ExchangeEnum.okx]: [
-    ExchangeIntervals.oneM,
-    ExchangeIntervals.threeM,
-    ExchangeIntervals.fiveM,
-    ExchangeIntervals.fifteenM,
-    ExchangeIntervals.thirtyM,
-    ExchangeIntervals.oneH,
-    ExchangeIntervals.twoH,
-    ExchangeIntervals.fourH,
-    ExchangeIntervals.oneD,
-    ExchangeIntervals.oneW,
-  ],
-  [ExchangeEnum.coinbase]: [
-    ExchangeIntervals.oneM,
-    ExchangeIntervals.fiveM,
-    ExchangeIntervals.fifteenM,
-    ExchangeIntervals.thirtyM,
-    ExchangeIntervals.oneH,
-    ExchangeIntervals.twoH,
-    ExchangeIntervals.oneD,
-  ],
-  [ExchangeEnum.bitget]: [
-    ExchangeIntervals.oneM,
-    ExchangeIntervals.fiveM,
-    ExchangeIntervals.fifteenM,
-    ExchangeIntervals.thirtyM,
-    ExchangeIntervals.oneH,
-    ExchangeIntervals.fourH,
-    ExchangeIntervals.oneD,
-    ExchangeIntervals.oneW,
-  ],
-  [ExchangeEnum.mexc]: [
-    ExchangeIntervals.oneM,
-    ExchangeIntervals.fiveM,
-    ExchangeIntervals.fifteenM,
-    ExchangeIntervals.thirtyM,
-    ExchangeIntervals.oneH,
-    ExchangeIntervals.fourH,
-    ExchangeIntervals.oneD,
-    ExchangeIntervals.oneW,
-  ],
+type UniqueIntervalResponse = {
+  interval: ExchangeIntervals
+  symbol: string
+  exchange: string
+  from: number
+  to: number
 }
 
 class HedgeBacktesting extends Backtesting {
@@ -147,195 +73,270 @@ class HedgeBacktesting extends Backtesting {
     const longExchange = this.longBacktester.getExchange()
     const shortExchange = this.shortBacktester.getExchange()
 
-    // Create unique combinations of interval @ symbol @ exchange
-    const uniqueCombinations = new Map<
-      string,
-      {
-        interval: ExchangeIntervals
-        countBack: number
-      }
-    >()
-
-    // Process long strategy intervals
-    for (const intervalInfo of longIntervals) {
-      for (const [, symbol] of longSymbols) {
-        const key = `${intervalInfo.interval}@${symbol.pair}@${longExchange}`
-        const existing = uniqueCombinations.get(key)
-        if (!existing || existing.countBack < intervalInfo.countBack) {
-          uniqueCombinations.set(key, intervalInfo)
-        }
-      }
+    return {
+      long: {
+        intervals: [
+          ...longIntervals,
+          { interval: this.longBacktester.interval, countBack: 0 },
+        ],
+        symbols: longSymbols,
+        exchange: longExchange,
+      },
+      short: {
+        intervals: [
+          ...shortIntervals,
+          { interval: this.shortBacktester.interval, countBack: 0 },
+        ],
+        symbols: shortSymbols,
+        exchange: shortExchange,
+      },
     }
-
-    // Process short strategy intervals
-    for (const intervalInfo of shortIntervals) {
-      for (const [, symbol] of shortSymbols) {
-        const key = `${intervalInfo.interval}@${symbol.pair}@${shortExchange}`
-        const existing = uniqueCombinations.get(key)
-        if (!existing || existing.countBack < intervalInfo.countBack) {
-          uniqueCombinations.set(key, intervalInfo)
-        }
-      }
-    }
-
-    // Return unique intervals (grouped by interval, taking max countBack)
-    const intervalMap = new Map<ExchangeIntervals, number>()
-    for (const intervalInfo of uniqueCombinations.values()) {
-      const existing = intervalMap.get(intervalInfo.interval)
-      if (!existing || existing < intervalInfo.countBack) {
-        intervalMap.set(intervalInfo.interval, intervalInfo.countBack)
-      }
-    }
-
-    return Array.from(intervalMap.entries()).map(([interval, countBack]) => ({
-      interval,
-      countBack,
-    }))
   }
 
-  private filterSupportedIntervals(
-    intervals: { interval: ExchangeIntervals; countBack: number }[],
-  ) {
-    const longExchange = this.longBacktester.getExchange()
-    const shortExchange = this.shortBacktester.getExchange()
+  private getIntervalConfig() {
+    const strategiesInfo = this.getOtherIntervals()
 
-    // Get supported intervals for both exchanges
-    const longSupported = this.getSupportedIntervalsForExchange(longExchange)
-    const shortSupported = this.getSupportedIntervalsForExchange(shortExchange)
-
-    // Filter intervals to only those supported by both exchanges
-    return intervals.filter((intervalInfo) => {
-      return (
-        longSupported.includes(intervalInfo.interval) &&
-        shortSupported.includes(intervalInfo.interval)
-      )
-    })
-  }
-
-  private getSupportedIntervalsForExchange(
-    exchange: ExchangeEnum,
-  ): ExchangeIntervals[] {
-    // Handle paper trading exchanges by mapping to real exchange
-    const realExchange = this.mapToRealExchange(exchange)
-
-    // Return supported intervals for the exchange
-    return (
-      exchangeSupported[realExchange] || [
-        // Default fallback - most common intervals
-        ExchangeIntervals.oneM,
-        ExchangeIntervals.fiveM,
-        ExchangeIntervals.fifteenM,
-        ExchangeIntervals.thirtyM,
-        ExchangeIntervals.oneH,
-        ExchangeIntervals.fourH,
-        ExchangeIntervals.oneD,
-      ]
-    )
-  }
-
-  private mapToRealExchange(exchange: ExchangeEnum): ExchangeEnum {
-    // Map paper exchanges to their real counterparts
-    switch (exchange) {
-      case ExchangeEnum.paperBinance:
-      case ExchangeEnum.paperBinanceAll:
-      case ExchangeEnum.paperBinanceSpot:
-      case ExchangeEnum.paperBinanceCoinm:
-      case ExchangeEnum.paperBinanceUsdm:
-        return ExchangeEnum.binance
-      case ExchangeEnum.paperBybit:
-      case ExchangeEnum.paperBybitAll:
-      case ExchangeEnum.paperBybitSpot:
-      case ExchangeEnum.paperBybitCoinm:
-      case ExchangeEnum.paperBybitUsdm:
-        return ExchangeEnum.bybit
-      case ExchangeEnum.paperKucoin:
-      case ExchangeEnum.paperKucoinAll:
-      case ExchangeEnum.paperKucoinSpot:
-      case ExchangeEnum.paperKucoinInverse:
-      case ExchangeEnum.paperKucoinLinear:
-        return ExchangeEnum.kucoin
-      case ExchangeEnum.paperOkx:
-      case ExchangeEnum.paperOkxAll:
-      case ExchangeEnum.paperOkxSpot:
-      case ExchangeEnum.paperOkxInverse:
-      case ExchangeEnum.paperOkxLinear:
-        return ExchangeEnum.okx
-      case ExchangeEnum.paperCoinbase:
-        return ExchangeEnum.coinbase
-      case ExchangeEnum.paperBitget:
-      case ExchangeEnum.paperBitgetAll:
-      case ExchangeEnum.paperBitgetSpot:
-      case ExchangeEnum.paperBitgetCoinm:
-      case ExchangeEnum.paperBitgetUsdm:
-        return ExchangeEnum.bitget
-      case ExchangeEnum.paperMexc:
-        return ExchangeEnum.mexc
-      default:
-        return exchange
+    // Get periods for calculating data requirements
+    const longPeriod = this.longBacktester.getTestingPeriod()
+    const shortPeriod = this.shortBacktester.getTestingPeriod()
+    if (!longPeriod || !shortPeriod) {
+      throw new Error('Cannot determine testing periods for strategies')
     }
+    return {
+      strategiesInfo,
+      longPeriod,
+      shortPeriod,
+    }
+  }
+
+  // Method to get unique interval@symbol@exchange combinations
+  private getUniqueIntervalSymbolExchange(
+    config: ReturnType<typeof this.getIntervalConfig>,
+  ): UniqueIntervalResponse[] {
+    const combinations = new Map<string, UniqueIntervalResponse>()
+
+    const { strategiesInfo, longPeriod, shortPeriod } = config
+
+    // Process long strategy combinations
+    for (const intervalInfo of strategiesInfo.long.intervals) {
+      const interval = intervalInfo.interval
+      const countBack = intervalInfo.countBack
+
+      for (const symbol of strategiesInfo.long.symbols.keys()) {
+        const key = `${interval}@${symbol}@${strategiesInfo.long.exchange}`
+        const existing = combinations.get(key)
+
+        const periodStart = longPeriod.from
+        const periodEnd = longPeriod.to
+
+        combinations.set(key, {
+          interval,
+          symbol,
+          exchange: strategiesInfo.long.exchange,
+          from: Math.min(
+            existing?.from || Infinity,
+            periodStart * 1000 - (countBack * timeIntervalMap[interval] || 0),
+          ),
+          to: Math.max(existing?.to || 0, periodEnd * 1000),
+        })
+      }
+    }
+
+    // Process short strategy combinations
+    for (const intervalInfo of strategiesInfo.short.intervals) {
+      const interval = intervalInfo.interval
+      const countBack = intervalInfo.countBack
+
+      for (const symbol of strategiesInfo.short.symbols.keys()) {
+        const key = `${interval}@${symbol}@${strategiesInfo.short.exchange}`
+        const existing = combinations.get(key)
+
+        const periodStart = shortPeriod.from
+        const periodEnd = longPeriod.to
+
+        combinations.set(key, {
+          interval,
+          symbol,
+          exchange: strategiesInfo.long.exchange,
+          from: Math.min(
+            existing?.from || Infinity,
+            periodStart * 1000 - (countBack * timeIntervalMap[interval] || 0),
+          ),
+          to: Math.max(existing?.to || 0, periodEnd * 1000),
+        })
+      }
+    }
+
+    return Array.from(combinations.values())
+  }
+
+  private setContext(id: string) {
+    StrategyContextManager.setActiveContext(id)
+  }
+
+  private setLongContext() {
+    this.setContext('long')
+  }
+
+  private setShortContext() {
+    this.setContext('short')
   }
 
   public async test(
-    bars?: { bar: FullBar[]; interval: ExchangeIntervals }[],
-    updateProgress?: (value: number, text: string) => void,
+    bars?: {
+      long: { bar: FullBar[]; interval: ExchangeIntervals }[]
+      short: { bar: FullBar[]; interval: ExchangeIntervals }[]
+    },
+    _updateProgress?: (value: number, text: string) => void,
     loadDataCallBack?: () => void,
   ): Promise<HedgeBacktestingResult | undefined> {
     if (this._stop) {
       return
     }
+    //const startLoading = new Date().getTime()
+    const config = this.getIntervalConfig()
 
-    // Load shared data only for supported intervals, exchanges, and symbols
-    let sharedBars: { bar: FullBar[]; interval: ExchangeIntervals }[] = []
+    const { strategiesInfo, longPeriod, shortPeriod } = config
+    let longBars: { bar: FullBar[]; interval: ExchangeIntervals }[] = []
+    let shortBars: { bar: FullBar[]; interval: ExchangeIntervals }[] = []
 
     if (!bars) {
-      updateProgress?.(0, 'Loading shared candle data...')
-      const testPeriod = this.longBacktester.getTestingPeriod()
-      if (testPeriod) {
-        const otherIntervals = this.getOtherIntervals()
+      const uniqueCombinations = this.getUniqueIntervalSymbolExchange(config)
 
-        // Filter intervals to only those supported by both exchanges
-        const supportedIntervals = this.filterSupportedIntervals(otherIntervals)
+      const allDataMap = new Map<
+        string,
+        {
+          bar: FullBar[]
+          interval: ExchangeIntervals
+          from: number
+          to: number
+        }
+      >()
 
-        // Load data only for intervals that are supported by both strategies
-        for (const intervalInfo of supportedIntervals) {
-          const data = await this._loadData(intervalInfo.interval)
-          sharedBars.push({ bar: data, interval: intervalInfo.interval })
+      let loadedCount = 0
+      for (const combination of uniqueCombinations) {
+        const key = `${combination.interval}@${combination.symbol}@${combination.exchange}`
+
+        // Skip if already loaded this combination
+        if (!allDataMap.has(key)) {
+          // Load data from the earliest required time to latest
+          const data = await this._loadData(combination.interval, undefined, {
+            from: combination.from,
+            to: combination.to,
+            firstDataRequest: true,
+            countBack: 0,
+          })
+
+          allDataMap.set(key, {
+            bar: data,
+            interval: combination.interval,
+            from: combination.from,
+            to: combination.to,
+          })
+        }
+        loadedCount++
+      }
+
+      // Step 4: Split bars into long and short arrays based on strategies
+
+      // Process long strategy data
+      for (const intervalInfo of strategiesInfo.long.intervals) {
+        const interval = intervalInfo.interval
+
+        // Get all bars for this interval and all symbols
+        const intervalBars: FullBar[] = []
+        for (const symbol of strategiesInfo.long.symbols.keys()) {
+          const key = `${interval}@${symbol}@${strategiesInfo.long.exchange}`
+          const data = allDataMap.get(key)
+          if (data) {
+            if (longPeriod) {
+              if (longPeriod.from > data.from || longPeriod.to < data.to) {
+                const filteredBars = data.bar.filter(
+                  (bar) =>
+                    bar.time >= longPeriod.from && bar.time <= longPeriod.to,
+                )
+                intervalBars.push(...filteredBars)
+              } else {
+                intervalBars.push(...data.bar)
+              }
+            }
+          }
         }
 
-        const mainData = await this._loadData(this.interval)
-        sharedBars.push({ bar: mainData, interval: this.interval })
+        if (intervalBars.length > 0) {
+          longBars.push({ bar: intervalBars, interval })
+        }
+      }
+
+      // Process short strategy data
+      for (const intervalInfo of strategiesInfo.short.intervals) {
+        const interval = intervalInfo.interval
+
+        // Get all bars for this interval and all symbols
+        const intervalBars: FullBar[] = []
+        for (const symbol of strategiesInfo.short.symbols.keys()) {
+          const key = `${interval}@${symbol}@${strategiesInfo.short.exchange}`
+          const data = allDataMap.get(key)
+          if (data) {
+            if (shortPeriod) {
+              if (shortPeriod.from > data.from || shortPeriod.to < data.to) {
+                const filteredBars = data.bar.filter(
+                  (bar) =>
+                    bar.time >= shortPeriod.from && bar.time <= shortPeriod.to,
+                )
+                intervalBars.push(...filteredBars)
+              } else {
+                intervalBars.push(...data.bar)
+              }
+            }
+          }
+        }
+
+        if (intervalBars.length > 0) {
+          shortBars.push({ bar: intervalBars, interval })
+        }
       }
     } else {
-      sharedBars = bars
+      longBars = bars.long
+      shortBars = bars.short
     }
+    //const start = new Date().getTime()
 
     loadDataCallBack?.()
 
-    updateProgress?.(20, 'Checking controlled processing support...')
-
-    // Check if both strategies support controlled bar processing
-    const longSupportsControlled =
-      this.longBacktester.supportsControlledProcessing()
-    const shortSupportsControlled =
-      this.shortBacktester.supportsControlledProcessing()
-
-    if (
-      longSupportsControlled &&
-      shortSupportsControlled &&
-      this.sharedSettings
-    ) {
+    //const loadingTime = (new Date().getTime() - startLoading) / 1000
+    if (!this.longBacktester.strategy || !this.shortBacktester.strategy) {
+      throw new Error(
+        'Both long and short strategies must be initialized before testing',
+      )
+    }
+    const longStartTime = Math.max(
+      longBars[0]?.bar?.[0]?.time ?? longPeriod.from * 1000,
+      longPeriod.from * 1000,
+    )
+    const shortStartTime = Math.max(
+      shortBars[0]?.bar?.[0]?.time ?? shortPeriod.from * 1000,
+      shortPeriod.from * 1000,
+    )
+    this.setLongContext()
+    this.longBacktester.strategy.loadData(longBars, longStartTime)
+    this.setShortContext()
+    this.shortBacktester.strategy.loadData(shortBars, shortStartTime)
+    //TODO: 1. create long/short lowest interval bars array
+    // 2. feed bars one by one to both strategies
+    // 3. check unrealized P&L after each bar
+    // 4. combine results
+    if (this.sharedSettings) {
       // Use controlled bar-by-bar processing
-      updateProgress?.(30, 'Initializing controlled processing...')
 
-      // Initialize both strategies for controlled processing
-      await this.longBacktester.initializeForControlledProcessing(sharedBars)
-      await this.shortBacktester.initializeForControlledProcessing(sharedBars)
+      // Initialize both strategies for controlled processing with their respective data
+      await this.longBacktester.initializeForControlledProcessing(longBars)
+      await this.shortBacktester.initializeForControlledProcessing(shortBars)
 
-      // Get the main interval bars for processing
+      // Get the main interval bars for processing from the long strategy
+      // (assuming they share the same main interval timing)
       const mainIntervalBars =
-        sharedBars.find((b) => b.interval === this.interval)?.bar || []
-
-      updateProgress?.(40, 'Processing bars with hedge monitoring...')
+        longBars.find((b) => b.interval === this.interval)?.bar || []
 
       // Process each bar sequentially and monitor unrealized P&L
       for (let i = 0; i < mainIntervalBars.length; i++) {
@@ -360,11 +361,6 @@ class HedgeBacktesting extends Backtesting {
           if (
             this.checkHedgeConditions(longUnrealizedPnL, shortUnrealizedPnL)
           ) {
-            updateProgress?.(
-              40 + (i / mainIntervalBars.length) * 40,
-              'Hedge conditions met - implementing hedge actions...',
-            )
-
             // Implement hedge actions based on configuration
             this.executeHedgeActions(longUnrealizedPnL, shortUnrealizedPnL)
             break
@@ -373,14 +369,8 @@ class HedgeBacktesting extends Backtesting {
 
         // Update progress
         if (i % Math.floor(mainIntervalBars.length / 20) === 0) {
-          updateProgress?.(
-            40 + (i / mainIntervalBars.length) * 40,
-            `Processing bar ${i + 1}/${mainIntervalBars.length}`,
-          )
         }
       }
-
-      updateProgress?.(80, 'Finalizing controlled processing results...')
 
       // Get the final results from both strategies
       const longResult = this.longBacktester.returnResult(new Map(), new Map())
@@ -393,37 +383,21 @@ class HedgeBacktesting extends Backtesting {
         return
       }
 
-      return this.createHedgeResult(longResult, shortResult, updateProgress)
+      return this.createHedgeResult(longResult, shortResult)
     } else {
-      // Fall back to sequential processing without controlled bar processing
-      updateProgress?.(
-        30,
-        'Using sequential processing (no controlled support)...',
-      )
-
-      const longResult = await this.longBacktester.test(
-        sharedBars,
-        (progress, text) => {
-          updateProgress?.(30 + progress * 0.25, `Long: ${text}`)
-        },
-      )
+      const longResult = await this.longBacktester.test(longBars)
 
       if (!longResult) {
         return
       }
 
-      const shortResult = await this.shortBacktester.test(
-        sharedBars,
-        (progress, text) => {
-          updateProgress?.(55 + progress * 0.25, `Short: ${text}`)
-        },
-      )
+      const shortResult = await this.shortBacktester.test(shortBars)
 
       if (!shortResult) {
         return
       }
 
-      return this.createHedgeResult(longResult, shortResult, updateProgress)
+      return this.createHedgeResult(longResult, shortResult)
     }
   }
 

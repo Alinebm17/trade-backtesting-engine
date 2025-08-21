@@ -1821,6 +1821,12 @@ export interface HedgeBacktestingInput
   sharedSettings?: HedgeBotSettings
 }
 
+// Updated input type for test method to support separate long/short bars
+export interface HedgeTestBarsInput {
+  long: { bar: FullBar[]; interval: ExchangeIntervals }[]
+  short: { bar: FullBar[]; interval: ExchangeIntervals }[]
+}
+
 export interface HedgeBacktestingResult {
   longResult: DCABacktestingResult
   shortResult: DCABacktestingResult
