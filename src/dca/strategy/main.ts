@@ -102,6 +102,11 @@ export type DataType = {
 }
 
 export interface StrategyInterface {
+  closeAllDealForAllSymbols(): void
+  getUnrealizedProfit(): {
+    unrealizedProfit: number
+    usage: number
+  }
   getOtherIntervals(): { interval: ExchangeIntervals; countBack: number }[]
   loadData(data: DataType[], start?: number): void
   test(
@@ -473,6 +478,13 @@ export abstract class Strategy implements StrategyInterface {
     value: Map<string, { avg: number; entry: number }>,
   ) {
     StrategyContextManager.getActiveContext().lastPricesPerSymbol = value
+  }
+
+  static get lastPrice(): Map<string, number> {
+    return StrategyContextManager.getActiveContext().lastPrice
+  }
+  static set lastPrice(value: Map<string, number>) {
+    StrategyContextManager.getActiveContext().lastPrice = value
   }
 
   static get lowestInterval(): ExchangeIntervals | undefined {
@@ -3647,6 +3659,118 @@ export abstract class Strategy implements StrategyInterface {
         : ComboTpBase.filled
   }
 
+  private getUnrealizedProfitPerDeal(deal: Deal): {
+    unrealizedProfit: number
+    usage: number
+  } {
+    const response = {
+      unrealizedProfit: 0,
+      usage: 0,
+    }
+    const { avgPrice, symbol } = deal
+    const { comboTpBase, strategy } = this.settings
+    if (avgPrice === 0) {
+      return response
+    }
+    const price = Strategy.lastPrice.get(symbol.pair)
+    if (!price) {
+      return response
+    }
+
+    const usdRate = this.getUsdRate(symbol.pair, price, 'quote')
+    const unrealizedPnL =
+      strategy && price
+        ? (this.long
+            ? deal.currentBalance.base * price +
+              deal.currentBalance.quote -
+              deal.initialBalance.quote
+            : deal.currentBalance.quote -
+              (deal.initialBalance.base - deal.currentBalance.base) * price) *
+          usdRate
+        : undefined
+    let unrealizedProfit = unrealizedPnL
+    let usage = price
+      ? this.futures
+        ? this.coinm
+          ? (Strategy.combo ? deal.usage.max.base : deal.usage.current.base) *
+            price
+          : Strategy.combo
+            ? deal.usage.max.quote
+            : deal.usage.current.quote
+        : this.long
+          ? Strategy.combo
+            ? deal.usage.max.quote
+            : deal.usage.current.quote
+          : (Strategy.combo ? deal.usage.max.base : deal.usage.current.base) *
+            price
+      : undefined
+    usage = (usage ?? 0) * usdRate * (this.profitBase ? price : 1)
+    if (Strategy.combo) {
+      const qty = this.long
+        ? deal.currentBalance.base
+        : deal.initialBalance.base - deal.currentBalance.base
+      const quote =
+        (this.long
+          ? deal.initialBalance.quote - deal.currentBalance.quote
+          : deal.currentBalance.quote) +
+        (this.profitBase ? 0 : deal.profit.total * (this.long ? 1 : -1))
+      const quoteTp = qty * price
+      const base =
+        quote / price +
+        (this.profitBase ? deal.profit.total * (this.long ? 1 : -1) : 0)
+      const commission = this.futures
+        ? this.coinm
+          ? qty * this.userFee
+          : qty * price * this.userFee
+        : this.profitBase
+          ? qty * this.userFee
+          : qty * price * this.userFee
+
+      const comboBasedOn =
+        !comboTpBase || comboTpBase === ComboTpBase.full
+          ? ComboTpBase.full
+          : ComboTpBase.filled
+      const usageBase =
+        comboBasedOn === ComboTpBase.full
+          ? deal.usage.max.base
+          : deal.usage.current.base
+      const usageQuote =
+        comboBasedOn === ComboTpBase.full
+          ? deal.usage.max.quote
+          : deal.usage.current.quote
+      const total =
+        deal.profit.total +
+        (this.profitBase ? qty - base : quoteTp - quote) *
+          (this.long ? 1 : -1) -
+        commission
+
+      const denominator = this.futures
+        ? this.coinm
+          ? usageBase
+          : usageQuote
+        : this.long
+          ? usageQuote * (this.profitBase ? 1 / price : 1)
+          : usageBase * (this.profitBase ? 1 : price)
+      unrealizedProfit = total * usdRate * (this.profitBase ? price : 1)
+      usage = denominator * usdRate * (this.profitBase ? price : 1)
+    }
+    return {
+      unrealizedProfit: unrealizedProfit || 0,
+      usage,
+    }
+  }
+
+  public getUnrealizedProfit() {
+    let unrealizedProfit = 0
+    let usage = 0
+    for (const d of Strategy.getDeals('open')) {
+      const up = this.getUnrealizedProfitPerDeal(d)
+      unrealizedProfit += up.unrealizedProfit
+      usage += up.usage
+    }
+    return { unrealizedProfit, usage }
+  }
+
   private getSLOrder(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
     const foundInSl =
       this.settings.dealCloseConditionSL === CloseConditionEnum.techInd
@@ -4067,6 +4191,24 @@ export abstract class Strategy implements StrategyInterface {
       return isGt ? current >= value : current <= value
     }
     return true
+  }
+
+  closeAllDealForAllSymbols() {
+    for (const symbol of this.symbols.keys()) {
+      const lastPrice = Strategy.lastPrice.get(symbol)
+      if (!lastPrice) {
+        continue
+      }
+      const b: FullBar = {
+        open: lastPrice,
+        close: lastPrice,
+        high: lastPrice,
+        low: lastPrice,
+        time: Date.now(),
+        symbol,
+      }
+      this.closeAllDeals(b, true, false, true)
+    }
   }
 
   closeAllDeals(b: FullBar, sl = false, ignoreTp = false, stop = false) {
@@ -4604,6 +4746,7 @@ export abstract class Strategy implements StrategyInterface {
     if (Strategy.candleTimes.has(key)) {
       return
     }
+    Strategy.lastPrice.set(b.symbol, b.close)
     Strategy.candleTimes.add(key)
     if (Strategy.candleTimes.size > 100) {
       const oldest = Strategy.candleTimes.keys().next().value

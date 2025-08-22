@@ -61,6 +61,7 @@ export class StrategyContext {
   public lastClosedDealPerSymbol: Map<string, number> = new Map()
   public lastPricesPerSymbol: Map<string, { avg: number; entry: number }> =
     new Map()
+  public lastPrice: Map<string, number> = new Map()
   public previousDeal?: Deal
 
   // Financial tracking
@@ -224,6 +225,7 @@ export class StrategyContext {
       perc: 0,
     }
     this.maxUsage = { deal: 0, bot: 0, botQuote: 0 }
+    this.lastPrice = new Map()
   }
 
   // Get deals from context

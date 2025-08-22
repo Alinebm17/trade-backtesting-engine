@@ -10,6 +10,7 @@ import {
   HedgeBacktestingResult,
   DCABacktestingResult,
   timeIntervalMap,
+  StrategyEnum,
 } from '../types'
 import { StrategyContextManager } from 'src/dca/strategy/context'
 
@@ -326,49 +327,112 @@ class HedgeBacktesting extends Backtesting {
     // 2. feed bars one by one to both strategies
     // 3. check unrealized P&L after each bar
     // 4. combine results
-    if (this.sharedSettings) {
-      // Use controlled bar-by-bar processing
+    if (
+      this.sharedSettings &&
+      (this.sharedSettings.useSl || this.sharedSettings.useTp)
+    ) {
+      //create long/short lowest interval bars array
+      const combinedMap: Map<number, (FullBar & { strategy: StrategyEnum })[]> =
+        new Map()
+
+      const longLowest = longBars.sort(
+        (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
+      )[0].bar
+      const shortLowest = shortBars.sort(
+        (a, b) => timeIntervalMap[a.interval] - timeIntervalMap[b.interval],
+      )[0].bar
+
+      const lowSize = longLowest.length / strategiesInfo.long.symbols.size
+      const shortSize = shortLowest.length / strategiesInfo.short.symbols.size
+      const longTimeSet = new Set<number>()
+      const shortTimeSet = new Set<number>()
+      for (let i = 0; i < Math.max(lowSize, shortSize); i++) {
+        const longSlice = longLowest.slice(
+          i * strategiesInfo.long.symbols.size,
+          (i + 1) * strategiesInfo.long.symbols.size,
+        )
+        const shortSlice = shortLowest.slice(
+          i * strategiesInfo.short.symbols.size,
+          (i + 1) * strategiesInfo.short.symbols.size,
+        )
+        for (const bar of longSlice) {
+          longTimeSet.add(bar.time)
+          const get = combinedMap.get(bar.time) || []
+          get.push({ ...bar, strategy: StrategyEnum.long })
+          combinedMap.set(bar.time, get)
+        }
+        for (const bar of shortSlice) {
+          shortTimeSet.add(bar.time)
+          const get = combinedMap.get(bar.time) || []
+          get.push({ ...bar, strategy: StrategyEnum.short })
+          combinedMap.set(bar.time, get)
+        }
+      }
+
+      const combinedArray: (FullBar & { strategy: StrategyEnum })[][] =
+        Array.from(combinedMap.values())
 
       // Initialize both strategies for controlled processing with their respective data
       await this.longBacktester.initializeForControlledProcessing(longBars)
       await this.shortBacktester.initializeForControlledProcessing(shortBars)
-
-      // Get the main interval bars for processing from the long strategy
-      // (assuming they share the same main interval timing)
-      const mainIntervalBars =
-        longBars.find((b) => b.interval === this.interval)?.bar || []
-
+      const longEveryHundredBar = new Set(
+        [...longTimeSet.values()].reduce((acc, time, index) => {
+          if (index % 100 === 0 || acc.length === 0) {
+            acc.push(time)
+          }
+          return acc
+        }, [] as number[]),
+      )
+      const shortEveryHundredBar = new Set(
+        [...shortTimeSet.values()].reduce((acc, time, index) => {
+          if (index % 100 === 0 || acc.length === 0) {
+            acc.push(time)
+          }
+          return acc
+        }, [] as number[]),
+      )
       // Process each bar sequentially and monitor unrealized P&L
-      for (let i = 0; i < mainIntervalBars.length; i++) {
+      for (const _bars of combinedArray) {
         if (this._stop) {
           return
         }
-
-        const bar = mainIntervalBars[i]
-
-        // Process the bar in both strategies
-        await this.longBacktester.processBar(bar, this.interval, true)
-        await this.shortBacktester.processBar(bar, this.interval, true)
-
-        // Check unrealized P&L after processing the bar
-        if (this.shouldCheckHedge(i, mainIntervalBars.length)) {
-          const longUnrealizedPnL =
-            this.longBacktester.getCurrentUnrealizedPnL()
-          const shortUnrealizedPnL =
-            this.shortBacktester.getCurrentUnrealizedPnL()
-
-          // Check if hedge conditions are met
-          if (
-            this.checkHedgeConditions(longUnrealizedPnL, shortUnrealizedPnL)
-          ) {
-            // Implement hedge actions based on configuration
-            this.executeHedgeActions(longUnrealizedPnL, shortUnrealizedPnL)
-            break
+        for (const bar of _bars) {
+          if (bar.strategy === StrategyEnum.long) {
+            this.setLongContext()
+            await this.longBacktester.processBar(
+              bar,
+              longEveryHundredBar.has(bar.time),
+            )
+          } else {
+            this.setShortContext()
+            await this.shortBacktester.processBar(
+              bar,
+              shortEveryHundredBar.has(bar.time),
+            )
           }
         }
-
-        // Update progress
-        if (i % Math.floor(mainIntervalBars.length / 20) === 0) {
+        this.setLongContext()
+        const longProfit = this.longBacktester.getCurrentUnrealizedPnL()
+        this.setShortContext()
+        const shortProfit = this.shortBacktester.getCurrentUnrealizedPnL()
+        const usage = longProfit.usage + shortProfit.usage
+        if (usage > 0) {
+          const profit =
+            longProfit.unrealizedProfit + shortProfit.unrealizedProfit
+          const relativeUnPnl = (profit / usage) * 100
+          if (
+            (this.sharedSettings.useSl &&
+              this.sharedSettings.slPerc &&
+              relativeUnPnl <= +this.sharedSettings.slPerc) ||
+            (this.sharedSettings.useTp &&
+              this.sharedSettings.tpPerc &&
+              relativeUnPnl <= +this.sharedSettings.tpPerc)
+          ) {
+            this.setLongContext()
+            this.longBacktester.closeAllDeals()
+            this.setShortContext()
+            this.shortBacktester.closeAllDeals()
+          }
         }
       }
 
@@ -399,50 +463,6 @@ class HedgeBacktesting extends Backtesting {
 
       return this.createHedgeResult(longResult, shortResult)
     }
-  }
-
-  private shouldCheckHedge(
-    currentBarIndex: number,
-    totalBars: number,
-  ): boolean {
-    // Check hedge conditions every N bars or based on settings
-    // For now, check every 10 bars or every 1% of total bars
-    const checkFrequency = Math.max(10, Math.floor(totalBars / 100))
-    return currentBarIndex % checkFrequency === 0
-  }
-
-  private checkHedgeConditions(
-    longUnrealizedPnL: ReturnType<DCABacktesting['getCurrentUnrealizedPnL']>,
-    shortUnrealizedPnL: ReturnType<DCABacktesting['getCurrentUnrealizedPnL']>,
-  ): boolean {
-    if (!this.sharedSettings) {
-      return false
-    }
-
-    const totalUnrealizedPnLUsd =
-      longUnrealizedPnL.totalUnrealizedPnLUsd +
-      shortUnrealizedPnL.totalUnrealizedPnLUsd
-
-    // Check TP conditions
-    if (this.sharedSettings.useTp && this.sharedSettings.tpPerc) {
-      const tpThreshold = parseFloat(this.sharedSettings.tpPerc)
-      if (totalUnrealizedPnLUsd > 0) {
-        // Calculate percentage based on usage or implement proper calculation
-        // For now, use simplified check
-        return totalUnrealizedPnLUsd >= tpThreshold
-      }
-    }
-
-    // Check SL conditions
-    if (this.sharedSettings.useSl && this.sharedSettings.slPerc) {
-      const slThreshold = parseFloat(this.sharedSettings.slPerc)
-      if (totalUnrealizedPnLUsd < 0) {
-        // Calculate percentage based on usage or implement proper calculation
-        return Math.abs(totalUnrealizedPnLUsd) >= slThreshold
-      }
-    }
-
-    return false
   }
 
   private createHedgeResult(
@@ -662,28 +682,6 @@ class HedgeBacktesting extends Backtesting {
 
     updateProgress?.(100, 'Hedge backtest complete')
     return result
-  }
-
-  private executeHedgeActions(
-    longUnrealizedPnL: { totalUnrealizedPnLUsd: number; dealCount: number },
-    shortUnrealizedPnL: { totalUnrealizedPnLUsd: number; dealCount: number },
-  ): void {
-    // Based on hedge conditions, execute appropriate actions
-    const totalUnrealizedPnL =
-      longUnrealizedPnL.totalUnrealizedPnLUsd +
-      shortUnrealizedPnL.totalUnrealizedPnLUsd
-
-    // Close losing positions if total unrealized PnL is negative
-    if (totalUnrealizedPnL < 0) {
-      // TODO: Need to expose strategy methods through DCABacktesting interface
-      // to properly close deals. For now, just log the action.
-      console.log(
-        `Hedge conditions met - would close losing deals. Total unrealized PnL: ${totalUnrealizedPnL}`,
-      )
-    }
-
-    // Additional hedge actions can be implemented here
-    // For example: close all deals, stop trading, adjust position sizes, etc.
   }
 
   private calculateCombinedPercentage(
