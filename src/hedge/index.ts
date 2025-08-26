@@ -12,7 +12,7 @@ import {
   timeIntervalMap,
   StrategyEnum,
 } from '../types'
-import { StrategyContextManager } from 'src/dca/strategy/context'
+import { StrategyContextManager } from '../dca/strategy/context'
 
 type UniqueIntervalResponse = {
   interval: ExchangeIntervals
@@ -31,12 +31,11 @@ class HedgeBacktesting extends Backtesting {
     longSettings,
     shortSettings,
     sharedSettings,
-    ...commonInput
   }: HedgeBacktestingInput) {
-    const candleInterval = commonInput.interval ?? ExchangeIntervals.fiveM
+    const candleInterval = longSettings.interval ?? ExchangeIntervals.fiveM
     super(
       {
-        ...commonInput,
+        ...longSettings,
         interval: candleInterval,
         settings: longSettings,
       },
@@ -45,16 +44,10 @@ class HedgeBacktesting extends Backtesting {
 
     this.sharedSettings = sharedSettings
 
-    this.longBacktester = new DCABacktesting({
-      ...commonInput,
-      settings: longSettings,
-    })
+    this.longBacktester = new DCABacktesting(longSettings)
 
     // Create short strategy backtest instance
-    this.shortBacktester = new DCABacktesting({
-      ...commonInput,
-      settings: shortSettings,
-    })
+    this.shortBacktester = new DCABacktesting(shortSettings)
   }
 
   override set stop(value: boolean) {
@@ -214,7 +207,6 @@ class HedgeBacktesting extends Backtesting {
         }
       >()
 
-      let loadedCount = 0
       for (const combination of uniqueCombinations) {
         const key = `${combination.interval}@${combination.symbol}@${combination.exchange}`
 
@@ -235,7 +227,6 @@ class HedgeBacktesting extends Backtesting {
             to: combination.to,
           })
         }
-        loadedCount++
       }
 
       // Step 4: Split bars into long and short arrays based on strategies

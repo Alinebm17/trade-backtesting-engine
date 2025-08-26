@@ -1814,10 +1814,9 @@ export type HedgeBotSettings = Pick<
   | 'dealCloseCondition'
 >
 
-export interface HedgeBacktestingInput
-  extends Omit<DCABacktestingInput, 'settings'> {
-  longSettings: DCABotSettings
-  shortSettings: DCABotSettings
+export interface HedgeBacktestingInput {
+  longSettings: DCABacktestingInput
+  shortSettings: DCABacktestingInput
   sharedSettings?: HedgeBotSettings
 }
 
