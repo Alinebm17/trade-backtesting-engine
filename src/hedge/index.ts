@@ -129,9 +129,9 @@ class HedgeBacktesting extends Backtesting {
           exchange: strategiesInfo.long.exchange,
           from: Math.min(
             existing?.from || Infinity,
-            periodStart * 1000 - (countBack * timeIntervalMap[interval] || 0),
+            periodStart - (countBack * (timeIntervalMap[interval] / 1000) || 0),
           ),
-          to: Math.max(existing?.to || 0, periodEnd * 1000),
+          to: Math.max(existing?.to || 0, periodEnd),
         })
       }
     }
@@ -154,9 +154,9 @@ class HedgeBacktesting extends Backtesting {
           exchange: strategiesInfo.long.exchange,
           from: Math.min(
             existing?.from || Infinity,
-            periodStart * 1000 - (countBack * timeIntervalMap[interval] || 0),
+            periodStart - (countBack * (timeIntervalMap[interval] / 1000) || 0),
           ),
-          to: Math.max(existing?.to || 0, periodEnd * 1000),
+          to: Math.max(existing?.to || 0, periodEnd),
         })
       }
     }
@@ -314,10 +314,6 @@ class HedgeBacktesting extends Backtesting {
     this.longBacktester.strategy.loadData(longBars, longStartTime)
     this.setShortContext()
     this.shortBacktester.strategy.loadData(shortBars, shortStartTime)
-    //TODO: 1. create long/short lowest interval bars array
-    // 2. feed bars one by one to both strategies
-    // 3. check unrealized P&L after each bar
-    // 4. combine results
     if (
       this.sharedSettings &&
       (this.sharedSettings.useSl || this.sharedSettings.useTp)
