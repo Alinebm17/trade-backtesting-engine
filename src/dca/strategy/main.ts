@@ -6633,6 +6633,7 @@ export abstract class Strategy implements StrategyInterface {
         unrealizedPnLPerc: this.math.round(
           (unrealizedPnLUsd / unrealizedUsage) * 100,
         ),
+        unrealizedUsage,
         maxDealLoss: this.math.round(Strategy.maxLoss.asset, precision),
         maxDealLossPerc: this.math.round(Strategy.maxLoss.perc, 2),
         maxDealProfit: this.math.round(Strategy.maxProfit.asset, precision),
@@ -6701,6 +6702,7 @@ export abstract class Strategy implements StrategyInterface {
         botWorkingTimeNumber: workingTime,
       },
       usage: {
+        maxTheoreticalUsageWithRate,
         maxTheoreticalUsage: this.math.round(
           Math.max(
             maxDealUsage,

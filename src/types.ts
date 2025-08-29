@@ -1441,6 +1441,7 @@ export type DCABacktestingResult = {
     unrealizedPnL: number
     unrealizedPnLUsd: number
     unrealizedPnLPerc: number
+    unrealizedUsage: number
     maxDealProfit: number
     maxDealLoss: number
     maxDealProfitUsd: number
@@ -1479,6 +1480,7 @@ export type DCABacktestingResult = {
     maxLosingTrade?: number
   }
   usage: {
+    maxTheoreticalUsageWithRate: number
     maxTheoreticalUsage: number
     maxRealUsage: number
     avgRealUsage: number

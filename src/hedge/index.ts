@@ -459,6 +459,38 @@ class HedgeBacktesting extends Backtesting {
   ): HedgeBacktestingResult {
     updateProgress?.(90, 'Combining results...')
 
+    const maxTheoreticalUsageWithRate =
+      longResult.usage.maxTheoreticalUsageWithRate +
+      shortResult.usage.maxTheoreticalUsageWithRate
+
+    const unrealizedUsage =
+      longResult.financial.unrealizedUsage +
+      shortResult.financial.unrealizedUsage
+
+    const closedDeals =
+      longResult.numerical.closed + shortResult.numerical.closed
+
+    const confidenceGrade: {
+      level: string
+      number: number
+    } = {
+      level:
+        closedDeals < 107
+          ? 'F'
+          : closedDeals >= 107 && closedDeals < 133
+            ? 'E'
+            : closedDeals >= 133 && closedDeals < 164
+              ? 'D'
+              : closedDeals >= 164 && closedDeals < 208
+                ? 'C'
+                : closedDeals >= 208 && closedDeals < 273
+                  ? 'B'
+                  : closedDeals >= 273 && closedDeals < 385
+                    ? 'A'
+                    : 'A+',
+      number: closedDeals,
+    }
+
     // Return simplified result structure
     const result: HedgeBacktestingResult = {
       longResult,
@@ -471,20 +503,35 @@ class HedgeBacktesting extends Backtesting {
           netProfitTotalUsd:
             longResult.financial.netProfitTotalUsd +
             shortResult.financial.netProfitTotalUsd,
-          netProfitTotalPerc: 0, // Calculate properly
+          netProfitTotalPerc: this.math.round(
+            ((longResult.financial.netProfitTotalUsd +
+              shortResult.financial.netProfitTotalUsd) /
+              maxTheoreticalUsageWithRate) *
+              100,
+          ),
           grossProfit:
             longResult.financial.grossProfit +
             shortResult.financial.grossProfit,
           grossProfitUsd:
             longResult.financial.grossProfitUsd +
             shortResult.financial.grossProfitUsd,
-          grossProfitPerc: 0,
+          grossProfitPerc: this.math.round(
+            ((longResult.financial.grossProfitUsd +
+              shortResult.financial.grossProfitUsd) /
+              maxTheoreticalUsageWithRate) *
+              100,
+          ),
           grossLoss:
             longResult.financial.grossLoss + shortResult.financial.grossLoss,
           grossLossUsd:
             longResult.financial.grossLossUsd +
             shortResult.financial.grossLossUsd,
-          grossLossPerc: 0,
+          grossLossPerc: this.math.round(
+            ((longResult.financial.grossLossUsd +
+              shortResult.financial.grossLossUsd) /
+              maxTheoreticalUsageWithRate) *
+              100,
+          ),
           avgGrossProfit: 0,
           avgGrossProfitUsd: 0,
           avgGrossProfitPerc: 0,
@@ -494,16 +541,33 @@ class HedgeBacktesting extends Backtesting {
           avgNetProfit: 0,
           avgNetProfitUsd: 0,
           avgNetProfitPerc: 0,
-          avgNetDaily: 0,
-          avgNetDailyUsd: 0,
-          avgNetDailyPerc: 0,
+          avgNetDaily:
+            (longResult.financial.avgNetDaily +
+              shortResult.financial.avgNetDaily) /
+            2,
+          avgNetDailyUsd:
+            (longResult.financial.avgNetDailyUsd +
+              shortResult.financial.avgNetDailyUsd) /
+            2,
+          avgNetDailyPerc: this.math.round(
+            ((longResult.financial.avgNetDailyUsd +
+              shortResult.financial.avgNetDailyUsd) /
+              maxTheoreticalUsageWithRate) *
+              100,
+          ),
+          unrealizedUsage,
           unrealizedPnL:
             longResult.financial.unrealizedPnL +
             shortResult.financial.unrealizedPnL,
           unrealizedPnLUsd:
             longResult.financial.unrealizedPnLUsd +
             shortResult.financial.unrealizedPnLUsd,
-          unrealizedPnLPerc: 0,
+          unrealizedPnLPerc: this.math.round(
+            ((longResult.financial.unrealizedPnLUsd +
+              shortResult.financial.unrealizedPnLUsd) /
+              unrealizedUsage) *
+              100,
+          ),
           maxDealProfit: Math.max(
             longResult.financial.maxDealProfit,
             shortResult.financial.maxDealProfit,
@@ -589,6 +653,7 @@ class HedgeBacktesting extends Backtesting {
           ),
         },
         usage: {
+          maxTheoreticalUsageWithRate,
           maxTheoreticalUsage:
             longResult.usage.maxTheoreticalUsage +
             shortResult.usage.maxTheoreticalUsage,
@@ -599,6 +664,8 @@ class HedgeBacktesting extends Backtesting {
             2,
         },
         numerical: {
+          confidenceGrade: confidenceGrade.level,
+          dealsForConfidenceGrade: confidenceGrade.number,
           all: longResult.numerical.all + shortResult.numerical.all,
           profit: longResult.numerical.profit + shortResult.numerical.profit,
           loss: longResult.numerical.loss + shortResult.numerical.loss,
