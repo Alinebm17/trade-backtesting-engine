@@ -181,7 +181,7 @@ class HedgeBacktesting extends Backtesting {
       long: { bar: FullBar[]; interval: ExchangeIntervals }[]
       short: { bar: FullBar[]; interval: ExchangeIntervals }[]
     },
-    _updateProgress?: (value: number, text: string) => void,
+    updateProgress?: (value: number, text: string) => void,
     loadDataCallBack?: () => void,
   ): Promise<HedgeBacktestingResult | undefined> {
     if (this._stop) {
@@ -206,19 +206,25 @@ class HedgeBacktesting extends Backtesting {
           to: number
         }
       >()
-
+      let i = 0
       for (const combination of uniqueCombinations) {
         const key = `${combination.interval}@${combination.symbol}@${combination.exchange}`
 
         // Skip if already loaded this combination
         if (!allDataMap.has(key)) {
           // Load data from the earliest required time to latest
-          const data = await this._loadData(combination.interval, undefined, {
-            from: combination.from,
-            to: combination.to,
-            firstDataRequest: true,
-            countBack: 0,
-          })
+          const data = await this._loadData(
+            combination.interval,
+            undefined,
+            {
+              from: combination.from,
+              to: combination.to,
+              firstDataRequest: true,
+              countBack: 0,
+            },
+            i,
+            uniqueCombinations.length,
+          )
 
           allDataMap.set(key, {
             bar: data,
@@ -226,6 +232,7 @@ class HedgeBacktesting extends Backtesting {
             from: combination.from,
             to: combination.to,
           })
+          i++
         }
       }
 
@@ -379,9 +386,29 @@ class HedgeBacktesting extends Backtesting {
         }, [] as number[]),
       )
       // Process each bar sequentially and monitor unrealized P&L
+      let b = 0
+      const size = combinedArray.length
+      const step = Math.floor(size * 0.03)
       for (const _bars of combinedArray) {
         if (this._stop) {
           return
+        }
+        if (b === 0 && updateProgress) {
+          updateProgress(
+            0,
+            `Processing candle on ${new Date(_bars[0].time).toUTCString()}`,
+          )
+        }
+        if (step !== 0 && updateProgress) {
+          if (this.math.remainder(b, step) === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 15))
+            updateProgress(
+              b / size,
+              `Processing ${_bars[0].symbol} candle on ${new Date(
+                _bars[0].time,
+              ).toUTCString()}`,
+            )
+          }
         }
         for (const bar of _bars) {
           if (bar.strategy === StrategyEnum.long) {
@@ -421,6 +448,7 @@ class HedgeBacktesting extends Backtesting {
             this.shortBacktester.closeAllDeals()
           }
         }
+        b++
       }
 
       // Get the final results from both strategies
@@ -436,13 +464,24 @@ class HedgeBacktesting extends Backtesting {
 
       return this.createHedgeResult(longResult, shortResult)
     } else {
-      const longResult = await this.longBacktester.test(longBars)
+      let p = 0
+      const longResult = await this.longBacktester.test(longBars, (v, t) => {
+        if (p % 2 === 0 && updateProgress) {
+          updateProgress(v * 0.5, t)
+        }
+        p++
+      })
 
       if (!longResult) {
         return
       }
 
-      const shortResult = await this.shortBacktester.test(shortBars)
+      const shortResult = await this.shortBacktester.test(shortBars, (v, t) => {
+        if (p % 2 === 0 && updateProgress) {
+          updateProgress(v * 0.5 + 0.5, t)
+        }
+        p++
+      })
 
       if (!shortResult) {
         return
@@ -455,10 +494,7 @@ class HedgeBacktesting extends Backtesting {
   private createHedgeResult(
     longResult: DCABacktestingResult,
     shortResult: DCABacktestingResult,
-    updateProgress?: (value: number, text: string) => void,
   ): HedgeBacktestingResult {
-    updateProgress?.(90, 'Combining results...')
-
     const maxTheoreticalUsageWithRate =
       longResult.usage.maxTheoreticalUsageWithRate +
       shortResult.usage.maxTheoreticalUsageWithRate
@@ -500,9 +536,10 @@ class HedgeBacktesting extends Backtesting {
           netProfitTotal:
             longResult.financial.netProfitTotal +
             shortResult.financial.netProfitTotal,
-          netProfitTotalUsd:
+          netProfitTotalUsd: this.math.round(
             longResult.financial.netProfitTotalUsd +
-            shortResult.financial.netProfitTotalUsd,
+              shortResult.financial.netProfitTotalUsd,
+          ),
           netProfitTotalPerc: this.math.round(
             ((longResult.financial.netProfitTotalUsd +
               shortResult.financial.netProfitTotalUsd) /
@@ -512,9 +549,10 @@ class HedgeBacktesting extends Backtesting {
           grossProfit:
             longResult.financial.grossProfit +
             shortResult.financial.grossProfit,
-          grossProfitUsd:
+          grossProfitUsd: this.math.round(
             longResult.financial.grossProfitUsd +
-            shortResult.financial.grossProfitUsd,
+              shortResult.financial.grossProfitUsd,
+          ),
           grossProfitPerc: this.math.round(
             ((longResult.financial.grossProfitUsd +
               shortResult.financial.grossProfitUsd) /
@@ -523,9 +561,10 @@ class HedgeBacktesting extends Backtesting {
           ),
           grossLoss:
             longResult.financial.grossLoss + shortResult.financial.grossLoss,
-          grossLossUsd:
+          grossLossUsd: this.math.round(
             longResult.financial.grossLossUsd +
-            shortResult.financial.grossLossUsd,
+              shortResult.financial.grossLossUsd,
+          ),
           grossLossPerc: this.math.round(
             ((longResult.financial.grossLossUsd +
               shortResult.financial.grossLossUsd) /
@@ -545,10 +584,11 @@ class HedgeBacktesting extends Backtesting {
             (longResult.financial.avgNetDaily +
               shortResult.financial.avgNetDaily) /
             2,
-          avgNetDailyUsd:
+          avgNetDailyUsd: this.math.round(
             (longResult.financial.avgNetDailyUsd +
               shortResult.financial.avgNetDailyUsd) /
-            2,
+              2,
+          ),
           avgNetDailyPerc: this.math.round(
             ((longResult.financial.avgNetDailyUsd +
               shortResult.financial.avgNetDailyUsd) /
@@ -559,9 +599,10 @@ class HedgeBacktesting extends Backtesting {
           unrealizedPnL:
             longResult.financial.unrealizedPnL +
             shortResult.financial.unrealizedPnL,
-          unrealizedPnLUsd:
+          unrealizedPnLUsd: this.math.round(
             longResult.financial.unrealizedPnLUsd +
-            shortResult.financial.unrealizedPnLUsd,
+              shortResult.financial.unrealizedPnLUsd,
+          ),
           unrealizedPnLPerc: this.math.round(
             ((longResult.financial.unrealizedPnLUsd +
               shortResult.financial.unrealizedPnLUsd) /
@@ -714,9 +755,10 @@ class HedgeBacktesting extends Backtesting {
             value:
               longResult.ratios.buyAndHold.value +
               shortResult.ratios.buyAndHold.value,
-            valueUsd:
+            valueUsd: this.math.round(
               longResult.ratios.buyAndHold.valueUsd +
-              shortResult.ratios.buyAndHold.valueUsd,
+                shortResult.ratios.buyAndHold.valueUsd,
+            ),
             perc: this.calculateCombinedPercentage(
               longResult.ratios.buyAndHold.value,
               longResult.financial.initialBalanceUsd,
@@ -734,7 +776,6 @@ class HedgeBacktesting extends Backtesting {
       },
     }
 
-    updateProgress?.(100, 'Hedge backtest complete')
     return result
   }
 
