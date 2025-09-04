@@ -1,4 +1,5 @@
 import { v4 } from 'uuid'
+import { StrategyContextManager } from './context'
 import { checkNumber } from '../../helper/utils'
 import DCABotFunctions from '../../helper/dcaBotFunctions'
 import ComboBotFunctions from '../../helper/comboBotFunctions'
@@ -101,6 +102,11 @@ export type DataType = {
 }
 
 export interface StrategyInterface {
+  closeAllDealForAllSymbols(): void
+  getUnrealizedProfit(): {
+    unrealizedProfit: number
+    usage: number
+  }
   getOtherIntervals(): { interval: ExchangeIntervals; countBack: number }[]
   loadData(data: DataType[], start?: number): void
   test(
@@ -161,111 +167,222 @@ const fundsWarning =
 const maxDealsPerResult = 50 * 1000
 
 export abstract class Strategy implements StrategyInterface {
-  static combo = false
+  // Context-based static properties using getters/setters
+  static get combo(): boolean {
+    return StrategyContextManager.getActiveContext().combo
+  }
+  static set combo(value: boolean) {
+    StrategyContextManager.getActiveContext().combo = value
+  }
 
-  static portfolioTimes: Set<string> = new Set()
+  static get portfolioTimes(): Set<string> {
+    return StrategyContextManager.getActiveContext().portfolioTimes
+  }
+  static set portfolioTimes(value: Set<string>) {
+    StrategyContextManager.getActiveContext().portfolioTimes = value
+  }
 
-  static candleTimes: Set<string> = new Set()
+  static get candleTimes(): Set<string> {
+    return StrategyContextManager.getActiveContext().candleTimes
+  }
+  static set candleTimes(value: Set<string>) {
+    StrategyContextManager.getActiveContext().candleTimes = value
+  }
 
-  static indicatorEvents: IndicatorsEvents[] = []
+  static get indicatorEvents(): IndicatorsEvents[] {
+    return StrategyContextManager.getActiveContext().indicatorEvents
+  }
+  static set indicatorEvents(value: IndicatorsEvents[]) {
+    StrategyContextManager.getActiveContext().indicatorEvents = value
+  }
 
-  static emptyPositon = {
-    qty: 0,
-    entryPrice: 0,
-    liquidationPrice: 0,
-    side: PositionSide.LONG,
+  static get emptyPositon() {
+    return StrategyContextManager.getActiveContext().emptyPosition
   }
 
   public settings: DCABotSettings
 
   private readonly botFunctions: Map<string, DCABotFunctions> = new Map()
 
-  static workingShift: { start: number; end?: number }[] = []
-
-  static rangeStatus = false
-
-  static messages: string[] = []
-
-  static maxUsage: {
-    deal: number
-    bot: number
-    botQuote: number
-  } = {
-    deal: 0,
-    bot: 0,
-    botQuote: 0,
+  static get workingShift(): { start: number; end?: number }[] {
+    return StrategyContextManager.getActiveContext().workingShift
+  }
+  static set workingShift(value: { start: number; end?: number }[]) {
+    StrategyContextManager.getActiveContext().workingShift = value
   }
 
-  static dealsBySymbolsStatusId: Map<string, Map<string, Map<string, Deal>>> =
-    new Map()
+  static get rangeStatus(): boolean {
+    return StrategyContextManager.getActiveContext().rangeStatus
+  }
+  static set rangeStatus(value: boolean) {
+    StrategyContextManager.getActiveContext().rangeStatus = value
+  }
 
-  static profits: Profit[] = []
+  static get messages(): string[] {
+    return StrategyContextManager.getActiveContext().messages
+  }
+  static set messages(value: string[]) {
+    StrategyContextManager.getActiveContext().messages = value
+  }
+
+  static get maxUsage() {
+    return StrategyContextManager.getActiveContext().maxUsage
+  }
+  static set maxUsage(value: { deal: number; bot: number; botQuote: number }) {
+    StrategyContextManager.getActiveContext().maxUsage = value
+  }
+
+  static get dealsBySymbolsStatusId(): Map<
+    string,
+    Map<string, Map<string, Deal>>
+  > {
+    return StrategyContextManager.getActiveContext().dealsBySymbolsStatusId
+  }
+  static set dealsBySymbolsStatusId(
+    value: Map<string, Map<string, Map<string, Deal>>>,
+  ) {
+    StrategyContextManager.getActiveContext().dealsBySymbolsStatusId = value
+  }
+
+  static get profits(): Profit[] {
+    return StrategyContextManager.getActiveContext().profits
+  }
+  static set profits(value: Profit[]) {
+    StrategyContextManager.getActiveContext().profits = value
+  }
 
   private filterFn: {
     filledOrders: (b: FullBar) => (o: FullGrid) => boolean
     filledTp: (b: FullBar) => (o: FullGrid) => boolean
   }
 
-  static maxProfit = {
-    asset: 0,
-    usd: 0,
-    perc: 0,
+  static get maxProfit() {
+    return StrategyContextManager.getActiveContext().maxProfit
+  }
+  static set maxProfit(value: { asset: number; usd: number; perc: number }) {
+    StrategyContextManager.getActiveContext().maxProfit = value
   }
 
-  static maxLoss = {
-    asset: 0,
-    usd: 0,
-    perc: 0,
+  static get maxLoss() {
+    return StrategyContextManager.getActiveContext().maxLoss
+  }
+  static set maxLoss(value: { asset: number; usd: number; perc: number }) {
+    StrategyContextManager.getActiveContext().maxLoss = value
   }
 
-  static seriesWin = {
-    count: 0,
-    value: 0,
-    valueUsd: 0,
-    min: 0,
-    minUsd: 0,
-    max: 0,
-    maxUsd: 0,
-    perc: 0,
+  static get seriesWin() {
+    return StrategyContextManager.getActiveContext().seriesWin
+  }
+  static set seriesWin(value: {
+    count: number
+    value: number
+    valueUsd: number
+    min: number
+    minUsd: number
+    max: number
+    maxUsd: number
+    perc: number
+  }) {
+    StrategyContextManager.getActiveContext().seriesWin = value
   }
 
-  static seriesLossE = {
-    valueUsd: 0,
-    minUsd: 0,
-    maxUsd: 0,
-    perc: 0,
+  static get seriesLossE() {
+    return StrategyContextManager.getActiveContext().seriesLossE
+  }
+  static set seriesLossE(value: {
+    valueUsd: number
+    minUsd: number
+    maxUsd: number
+    perc: number
+  }) {
+    StrategyContextManager.getActiveContext().seriesLossE = value
   }
 
-  static seriesLoss = {
-    count: 0,
-    value: 0,
-    valueUsd: 0,
-    min: 0,
-    minUsd: 0,
-    max: 0,
-    maxUsd: 0,
-    perc: 0,
+  static get seriesLoss() {
+    return StrategyContextManager.getActiveContext().seriesLoss
+  }
+  static set seriesLoss(value: {
+    count: number
+    value: number
+    valueUsd: number
+    min: number
+    minUsd: number
+    max: number
+    maxUsd: number
+    perc: number
+  }) {
+    StrategyContextManager.getActiveContext().seriesLoss = value
   }
 
-  static previousDeal?: Deal
+  static get previousDeal(): Deal | undefined {
+    return StrategyContextManager.getActiveContext().previousDeal
+  }
+  static set previousDeal(value: Deal | undefined) {
+    StrategyContextManager.getActiveContext().previousDeal = value
+  }
 
-  static maxConsecutiveWins = 0
+  static get maxConsecutiveWins(): number {
+    return StrategyContextManager.getActiveContext().maxConsecutiveWins
+  }
+  static set maxConsecutiveWins(value: number) {
+    StrategyContextManager.getActiveContext().maxConsecutiveWins = value
+  }
 
-  static maxConsecutiveLosses = 0
+  static get maxConsecutiveLosses(): number {
+    return StrategyContextManager.getActiveContext().maxConsecutiveLosses
+  }
+  static set maxConsecutiveLosses(value: number) {
+    StrategyContextManager.getActiveContext().maxConsecutiveLosses = value
+  }
 
-  static totalProfit = 0
+  static get totalProfit(): number {
+    return StrategyContextManager.getActiveContext().totalProfit
+  }
+  static set totalProfit(value: number) {
+    StrategyContextManager.getActiveContext().totalProfit = value
+  }
 
-  static totalProfitPerSymbol: Map<string, number> = new Map()
+  static get totalProfitPerSymbol(): Map<string, number> {
+    return StrategyContextManager.getActiveContext().totalProfitPerSymbol
+  }
+  static set totalProfitPerSymbol(value: Map<string, number>) {
+    StrategyContextManager.getActiveContext().totalProfitPerSymbol = value
+  }
 
-  static totalProfitUsdPerSymbol: Map<string, number> = new Map()
+  static get totalProfitUsdPerSymbol(): Map<string, number> {
+    return StrategyContextManager.getActiveContext().totalProfitUsdPerSymbol
+  }
+  static set totalProfitUsdPerSymbol(value: Map<string, number>) {
+    StrategyContextManager.getActiveContext().totalProfitUsdPerSymbol = value
+  }
 
-  static totalProfitUsd = 0
+  static get totalProfitUsd(): number {
+    return StrategyContextManager.getActiveContext().totalProfitUsd
+  }
+  static set totalProfitUsd(value: number) {
+    StrategyContextManager.getActiveContext().totalProfitUsd = value
+  }
 
-  static lastIndex = 0
+  static get lastIndex(): number {
+    return StrategyContextManager.getActiveContext().lastIndex
+  }
+  static set lastIndex(value: number) {
+    StrategyContextManager.getActiveContext().lastIndex = value
+  }
 
-  static useFile?: boolean
+  static get useFile(): boolean | undefined {
+    return StrategyContextManager.getActiveContext().useFile
+  }
+  static set useFile(value: boolean | undefined) {
+    StrategyContextManager.getActiveContext().useFile = value
+  }
 
-  static portfolio: Map<number, number> = new Map()
+  static get portfolio(): Map<number, number> {
+    return StrategyContextManager.getActiveContext().portfolio
+  }
+  static set portfolio(value: Map<number, number>) {
+    StrategyContextManager.getActiveContext().portfolio = value
+  }
 
   protected math = new MathHelper()
 
@@ -296,11 +413,26 @@ export abstract class Strategy implements StrategyInterface {
     ReturnType<DCABotFunctions['utils']['getPrices']>
   > = new Map()
 
-  static interval: ExchangeIntervals
+  static get interval(): ExchangeIntervals {
+    return StrategyContextManager.getActiveContext().interval!
+  }
+  static set interval(value: ExchangeIntervals) {
+    StrategyContextManager.getActiveContext().interval = value
+  }
 
-  static data: DataType[] = []
+  static get data(): DataType[] {
+    return StrategyContextManager.getActiveContext().data
+  }
+  static set data(value: DataType[]) {
+    StrategyContextManager.getActiveContext().data = value
+  }
 
-  static dataMap: Map<ExchangeIntervals, Map<string, FullBar>> = new Map()
+  static get dataMap(): Map<ExchangeIntervals, Map<string, FullBar>> {
+    return StrategyContextManager.getActiveContext().dataMap
+  }
+  static set dataMap(value: Map<ExchangeIntervals, Map<string, FullBar>>) {
+    StrategyContextManager.getActiveContext().dataMap = value
+  }
 
   private readonly slippage?: number
 
@@ -308,146 +440,222 @@ export abstract class Strategy implements StrategyInterface {
 
   private defaultUnpnlCondition = IndicatorStartConditionEnum.gt
 
-  static lastOpenedDeal = 0
-
-  static lastClosedDeal = 0
-
-  static lastOpenedDealPerSymbol: Map<string, number> = new Map()
-
-  static lastClosedDealPerSymbol: Map<string, number> = new Map()
-
-  static lastPricesPerSymbol: Map<string, { avg: number; entry: number }> =
-    new Map()
-
-  static lowestInterval?: ExchangeIntervals
-
-  static highestInterval?: ExchangeIntervals
-
-  static indicators: Indicator[] = []
-
-  static next: Map<string, number> = new Map()
-
-  static transactionIndex = 0
-
-  static minPrice: Map<string, number> = new Map()
-
-  static maxPrice: Map<string, number> = new Map()
-
-  static priceMin = 0
-
-  static priceMax = 0
-
-  static start = 0
-
-  static previousValues = 0
-
-  static previousValuesInAsset = new Map<
-    string,
-    { base: number; quote: number }
-  >()
-
-  static fullResult?: boolean
-
-  static preventOpen = false
-
-  static status: 'open' | 'closed' | 'monitoring' = 'open'
-
-  static resetData() {
-    Strategy.status = 'open'
-    Strategy.preventOpen = false
-    Strategy.useFile = false
-    Strategy.fullResult = false
-    Strategy.dataMap = new Map()
-    Strategy.previousValuesInAsset = new Map()
-    Strategy.previousValues = 0
-    Strategy.start = 0
-    Strategy.workingShift = []
-    Strategy.maxUsage = {
-      deal: 0,
-      bot: 0,
-      botQuote: 0,
-    }
-    Strategy.profits = []
-    Strategy.maxProfit = {
-      asset: 0,
-      usd: 0,
-      perc: 0,
-    }
-    Strategy.maxLoss = {
-      asset: 0,
-      usd: 0,
-      perc: 0,
-    }
-    Strategy.seriesWin = {
-      count: 0,
-      value: 0,
-      valueUsd: 0,
-      min: 0,
-      minUsd: 0,
-      max: 0,
-      maxUsd: 0,
-      perc: 0,
-    }
-    Strategy.seriesLossE = {
-      valueUsd: 0,
-      minUsd: 0,
-      maxUsd: 0,
-      perc: 0,
-    }
-    Strategy.seriesLoss = {
-      count: 0,
-      value: 0,
-      valueUsd: 0,
-      min: 0,
-      minUsd: 0,
-      max: 0,
-      maxUsd: 0,
-      perc: 0,
-    }
-    Strategy.previousDeal = undefined
-    Strategy.maxConsecutiveWins = 0
-    Strategy.maxConsecutiveLosses = 0
-    Strategy.totalProfit = 0
-    Strategy.totalProfitPerSymbol = new Map()
-    Strategy.totalProfitUsdPerSymbol = new Map()
-    Strategy.totalProfitUsd = 0
-    Strategy.lastOpenedDeal = 0
-    Strategy.lastClosedDeal = 0
-    Strategy.lowestInterval = undefined
-    Strategy.highestInterval = undefined
-    Strategy.indicators = []
-    Strategy.data = []
-    Strategy.next = new Map()
-    Strategy.rangeStatus = false
-    Strategy.transactionIndex = 0
-    Strategy.minPrice = new Map()
-    Strategy.maxPrice = new Map()
-    Strategy.trades = false
-    Strategy.indicatorEvents = []
-    Strategy.balance = new Map()
-    Strategy.balanceUsd = 0
-    Strategy.initialBalance = 0
-    Strategy.balanceForProfit = 0
-    Strategy.startRate = 0
-    Strategy.initialBalanceUsd = 0
-    Strategy.position = new Map()
-    Strategy.edge = undefined
-    Strategy.previousResult = undefined
-    Strategy.multi = false
-    Strategy.lastIndex = 0
-    Strategy.portfolio = new Map()
-    Strategy.dealsBySymbolsStatusId = new Map()
-    Strategy.lowestDataForBnHSymbol = ''
-    Strategy.lowestDataForBnH = new Map()
-    Strategy.lastClosedDealPerSymbol = new Map()
-    Strategy.lastOpenedDealPerSymbol = new Map()
-    Strategy.lastPricesPerSymbol = new Map()
-    Strategy.messages = []
-    Strategy.portfolioTimes = new Set()
-    Strategy.candleTimes = new Set()
+  static get lastOpenedDeal(): number {
+    return StrategyContextManager.getActiveContext().lastOpenedDeal
+  }
+  static set lastOpenedDeal(value: number) {
+    StrategyContextManager.getActiveContext().lastOpenedDeal = value
   }
 
-  static position: Map<string, typeof Strategy.emptyPositon> = new Map()
+  static get lastClosedDeal(): number {
+    return StrategyContextManager.getActiveContext().lastClosedDeal
+  }
+  static set lastClosedDeal(value: number) {
+    StrategyContextManager.getActiveContext().lastClosedDeal = value
+  }
+
+  static get lastOpenedDealPerSymbol(): Map<string, number> {
+    return StrategyContextManager.getActiveContext().lastOpenedDealPerSymbol
+  }
+  static set lastOpenedDealPerSymbol(value: Map<string, number>) {
+    StrategyContextManager.getActiveContext().lastOpenedDealPerSymbol = value
+  }
+
+  static get lastClosedDealPerSymbol(): Map<string, number> {
+    return StrategyContextManager.getActiveContext().lastClosedDealPerSymbol
+  }
+  static set lastClosedDealPerSymbol(value: Map<string, number>) {
+    StrategyContextManager.getActiveContext().lastClosedDealPerSymbol = value
+  }
+
+  static get lastPricesPerSymbol(): Map<
+    string,
+    { avg: number; entry: number }
+  > {
+    return StrategyContextManager.getActiveContext().lastPricesPerSymbol
+  }
+  static set lastPricesPerSymbol(
+    value: Map<string, { avg: number; entry: number }>,
+  ) {
+    StrategyContextManager.getActiveContext().lastPricesPerSymbol = value
+  }
+
+  static get lastPrice(): Map<string, number> {
+    return StrategyContextManager.getActiveContext().lastPrice
+  }
+  static set lastPrice(value: Map<string, number>) {
+    StrategyContextManager.getActiveContext().lastPrice = value
+  }
+
+  static get lowestInterval(): ExchangeIntervals | undefined {
+    return StrategyContextManager.getActiveContext().lowestInterval
+  }
+  static set lowestInterval(value: ExchangeIntervals | undefined) {
+    StrategyContextManager.getActiveContext().lowestInterval = value
+  }
+
+  static get highestInterval(): ExchangeIntervals | undefined {
+    return StrategyContextManager.getActiveContext().highestInterval
+  }
+  static set highestInterval(value: ExchangeIntervals | undefined) {
+    StrategyContextManager.getActiveContext().highestInterval = value
+  }
+
+  static get indicators(): Indicator[] {
+    return StrategyContextManager.getActiveContext().indicators
+  }
+  static set indicators(value: Indicator[]) {
+    StrategyContextManager.getActiveContext().indicators = value
+  }
+
+  static get next(): Map<string, number> {
+    return StrategyContextManager.getActiveContext().next
+  }
+  static set next(value: Map<string, number>) {
+    StrategyContextManager.getActiveContext().next = value
+  }
+
+  static get transactionIndex(): number {
+    return StrategyContextManager.getActiveContext().transactionIndex
+  }
+  static set transactionIndex(value: number) {
+    StrategyContextManager.getActiveContext().transactionIndex = value
+  }
+
+  static get minPrice(): Map<string, number> {
+    return StrategyContextManager.getActiveContext().minPrice
+  }
+  static set minPrice(value: Map<string, number>) {
+    StrategyContextManager.getActiveContext().minPrice = value
+  }
+
+  static get maxPrice(): Map<string, number> {
+    return StrategyContextManager.getActiveContext().maxPrice
+  }
+  static set maxPrice(value: Map<string, number>) {
+    StrategyContextManager.getActiveContext().maxPrice = value
+  }
+
+  static get priceMin(): number {
+    return StrategyContextManager.getActiveContext().priceMin
+  }
+  static set priceMin(value: number) {
+    StrategyContextManager.getActiveContext().priceMin = value
+  }
+
+  static get priceMax(): number {
+    return StrategyContextManager.getActiveContext().priceMax
+  }
+  static set priceMax(value: number) {
+    StrategyContextManager.getActiveContext().priceMax = value
+  }
+
+  static get start(): number {
+    return StrategyContextManager.getActiveContext().start
+  }
+  static set start(value: number) {
+    StrategyContextManager.getActiveContext().start = value
+  }
+
+  static get previousValues(): number {
+    return StrategyContextManager.getActiveContext().previousValues
+  }
+  static set previousValues(value: number) {
+    StrategyContextManager.getActiveContext().previousValues = value
+  }
+
+  static get previousValuesInAsset(): Map<
+    string,
+    { base: number; quote: number }
+  > {
+    return StrategyContextManager.getActiveContext().previousValuesInAsset
+  }
+  static set previousValuesInAsset(
+    value: Map<string, { base: number; quote: number }>,
+  ) {
+    StrategyContextManager.getActiveContext().previousValuesInAsset = value
+  }
+
+  static get fullResult(): boolean | undefined {
+    return StrategyContextManager.getActiveContext().fullResult
+  }
+  static set fullResult(value: boolean | undefined) {
+    StrategyContextManager.getActiveContext().fullResult = value
+  }
+
+  static get preventOpen(): boolean {
+    return StrategyContextManager.getActiveContext().preventOpen
+  }
+  static set preventOpen(value: boolean) {
+    StrategyContextManager.getActiveContext().preventOpen = value
+  }
+
+  static get status(): 'open' | 'closed' | 'monitoring' {
+    return StrategyContextManager.getActiveContext().status
+  }
+  static set status(value: 'open' | 'closed' | 'monitoring') {
+    StrategyContextManager.getActiveContext().status = value
+  }
+
+  static get position() {
+    return StrategyContextManager.getActiveContext().position
+  }
+
+  static set position(value) {
+    StrategyContextManager.getActiveContext().position = value
+  }
+
+  static get balance() {
+    return StrategyContextManager.getActiveContext().balance
+  }
+
+  static set balance(value) {
+    StrategyContextManager.getActiveContext().balance = value
+  }
+
+  static get balanceUsd() {
+    return StrategyContextManager.getActiveContext().balanceUsd
+  }
+
+  static set balanceUsd(value) {
+    StrategyContextManager.getActiveContext().balanceUsd = value
+  }
+
+  static get initialBalance() {
+    return StrategyContextManager.getActiveContext().initialBalance
+  }
+
+  static set initialBalance(value) {
+    StrategyContextManager.getActiveContext().initialBalance = value
+  }
+
+  static get balanceForProfit() {
+    return StrategyContextManager.getActiveContext().balanceForProfit
+  }
+
+  static set balanceForProfit(value) {
+    StrategyContextManager.getActiveContext().balanceForProfit = value
+  }
+
+  static get startRate() {
+    return StrategyContextManager.getActiveContext().startRate
+  }
+
+  static set startRate(value) {
+    StrategyContextManager.getActiveContext().startRate = value
+  }
+
+  static get initialBalanceUsd() {
+    return StrategyContextManager.getActiveContext().initialBalanceUsd
+  }
+
+  static set initialBalanceUsd(value) {
+    StrategyContextManager.getActiveContext().initialBalanceUsd = value
+  }
+
+  static resetData() {
+    StrategyContextManager.getActiveContext().resetData()
+  }
 
   private usedOrderId: Set<string> = new Set()
 
@@ -455,27 +663,45 @@ export abstract class Strategy implements StrategyInterface {
 
   public _stop = false
 
-  static balance: Map<string, number> = new Map()
+  static get lowestDataForBnHSymbol() {
+    return StrategyContextManager.getActiveContext().lowestDataForBnHSymbol
+  }
 
-  static balanceUsd = 0
+  static set lowestDataForBnHSymbol(value: string) {
+    StrategyContextManager.getActiveContext().lowestDataForBnHSymbol = value
+  }
 
-  static initialBalance = 0
+  static get multi() {
+    return StrategyContextManager.getActiveContext().multi
+  }
 
-  static balanceForProfit = 0
+  static set multi(value: boolean) {
+    StrategyContextManager.getActiveContext().multi = value
+  }
 
-  static startRate = 0
+  static get lowestDataForBnH() {
+    return StrategyContextManager.getActiveContext().lowestDataForBnH
+  }
 
-  static initialBalanceUsd = 0
+  static set lowestDataForBnH(value) {
+    StrategyContextManager.getActiveContext().lowestDataForBnH = value
+  }
 
-  static edge?: EdgeBacktestEnum
+  static get edge() {
+    return StrategyContextManager.getActiveContext().edge
+  }
 
-  static previousResult?: DCABacktestingResult
+  static set edge(value: EdgeBacktestEnum | undefined) {
+    StrategyContextManager.getActiveContext().edge = value
+  }
 
-  static multi = false
+  static get previousResult() {
+    return StrategyContextManager.getActiveContext().previousResult
+  }
 
-  static lowestDataForBnHSymbol = ''
-
-  static lowestDataForBnH: Map<number, FullBar> = new Map()
+  static set previousResult(value: DCABacktestingResult | undefined) {
+    StrategyContextManager.getActiveContext().previousResult = value
+  }
 
   constructor(input: StrategyInput) {
     const {
@@ -3433,6 +3659,118 @@ export abstract class Strategy implements StrategyInterface {
         : ComboTpBase.filled
   }
 
+  private getUnrealizedProfitPerDeal(deal: Deal): {
+    unrealizedProfit: number
+    usage: number
+  } {
+    const response = {
+      unrealizedProfit: 0,
+      usage: 0,
+    }
+    const { avgPrice, symbol } = deal
+    const { comboTpBase, strategy } = this.settings
+    if (avgPrice === 0) {
+      return response
+    }
+    const price = Strategy.lastPrice.get(symbol.pair)
+    if (!price) {
+      return response
+    }
+
+    const usdRate = this.getUsdRate(symbol.pair, price, 'quote')
+    const unrealizedPnL =
+      strategy && price
+        ? (this.long
+            ? deal.currentBalance.base * price +
+              deal.currentBalance.quote -
+              deal.initialBalance.quote
+            : deal.currentBalance.quote -
+              (deal.initialBalance.base - deal.currentBalance.base) * price) *
+          usdRate
+        : undefined
+    let unrealizedProfit = unrealizedPnL
+    let usage = price
+      ? this.futures
+        ? this.coinm
+          ? (Strategy.combo ? deal.usage.max.base : deal.usage.current.base) *
+            price
+          : Strategy.combo
+            ? deal.usage.max.quote
+            : deal.usage.current.quote
+        : this.long
+          ? Strategy.combo
+            ? deal.usage.max.quote
+            : deal.usage.current.quote
+          : (Strategy.combo ? deal.usage.max.base : deal.usage.current.base) *
+            price
+      : undefined
+    usage = (usage ?? 0) * usdRate * (this.profitBase ? price : 1)
+    if (Strategy.combo) {
+      const qty = this.long
+        ? deal.currentBalance.base
+        : deal.initialBalance.base - deal.currentBalance.base
+      const quote =
+        (this.long
+          ? deal.initialBalance.quote - deal.currentBalance.quote
+          : deal.currentBalance.quote) +
+        (this.profitBase ? 0 : deal.profit.total * (this.long ? 1 : -1))
+      const quoteTp = qty * price
+      const base =
+        quote / price +
+        (this.profitBase ? deal.profit.total * (this.long ? 1 : -1) : 0)
+      const commission = this.futures
+        ? this.coinm
+          ? qty * this.userFee
+          : qty * price * this.userFee
+        : this.profitBase
+          ? qty * this.userFee
+          : qty * price * this.userFee
+
+      const comboBasedOn =
+        !comboTpBase || comboTpBase === ComboTpBase.full
+          ? ComboTpBase.full
+          : ComboTpBase.filled
+      const usageBase =
+        comboBasedOn === ComboTpBase.full
+          ? deal.usage.max.base
+          : deal.usage.current.base
+      const usageQuote =
+        comboBasedOn === ComboTpBase.full
+          ? deal.usage.max.quote
+          : deal.usage.current.quote
+      const total =
+        deal.profit.total +
+        (this.profitBase ? qty - base : quoteTp - quote) *
+          (this.long ? 1 : -1) -
+        commission
+
+      const denominator = this.futures
+        ? this.coinm
+          ? usageBase
+          : usageQuote
+        : this.long
+          ? usageQuote * (this.profitBase ? 1 / price : 1)
+          : usageBase * (this.profitBase ? 1 : price)
+      unrealizedProfit = total * usdRate * (this.profitBase ? price : 1)
+      usage = denominator * usdRate * (this.profitBase ? price : 1)
+    }
+    return {
+      unrealizedProfit: unrealizedProfit || 0,
+      usage,
+    }
+  }
+
+  public getUnrealizedProfit() {
+    let unrealizedProfit = 0
+    let usage = 0
+    for (const d of Strategy.getDeals('open')) {
+      const up = this.getUnrealizedProfitPerDeal(d)
+      unrealizedProfit += up.unrealizedProfit
+      usage += up.usage
+    }
+    return { unrealizedProfit, usage }
+  }
+
   private getSLOrder(d: Deal, b: FullBar): { deal: Deal; order?: FullGrid } {
     const foundInSl =
       this.settings.dealCloseConditionSL === CloseConditionEnum.techInd
@@ -3853,6 +4191,24 @@ export abstract class Strategy implements StrategyInterface {
       return isGt ? current >= value : current <= value
     }
     return true
+  }
+
+  closeAllDealForAllSymbols() {
+    for (const symbol of this.symbols.keys()) {
+      const lastPrice = Strategy.lastPrice.get(symbol)
+      if (!lastPrice) {
+        continue
+      }
+      const b: FullBar = {
+        open: lastPrice,
+        close: lastPrice,
+        high: lastPrice,
+        low: lastPrice,
+        time: Date.now(),
+        symbol,
+      }
+      this.closeAllDeals(b, true, false, true)
+    }
   }
 
   closeAllDeals(b: FullBar, sl = false, ignoreTp = false, stop = false) {
@@ -4390,6 +4746,7 @@ export abstract class Strategy implements StrategyInterface {
     if (Strategy.candleTimes.has(key)) {
       return
     }
+    Strategy.lastPrice.set(b.symbol, b.close)
     Strategy.candleTimes.add(key)
     if (Strategy.candleTimes.size > 100) {
       const oldest = Strategy.candleTimes.keys().next().value
@@ -6276,6 +6633,7 @@ export abstract class Strategy implements StrategyInterface {
         unrealizedPnLPerc: this.math.round(
           (unrealizedPnLUsd / unrealizedUsage) * 100,
         ),
+        unrealizedUsage,
         maxDealLoss: this.math.round(Strategy.maxLoss.asset, precision),
         maxDealLossPerc: this.math.round(Strategy.maxLoss.perc, 2),
         maxDealProfit: this.math.round(Strategy.maxProfit.asset, precision),
@@ -6344,6 +6702,7 @@ export abstract class Strategy implements StrategyInterface {
         botWorkingTimeNumber: workingTime,
       },
       usage: {
+        maxTheoreticalUsageWithRate,
         maxTheoreticalUsage: this.math.round(
           Math.max(
             maxDealUsage,

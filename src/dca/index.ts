@@ -27,7 +27,10 @@ import {
 } from '../types'
 
 class DCABacktesting extends Backtesting {
-  private strategy?: StrategyInterface
+  public strategy?: StrategyInterface
+
+  // Track latest bars for unrealized PnL calculation
+  private latestBars: Map<string, FullBar> = new Map()
 
   private settings: DCABotSettings
 
@@ -369,6 +372,77 @@ class DCABacktesting extends Backtesting {
       (a, b) => timeIntervalMap[a] - timeIntervalMap[b],
     )
     return this.calculatePeriod(lowestInterval)
+  }
+
+  // Method to process a single bar in controlled mode
+  public async processBar(
+    bar: FullBar,
+    checkPortfolio: boolean,
+  ): Promise<void> {
+    // Store latest bar for unrealized PnL calculation
+    // Use just symbol since FullBar doesn't have exchange property
+    this.latestBars.set(bar.symbol, bar)
+
+    if (this.strategy && this.strategy.processBar) {
+      await this.strategy.processBar(checkPortfolio, bar)
+    }
+  }
+
+  public closeAllDeals() {
+    if (this.strategy) {
+      this.strategy.closeAllDealForAllSymbols()
+    }
+  }
+
+  public getCurrentUnrealizedPnL(): {
+    unrealizedProfit: number
+    usage: number
+  } {
+    if (!this.strategy) {
+      return { unrealizedProfit: 0, usage: 0 }
+    }
+
+    return this.strategy.getUnrealizedProfit()
+  }
+
+  // Method to initialize strategy for controlled processing
+  public async initializeForControlledProcessing(
+    bars: { bar: FullBar[]; interval: ExchangeIntervals }[],
+  ): Promise<boolean> {
+    if (!this.strategy) {
+      return false
+    }
+
+    // Set up the strategy with initial data similar to the test method
+    const otherIntervals = this.strategy.getOtherIntervals()
+    const intervals = otherIntervals.map((oi) => oi.interval)
+    intervals.push(this.interval)
+    const [lowestInterval] = intervals.sort(
+      (a, b) => timeIntervalMap[a] - timeIntervalMap[b],
+    )
+    this.interval = lowestInterval
+    this.period = this.calculatePeriod(lowestInterval)
+
+    const startTime = Math.max(
+      bars[0]?.bar?.[0]?.time ?? this.period.from * 1000,
+      this.period.from * 1000,
+    )
+
+    this.strategy.loadData(bars, startTime)
+
+    // Initialize the strategy
+    await this.strategy.preTest()
+
+    return true
+  }
+
+  // Getters for hedge access
+  public getSymbols() {
+    return this.symbols
+  }
+
+  public getExchange() {
+    return this.exchange
   }
 }
 

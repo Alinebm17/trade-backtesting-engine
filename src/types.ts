@@ -1441,6 +1441,7 @@ export type DCABacktestingResult = {
     unrealizedPnL: number
     unrealizedPnLUsd: number
     unrealizedPnLPerc: number
+    unrealizedUsage: number
     maxDealProfit: number
     maxDealLoss: number
     maxDealProfitUsd: number
@@ -1479,6 +1480,7 @@ export type DCABacktestingResult = {
     maxLosingTrade?: number
   }
   usage: {
+    maxTheoreticalUsageWithRate: number
     maxTheoreticalUsage: number
     maxRealUsage: number
     avgRealUsage: number
@@ -1801,4 +1803,36 @@ export type DynamicArPrices = { id: string; value: number }
 export type Sizes = {
   base: number
   dca: number[]
+}
+
+export type HedgeBotSettings = Pick<
+  DCABotSettings,
+  | 'useTp'
+  | 'tpPerc'
+  | 'useSl'
+  | 'slPerc'
+  | 'comboTpBase'
+  | 'dealCloseConditionSL'
+  | 'dealCloseCondition'
+>
+
+export interface HedgeBacktestingInput {
+  longSettings: DCABacktestingInput
+  shortSettings: DCABacktestingInput
+  sharedSettings?: HedgeBotSettings
+}
+
+// Updated input type for test method to support separate long/short bars
+export interface HedgeTestBarsInput {
+  long: { bar: FullBar[]; interval: ExchangeIntervals }[]
+  short: { bar: FullBar[]; interval: ExchangeIntervals }[]
+}
+
+export interface HedgeBacktestingResult {
+  longResult: DCABacktestingResult
+  shortResult: DCABacktestingResult
+  hedgeResult: Pick<
+    DCABacktestingResult,
+    'financial' | 'duration' | 'usage' | 'numerical' | 'ratios'
+  >
 }
