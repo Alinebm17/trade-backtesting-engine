@@ -16,6 +16,16 @@ import type { Indicator } from './ti/index'
 type DataType = { bar: FullBar[]; interval: ExchangeIntervals }
 
 /**
+ * Position data structure
+ */
+type Position = {
+  qty: number
+  entryPrice: number
+  liquidationPrice: number
+  side: PositionSide
+}
+
+/**
  * Strategy execution context - holds all shared state for a strategy instance
  * This replaces static properties to allow multiple isolated strategy instances
  */
@@ -126,13 +136,13 @@ export class StrategyContext {
   public priceMax = 0
 
   // Position management
-  public emptyPosition = {
+  public emptyPosition: Position = {
     qty: 0,
     entryPrice: 0,
     liquidationPrice: 0,
     side: 'LONG' as PositionSide,
   }
-  public position: Map<string, typeof this.emptyPosition> = new Map()
+  public position: Map<string, Position> = new Map()
   public balance: Map<string, number> = new Map()
   public balanceUsd = 0
   public initialBalance = 0
