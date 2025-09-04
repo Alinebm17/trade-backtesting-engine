@@ -43,10 +43,11 @@ class HedgeBacktesting extends Backtesting {
     )
 
     this.sharedSettings = sharedSettings
-
+    this.setLongContext()
     this.longBacktester = new DCABacktesting(longSettings)
 
     // Create short strategy backtest instance
+    this.setShortContext()
     this.shortBacktester = new DCABacktesting(shortSettings)
   }
 
@@ -58,29 +59,51 @@ class HedgeBacktesting extends Backtesting {
 
   public getOtherIntervals() {
     // Get intervals from both strategies
+    this.setLongContext()
     const longIntervals = this.longBacktester.getOtherIntervals() || []
+    this.setShortContext()
     const shortIntervals = this.shortBacktester.getOtherIntervals() || []
 
     // Get symbols and exchanges from both strategies
+    this.setLongContext()
     const longSymbols = this.longBacktester.getSymbols() || []
+    this.setShortContext()
     const shortSymbols = this.shortBacktester.getSymbols() || []
+    this.setLongContext()
     const longExchange = this.longBacktester.getExchange()
+    this.setShortContext()
     const shortExchange = this.shortBacktester.getExchange()
+
+    this.setLongContext()
+    if (
+      !longIntervals.find((li) => li.interval === this.longBacktester.interval)
+    ) {
+      longIntervals.push({
+        interval: this.longBacktester.interval,
+        countBack: 0,
+      })
+    }
+
+    this.setShortContext()
+    if (
+      !shortIntervals.find(
+        (si) => si.interval === this.shortBacktester.interval,
+      )
+    ) {
+      shortIntervals.push({
+        interval: this.shortBacktester.interval,
+        countBack: 0,
+      })
+    }
 
     return {
       long: {
-        intervals: [
-          ...longIntervals,
-          { interval: this.longBacktester.interval, countBack: 0 },
-        ],
+        intervals: longIntervals,
         symbols: longSymbols,
         exchange: longExchange,
       },
       short: {
-        intervals: [
-          ...shortIntervals,
-          { interval: this.shortBacktester.interval, countBack: 0 },
-        ],
+        intervals: shortIntervals,
         symbols: shortSymbols,
         exchange: shortExchange,
       },
@@ -114,7 +137,7 @@ class HedgeBacktesting extends Backtesting {
     // Process long strategy combinations
     for (const intervalInfo of strategiesInfo.long.intervals) {
       const interval = intervalInfo.interval
-      const countBack = intervalInfo.countBack
+      const countBack = Math.max(1000, intervalInfo.countBack)
 
       for (const symbol of strategiesInfo.long.symbols.keys()) {
         const key = `${interval}@${symbol}@${strategiesInfo.long.exchange}`
@@ -249,10 +272,11 @@ class HedgeBacktesting extends Backtesting {
           const data = allDataMap.get(key)
           if (data) {
             if (longPeriod) {
-              if (longPeriod.from > data.from || longPeriod.to < data.to) {
+              if (longPeriod.from >= data.from || longPeriod.to <= data.to) {
                 const filteredBars = data.bar.filter(
                   (bar) =>
-                    bar.time >= longPeriod.from && bar.time <= longPeriod.to,
+                    bar.time >= longPeriod.from * 1000 &&
+                    bar.time <= longPeriod.to * 1000,
                 )
                 intervalBars.push(...filteredBars)
               } else {
@@ -281,7 +305,8 @@ class HedgeBacktesting extends Backtesting {
               if (shortPeriod.from > data.from || shortPeriod.to < data.to) {
                 const filteredBars = data.bar.filter(
                   (bar) =>
-                    bar.time >= shortPeriod.from && bar.time <= shortPeriod.to,
+                    bar.time >= shortPeriod.from * 1000 &&
+                    bar.time <= shortPeriod.to * 1000,
                 )
                 intervalBars.push(...filteredBars)
               } else {
@@ -367,7 +392,9 @@ class HedgeBacktesting extends Backtesting {
         Array.from(combinedMap.values())
 
       // Initialize both strategies for controlled processing with their respective data
+      this.setLongContext()
       await this.longBacktester.initializeForControlledProcessing(longBars)
+      this.setShortContext()
       await this.shortBacktester.initializeForControlledProcessing(shortBars)
       const longEveryHundredBar = new Set(
         [...longTimeSet.values()].reduce((acc, time, index) => {
@@ -440,7 +467,7 @@ class HedgeBacktesting extends Backtesting {
               relativeUnPnl <= +this.sharedSettings.slPerc) ||
             (this.sharedSettings.useTp &&
               this.sharedSettings.tpPerc &&
-              relativeUnPnl <= +this.sharedSettings.tpPerc)
+              relativeUnPnl >= +this.sharedSettings.tpPerc)
           ) {
             this.setLongContext()
             this.longBacktester.closeAllDeals()
@@ -452,7 +479,9 @@ class HedgeBacktesting extends Backtesting {
       }
 
       // Get the final results from both strategies
+      this.setLongContext()
       const longResult = this.longBacktester.returnResult(new Map(), new Map())
+      this.setShortContext()
       const shortResult = this.shortBacktester.returnResult(
         new Map(),
         new Map(),
@@ -464,6 +493,7 @@ class HedgeBacktesting extends Backtesting {
 
       return this.createHedgeResult(longResult, shortResult)
     } else {
+      this.setLongContext()
       let p = 0
       const longResult = await this.longBacktester.test(longBars, (v, t) => {
         if (p % 2 === 0 && updateProgress) {
@@ -475,7 +505,7 @@ class HedgeBacktesting extends Backtesting {
       if (!longResult) {
         return
       }
-
+      this.setShortContext()
       const shortResult = await this.shortBacktester.test(shortBars, (v, t) => {
         if (p % 2 === 0 && updateProgress) {
           updateProgress(v * 0.5 + 0.5, t)
