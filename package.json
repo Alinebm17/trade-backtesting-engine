@@ -20,6 +20,10 @@
       "types": "./dist/grid/index.d.ts",
       "default": "./dist/grid/index.js"
     },
+    "./dist/hedge": {
+      "types": "./dist/hedge/index.d.ts",
+      "default": "./dist/hedge/index.js"
+    },
     "./dist/types": {
       "types": "./dist/types.d.ts",
       "default": "./dist/types.js"
@@ -27,6 +31,10 @@
     "./dca": {
       "types": "./dist/dca/index.d.ts",
       "default": "./dist/dca/index.js"
+    },
+    "./hedge": {
+      "types": "./dist/hedge/index.d.ts",
+      "default": "./dist/hedge/index.js"
     },
     "./grid": {
       "types": "./dist/grid/index.d.ts",
