@@ -235,6 +235,12 @@ class HedgeBacktesting extends Backtesting {
 
         // Skip if already loaded this combination
         if (!allDataMap.has(key)) {
+          const symbol =
+            config.strategiesInfo.long.symbols.get(combination.symbol) ||
+            config.strategiesInfo.short.symbols.get(combination.symbol)
+          if (!symbol) {
+            continue
+          }
           // Load data from the earliest required time to latest
           const data = await this._loadData(
             combination.interval,
@@ -245,6 +251,10 @@ class HedgeBacktesting extends Backtesting {
               firstDataRequest: true,
               countBack: 0,
             },
+            i,
+            uniqueCombinations.length,
+            undefined,
+            new Map([[combination.symbol, symbol]]),
             i,
             uniqueCombinations.length,
           )
@@ -266,7 +276,7 @@ class HedgeBacktesting extends Backtesting {
         const interval = intervalInfo.interval
 
         // Get all bars for this interval and all symbols
-        const intervalBars: FullBar[] = []
+        let intervalBars: FullBar[] = []
         for (const symbol of strategiesInfo.long.symbols.keys()) {
           const key = `${interval}@${symbol}@${strategiesInfo.long.exchange}`
           const data = allDataMap.get(key)
@@ -278,9 +288,9 @@ class HedgeBacktesting extends Backtesting {
                     bar.time >= longPeriod.from * 1000 &&
                     bar.time <= longPeriod.to * 1000,
                 )
-                intervalBars.push(...filteredBars)
+                intervalBars = [...intervalBars, ...filteredBars]
               } else {
-                intervalBars.push(...data.bar)
+                intervalBars = [...intervalBars, ...data.bar]
               }
             }
           }
@@ -296,7 +306,7 @@ class HedgeBacktesting extends Backtesting {
         const interval = intervalInfo.interval
 
         // Get all bars for this interval and all symbols
-        const intervalBars: FullBar[] = []
+        let intervalBars: FullBar[] = []
         for (const symbol of strategiesInfo.short.symbols.keys()) {
           const key = `${interval}@${symbol}@${strategiesInfo.short.exchange}`
           const data = allDataMap.get(key)
@@ -308,9 +318,9 @@ class HedgeBacktesting extends Backtesting {
                     bar.time >= shortPeriod.from * 1000 &&
                     bar.time <= shortPeriod.to * 1000,
                 )
-                intervalBars.push(...filteredBars)
+                intervalBars = [...intervalBars, ...filteredBars]
               } else {
-                intervalBars.push(...data.bar)
+                intervalBars = [...intervalBars, ...data.bar]
               }
             }
           }
