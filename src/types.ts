@@ -1045,6 +1045,12 @@ export enum ExchangeEnum {
   paperBitgetSpot = 'paperBitgetSpot',
   mexc = 'mexc',
   paperMexc = 'paperMexc',
+  hyperliquid = 'hyperliquid',
+  hyperliquidLinear = 'hyperliquidLinear',
+  paperHyperliquid = 'paperHyperliquid',
+  paperHyperliquidLinear = 'paperHyperliquidLinear',
+  hyperliquidAll = 'hyperliquidAll',
+  paperHyperliquidAll = 'paperHyperliquidAll',
 }
 
 export type DCAGrid = {
