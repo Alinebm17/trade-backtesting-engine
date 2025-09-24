@@ -5,6 +5,17 @@ All notable changes to the Gainium Backtester library will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2025-09-23
+
+### Changed
+- Indicators update (QFL fix)
+
+## [1.1.2] - 2025-09-22
+
+### Fixed
+- Hedge backtest with different symbols
+- Load many candles
+
 ## [1.1.1] - 2025-09-05
 
 ### Changed

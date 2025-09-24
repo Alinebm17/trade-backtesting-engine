@@ -258,8 +258,15 @@ class Backtesting {
     index?: number,
     total?: number,
     random = false,
+    _symbols?: Map<string, Symbols>,
+    _index?: number,
+    _total?: number,
   ): Promise<FullBar[]> {
-    const { symbols, interval, period } = this
+    const { interval, period } = this
+    let { symbols } = this
+    if (_symbols) {
+      symbols = _symbols
+    }
     const resolution = tvIntervalMap[int ?? interval] as ResolutionString
     let periodToUse = periodParam || period
     if (int && int !== interval && !periodParam) {
@@ -276,8 +283,8 @@ class Backtesting {
           resolution,
           periodToUse,
           this.exchange,
-          (index ?? 0) * symbols.size + si,
-          (total ?? 1) * symbols.size,
+          _index || (index ?? 0) * symbols.size + si,
+          _total || (total ?? 1) * symbols.size,
         )
         si++
         const fullResult = result.map((r) => ({ ...r, symbol: s.pair }))
