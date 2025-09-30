@@ -32,14 +32,8 @@ const findUSDRate = (asset: string, _prices: Prices, exchange?: string) => {
   if (asset === 'USD') {
     return 1
   }
-  let usdRate = Number(
-    asset === 'USDT' ||
-      (exchange?.toLowerCase().includes('hyperliquid') && asset === 'USDC'),
-  )
-  let usdtRate = Number(
-    asset === 'USDT' ||
-      (exchange?.toLowerCase().includes('hyperliquid') && asset === 'USDC'),
-  )
+  let usdRate = Number(asset === 'USDT' || asset === 'USDC')
+  let usdtRate = Number(asset === 'USDT' || asset === 'USDC')
   if (asset !== 'USDT') {
     const findUsdtRate = findRate(asset, 'USDT', prices)
     if (findUsdtRate) {
