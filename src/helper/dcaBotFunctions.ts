@@ -466,7 +466,6 @@ class DCABotFunctions {
         settings.dealCloseCondition === CloseConditionEnum.tp &&
         settings.tpPerc &&
         !settings.useMultiTp &&
-        !settings.trailingTp &&
         ![OrderSizeTypeEnum.percFree, OrderSizeTypeEnum.percTotal].includes(
           orderSizeType,
         )
