@@ -40,6 +40,7 @@ import {
   KeltnerChannel,
   KeltnerChannelPB,
   DonchianChannels,
+  OBFVG,
 } from '@gainium/indicators'
 import { MAEnum, IndicatorEnum, RangeType } from '../../../types'
 
@@ -90,6 +91,7 @@ export default class InternalIndicator {
     | KeltnerChannel
     | KeltnerChannelPB
     | DonchianChannels
+    | OBFVG
   private data: IndicatorHistory[] = []
 
   private readonly type: IndicatorEnum
@@ -547,6 +549,10 @@ export default class InternalIndicator {
       )
       this.length = indicatorConfig.leftBars + indicatorConfig.rightBars + add
     }
+    if (indicatorConfig.type === IndicatorEnum.obfvg) {
+      this.indicator = new OBFVG()
+      this.length = 1000
+    }
     this.type = indicatorConfig.type
     this.length = this.length * 2
   }
@@ -629,7 +635,8 @@ export default class InternalIndicator {
       this.indicator &&
       (this.indicator instanceof MOM ||
         this.indicator instanceof ECD ||
-        this.indicator instanceof DonchianChannels)
+        this.indicator instanceof DonchianChannels ||
+        this.indicator instanceof OBFVG)
     ) {
       this.indicator?.next({
         high: +value.h,

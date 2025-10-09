@@ -9,6 +9,7 @@ import type {
   PriorPivotResult,
   QFLResult,
   DCResult,
+  OBFVGResult,
 } from '@gainium/indicators'
 
 export const DirName = `../../tmp-backtester`
@@ -51,6 +52,7 @@ export enum IndicatorEnum {
   kcpb = 'KCPB',
   unpnl = 'UNPNL',
   dc = 'DC',
+  obfvg = 'OBFVG',
 }
 
 export enum ECDTriggerEnum {
@@ -207,6 +209,7 @@ export enum RangeType {
 }
 
 export type IndicatorConfigBackTesting =
+  | { type: IndicatorEnum.obfvg }
   | { type: IndicatorEnum.dc; length: number }
   | {
       type: IndicatorEnum.st
@@ -355,6 +358,7 @@ type PercentileResult = {
 }
 
 export type IndicatorHistory = { time: number } & (
+  | { type: IndicatorEnum.obfvg; value: OBFVGResult }
   | { type: IndicatorEnum.pp; value: PriorPivotResult }
   | {
       type:
@@ -529,6 +533,20 @@ export type SettingsIndicators = {
   unpnlValue?: number
   unpnlCondition?: IndicatorStartConditionEnum
   dcValue?: DCValueEnum
+  obfvgValue?: OBFVGValueEnum
+  obfvgRef?: OBFVGRefEnum
+}
+
+export enum OBFVGValueEnum {
+  bullish = 'bullish',
+  bearish = 'bearish',
+  any = 'any',
+}
+
+export enum OBFVGRefEnum {
+  high = 'high',
+  low = 'low',
+  middle = 'middle',
 }
 
 export enum DCValueEnum {
