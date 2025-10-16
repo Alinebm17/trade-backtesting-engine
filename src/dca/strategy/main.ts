@@ -2679,17 +2679,12 @@ export abstract class Strategy implements StrategyInterface {
       d.currentBalance.quote = this.long
         ? d.currentBalance.quote + filledQuote
         : d.currentBalance.quote - filledQuote
-
-      const allFilled = this.long
-        ? this.math.lte(
-            d.currentBalance.base * d.avgPrice,
-            symbol.quoteAsset.minAmount,
-          ) && this.math.lte(d.currentBalance.base, symbol.baseAsset.minAmount)
-        : this.math.lte(d.currentBalance.quote, symbol.quoteAsset.minAmount) &&
-          this.math.lte(
-            d.currentBalance.quote / d.avgPrice,
-            symbol.baseAsset.minAmount,
-          )
+      const filled = d.filledOrders
+        .filter((t) => !!t.tpSlTarget)
+        .map((t) => t.tpSlTarget)
+      const allFilled =
+        d.tpSlTargetFilled?.filter((t) => filled.includes(t)).length ===
+        this.settings.multiTp?.length
       /* const profit = this.getProfit(d)
       if (profit) {
         d.profit = profit
@@ -3863,20 +3858,12 @@ export abstract class Strategy implements StrategyInterface {
         d.currentBalance.quote = this.long
           ? d.currentBalance.quote + filledQuote
           : d.currentBalance.quote - filledQuote
-        const allFilled = this.long
-          ? this.math.lte(
-              d.currentBalance.base * d.avgPrice,
-              symbol.quoteAsset.minAmount,
-            ) &&
-            this.math.lte(d.currentBalance.base, symbol.baseAsset.minAmount)
-          : this.math.lte(
-              d.currentBalance.quote,
-              symbol.quoteAsset.minAmount,
-            ) &&
-            this.math.lte(
-              d.currentBalance.quote / d.avgPrice,
-              symbol.baseAsset.minAmount,
-            )
+        const filled = d.filledOrders
+          .filter((t) => !!t.tpSlTarget)
+          .map((t) => t.tpSlTarget)
+        const allFilled =
+          d.tpSlTargetFilled?.filter((t) => filled.includes(t)).length ===
+          this.settings.multiSl?.length
         /* const profit = this.getProfit(d)
         if (profit) {
           d.profit = profit
