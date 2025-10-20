@@ -29,13 +29,19 @@ const findUSDRate = (asset: string, _prices: Prices, exchange?: string) => {
   const prices = _prices.filter((p) =>
     exchange ? [exchange, 'all'].includes(p.exchange ?? '') : true,
   )
+  asset = asset
+    .replace('SBTC', 'BTC')
+    .replace('SUSD', 'USD')
+    .replace('SUSDT', 'USDT')
+    .replace('UBTC', 'BTC')
   if (asset === 'USD') {
     return 1
   }
   let usdRate = Number(asset === 'USDT' || asset === 'USDC')
   let usdtRate = Number(asset === 'USDT' || asset === 'USDC')
   if (asset !== 'USDT') {
-    const findUsdtRate = findRate(asset, 'USDT', prices)
+    const findUsdtRate =
+      findRate(asset, 'USDT', prices) || findRate(asset, 'USDC', prices)
     if (findUsdtRate) {
       usdtRate = findUsdtRate
       usdRate = usdtRate
