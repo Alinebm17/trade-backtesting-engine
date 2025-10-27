@@ -3784,19 +3784,21 @@ export abstract class Strategy implements StrategyInterface {
           )
         : undefined
     const hasUnPnl = foundInSl || foundInTp
+    const botFunctions = this.botFunctions.get(d.symbol.pair)
+    const symbol = this.symbols.get(d.symbol.pair)
+    if (!symbol || !botFunctions) {
+      return { deal: d }
+    }
     if (
       this.settings.dealCloseConditionSL !== CloseConditionEnum.tp &&
       !this.slAr &&
       !this.settings.useRiskReward &&
       !Strategy.combo &&
       !d.moveSlActivated &&
-      !hasUnPnl
+      !hasUnPnl &&
+      !botFunctions?.isTrailingSl &&
+      !botFunctions?.isTrailingTp
     ) {
-      return { deal: d }
-    }
-    const symbol = this.symbols.get(d.symbol.pair)
-    const botFunctions = this.botFunctions.get(d.symbol.pair)
-    if (!symbol || !botFunctions) {
       return { deal: d }
     }
     let close = false
@@ -4455,8 +4457,8 @@ export abstract class Strategy implements StrategyInterface {
       d.bestPrice = Math.max(price, d.startPrice)
       d.bestPriceSet = true
     } else if (
-      (this.long && price > (d.bestPrice ?? 0)) ||
-      (!this.long && price < (d.bestPrice ?? Infinity))
+      (this.long && price > (d.bestPrice || 0)) ||
+      (!this.long && price < (d.bestPrice || Infinity))
     ) {
       d.bestPrice = price
     }
@@ -4464,14 +4466,9 @@ export abstract class Strategy implements StrategyInterface {
       d.trailingMode = TrailingModeEnum.tsl
     }
     if (d.trailingMode !== TrailingModeEnum.ttp && trailingTp) {
-      const unPnL =
-        (this.long
-          ? d.currentBalance.base * price +
-            d.currentBalance.quote -
-            d.initialBalance.quote
-          : d.currentBalance.quote -
-            (d.initialBalance.base - d.currentBalance.base) * price) /
-        (this.long ? d.usage.current.quote : d.usage.current.base * price)
+      const unPnL = this.long
+        ? (price - d.avgPrice) / d.avgPrice
+        : (d.avgPrice - price) / d.avgPrice
       if (trailingTpPerc && unPnL > +tpPerc / 100 + sellDisplacement) {
         d.trailingMode = TrailingModeEnum.ttp
       }
