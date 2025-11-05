@@ -36,6 +36,7 @@ import {
   IndicatorsLogicEnum,
   IndicatorStartConditionEnum,
   BotStartTypeEnum,
+  RRSlTypeEnum,
 } from '../../types'
 import { friendlyTime } from '../../helper/timeFunctions'
 import { MathHelper } from '../../helper/math'
@@ -1177,202 +1178,221 @@ export abstract class Strategy implements StrategyInterface {
       riskUseTpRatio,
       riskMaxSl,
       riskMinSl,
+      rrSlFixedValue,
+      rrSlType,
     } = this.settings
-    const indicator = Strategy.indicators.find(
-      (i) =>
-        i.symbol === pair &&
-        i.settings.indicatorAction === IndicatorAction.riskReward,
-    )
-    if (indicator) {
-      const [last] = [...indicator.data].sort((a, b) => b.time - a.time)
-      if (last) {
-        const { type, ppValue, srCrossingValue, bbCrossingValue, stCondition } =
-          indicator.settings
-        let value = NaN
-        if (type === IndicatorEnum.pp) {
-          const data = last.value as PriorPivotResult
-          if (ppValue === ppValueEnum.anyH) {
-            value = isNaN(data.hh) ? data.lh : data.hh
-          }
-          if (ppValue === ppValueEnum.hh) {
-            value = data.all.hh
-          }
-          if (ppValue === ppValueEnum.lh) {
-            value = data.all.lh
-          }
-          if (ppValue === ppValueEnum.anyL) {
-            value = isNaN(data.ll) ? data.hl : data.ll
-          }
-          if (ppValue === ppValueEnum.hl) {
-            value = data.all.hl
-          }
-          if (ppValue === ppValueEnum.ll) {
-            value = data.all.ll
-          }
-          if (ppValue === ppValueEnum.anySWH) {
-            value = isNaN(data.wh) ? data.sh : data.wh
-          }
-          if (ppValue === ppValueEnum.wh) {
-            value = data.all.wh
-          }
-          if (ppValue === ppValueEnum.sh) {
-            value = data.all.sh
-          }
-          if (ppValue === ppValueEnum.anySWL) {
-            value = isNaN(data.wl) ? data.sl : data.wl
-          }
-          if (ppValue === ppValueEnum.wl) {
-            value = data.all.wl
-          }
-          if (ppValue === ppValueEnum.sl) {
-            value = data.all.sl
-          }
+    const isRRSLTypeIndicator = rrSlType === RRSlTypeEnum.indicator || !rrSlType
+    const isRRSLTypeFixed = rrSlType === RRSlTypeEnum.fixed
+    const indicator = isRRSLTypeIndicator
+      ? Strategy.indicators.find(
+          (i) =>
+            i.symbol === pair &&
+            i.settings.indicatorAction === IndicatorAction.riskReward,
+        )
+      : undefined
+    if (!indicator && isRRSLTypeIndicator) {
+      return null
+    }
+
+    const [last] =
+      isRRSLTypeIndicator && indicator
+        ? [...indicator.data].sort((a, b) => b.time - a.time)
+        : []
+    if (!last && isRRSLTypeIndicator) {
+      return null
+    }
+    let value = NaN
+    if (indicator?.settings) {
+      const { type, ppValue, srCrossingValue, bbCrossingValue, stCondition } =
+        indicator.settings
+
+      if (type === IndicatorEnum.pp) {
+        const data = last.value as PriorPivotResult
+        if (ppValue === ppValueEnum.anyH) {
+          value = isNaN(data.hh) ? data.lh : data.hh
         }
-        if (type === IndicatorEnum.qfl) {
-          const data = last.value as QFLResult
-          value = data.base
+        if (ppValue === ppValueEnum.hh) {
+          value = data.all.hh
         }
-        if (type === IndicatorEnum.sr) {
-          const data = last.value as PivotResult
-          value =
-            srCrossingValue === SRCrossingEnum.resistance ? data.high : data.low
+        if (ppValue === ppValueEnum.lh) {
+          value = data.all.lh
         }
-        if (type === IndicatorEnum.bb || type === IndicatorEnum.kc) {
-          const data = last.value as {
-            result: BandsResult
-            price: number
-          }
-          value =
-            bbCrossingValue === BBCrossingEnum.lower
-              ? data.result.lower
-              : bbCrossingValue === BBCrossingEnum.middle
-                ? data.result.middle
-                : data.result.upper
+        if (ppValue === ppValueEnum.anyL) {
+          value = isNaN(data.ll) ? data.hl : data.ll
         }
-        if (type === IndicatorEnum.ma) {
-          const data = last.value as MAResult
-          value = data.ma
+        if (ppValue === ppValueEnum.hl) {
+          value = data.all.hl
         }
-        if (type === IndicatorEnum.st) {
-          const data = last.value as SuperTrendResult
-          value =
-            stCondition === STConditionEnum.down ? data.all.down : data.all.up
+        if (ppValue === ppValueEnum.ll) {
+          value = data.all.ll
         }
-        if (type === IndicatorEnum.psar) {
-          const data = last.value as { psar: number; price: number }
-          value = data.psar
+        if (ppValue === ppValueEnum.anySWH) {
+          value = isNaN(data.wh) ? data.sh : data.wh
         }
-        if (type === IndicatorEnum.atr) {
-          const atrMultiplier = +(indicator?.settings.riskAtrMult ?? '1')
-          const data = last.value as number
-          value = this.long
-            ? price - data * atrMultiplier
-            : price + data * atrMultiplier
+        if (ppValue === ppValueEnum.wh) {
+          value = data.all.wh
         }
-        if (!isNaN(value)) {
-          const symbol = this.symbols.get(pair)
-          const precisionPrice = symbol?.priceAssetPrecision
-          const precisionQuote = this.precisionQuote.get(pair) ?? 8
-          const precisionBase = this.precisionBase.get(pair) ?? 8
-          let currentRiskSlPrice = this.math.round(value, precisionPrice)
-          const minSl =
-            typeof riskMinSl !== 'undefined' && `${riskMinSl}` !== 'null'
-              ? Math.abs(+riskMinSl) / 100
-              : riskSlType === RiskSlTypeEnum.perc && riskSlAmountPerc
-                ? Math.abs(+riskSlAmountPerc) / 100
-                : null
-          const maxSl = riskMaxSl ? Math.abs(+riskMaxSl) / 100 : 1
-          let currentSl = Math.abs((currentRiskSlPrice - price) / price)
-          if (minSl && currentSl < minSl) {
-            currentSl = minSl * -1
-          } else if (maxSl && currentSl > maxSl) {
-            currentSl = maxSl * -1
-          } else {
-            currentSl *= -1
-          }
-          const riskSlPerc = currentSl
-          currentRiskSlPrice = this.math.round(
-            price * (1 + riskSlPerc * (this.long ? 1 : -1)),
-            symbol?.priceAssetPrecision,
+        if (ppValue === ppValueEnum.sh) {
+          value = data.all.sh
+        }
+        if (ppValue === ppValueEnum.anySWL) {
+          value = isNaN(data.wl) ? data.sl : data.wl
+        }
+        if (ppValue === ppValueEnum.wl) {
+          value = data.all.wl
+        }
+        if (ppValue === ppValueEnum.sl) {
+          value = data.all.sl
+        }
+      }
+      if (type === IndicatorEnum.qfl) {
+        const data = last.value as QFLResult
+        value = data.base
+      }
+      if (type === IndicatorEnum.sr) {
+        const data = last.value as PivotResult
+        value =
+          srCrossingValue === SRCrossingEnum.resistance ? data.high : data.low
+      }
+      if (type === IndicatorEnum.bb || type === IndicatorEnum.kc) {
+        const data = last.value as {
+          result: BandsResult
+          price: number
+        }
+        value =
+          bbCrossingValue === BBCrossingEnum.lower
+            ? data.result.lower
+            : bbCrossingValue === BBCrossingEnum.middle
+              ? data.result.middle
+              : data.result.upper
+      }
+      if (type === IndicatorEnum.ma) {
+        const data = last.value as MAResult
+        value = data.ma
+      }
+      if (type === IndicatorEnum.st) {
+        const data = last.value as SuperTrendResult
+        value =
+          stCondition === STConditionEnum.down ? data.all.down : data.all.up
+      }
+      if (type === IndicatorEnum.psar) {
+        const data = last.value as { psar: number; price: number }
+        value = data.psar
+      }
+      if (type === IndicatorEnum.atr) {
+        const atrMultiplier = +(indicator?.settings.riskAtrMult ?? '1')
+        const data = last.value as number
+        value = this.long
+          ? price - data * atrMultiplier
+          : price + data * atrMultiplier
+      }
+    }
+    if (isRRSLTypeFixed) {
+      const sl = +(rrSlFixedValue ?? '-1') / 100
+      value = this.long ? price * (1 + sl) : price * (1 - sl)
+    }
+    if (!isNaN(value)) {
+      const symbol = this.symbols.get(pair)
+      const precisionPrice = symbol?.priceAssetPrecision
+      const precisionQuote = this.precisionQuote.get(pair) ?? 8
+      const precisionBase = this.precisionBase.get(pair) ?? 8
+      let currentRiskSlPrice = this.math.round(value, precisionPrice)
+      const minSl =
+        typeof riskMinSl !== 'undefined' && `${riskMinSl}` !== 'null'
+          ? Math.abs(+riskMinSl) / 100
+          : riskSlType === RiskSlTypeEnum.perc && riskSlAmountPerc
+            ? Math.abs(+riskSlAmountPerc) / 100
+            : null
+      const maxSl = riskMaxSl ? Math.abs(+riskMaxSl) / 100 : 1
+      let currentSl = Math.abs((currentRiskSlPrice - price) / price)
+      if (minSl && currentSl < minSl) {
+        currentSl = minSl * -1
+      } else if (maxSl && currentSl > maxSl) {
+        currentSl = maxSl * -1
+      } else {
+        currentSl *= -1
+      }
+      const riskSlPerc = currentSl
+      currentRiskSlPrice = this.math.round(
+        price * (1 + riskSlPerc * (this.long ? 1 : -1)),
+        symbol?.priceAssetPrecision,
+      )
+      const rewardTpPerc = Math.abs(riskSlPerc) * +(riskTpRatio ?? '1')
+      const rewardTpPrice = this.math.round(
+        price * (1 + rewardTpPerc * (this.long ? 1 : -1)),
+        precisionPrice,
+      )
+      const riskPrecision = this.futures
+        ? this.coinm
+          ? precisionBase
+          : precisionQuote
+        : this.long
+          ? precisionQuote
+          : precisionBase
+
+      let riskBalance = symbol
+        ? +(
+            this.getBalances(symbol.pair)?.find(
+              (s) =>
+                s.asset ===
+                (this.futures
+                  ? this.coinm
+                    ? symbol.baseAsset.name
+                    : symbol.quoteAsset.name
+                  : this.long
+                    ? symbol.quoteAsset.name
+                    : symbol.baseAsset.name),
+            )?.free || '0'
           )
-          const rewardTpPerc = Math.abs(riskSlPerc) * +(riskTpRatio ?? '1')
-          const rewardTpPrice = this.math.round(
-            price * (1 + rewardTpPerc * (this.long ? 1 : -1)),
-            precisionPrice,
-          )
-          const riskPrecision = this.futures
+        : 0
+
+      if ((riskBalance ?? 0) < 0) {
+        return null
+      }
+      if (!riskBalance) {
+        riskBalance =
+          ((this.futures
             ? this.coinm
-              ? precisionBase
-              : precisionQuote
+              ? symbol?.baseAsset.minAmount
+              : symbol?.quoteAsset.minAmount
             : this.long
-              ? precisionQuote
-              : precisionBase
-
-          let riskBalance = symbol
-            ? +(
-                this.getBalances(symbol.pair)?.find(
-                  (s) =>
-                    s.asset ===
-                    (this.futures
-                      ? this.coinm
-                        ? symbol.baseAsset.name
-                        : symbol.quoteAsset.name
-                      : this.long
-                        ? symbol.quoteAsset.name
-                        : symbol.baseAsset.name),
-                )?.free || '0'
-              )
-            : 0
-
-          if ((riskBalance ?? 0) < 0) {
-            return null
-          }
-          if (!riskBalance) {
-            riskBalance =
-              ((this.futures
-                ? this.coinm
-                  ? symbol?.baseAsset.minAmount
-                  : symbol?.quoteAsset.minAmount
-                : this.long
-                  ? symbol?.quoteAsset.minAmount
-                  : symbol?.baseAsset.minAmount) ?? 0) * 10
-          }
-          const riskSize = this.math.round(
-            riskSlType === RiskSlTypeEnum.fixed
-              ? +(riskSlAmountValue ?? 0)
-              : (riskBalance ?? 0) * (+(riskSlAmountPerc ?? '1') / 100),
-            riskPrecision + 2,
-          )
-          const positionSize =
-            riskSlPerc >= 0 || riskSize === 0
-              ? 0
-              : this.math.round(
-                  riskSize / Math.abs(riskSlPerc) / this.leverage,
-                  riskPrecision,
-                )
-          if (positionSize <= 0) {
-            return null
-          }
-          let min = +(riskMinPositionSize ?? '0')
-          if (min === -1) {
-            min = 0
-          }
-          let max = +(riskMaxPositionSize ?? '0')
-          if (max === -1 || max === 0) {
-            max = Infinity
-          }
-          if (positionSize < min || positionSize > max) {
-            return null
-          }
-          if (positionSize > riskBalance) {
-            Strategy.messages.push(fundsWarning)
-          }
-          return {
-            size: positionSize,
-            sl: currentRiskSlPrice,
-            tp: riskUseTpRatio ? rewardTpPrice : undefined,
-          }
-        }
+              ? symbol?.quoteAsset.minAmount
+              : symbol?.baseAsset.minAmount) ?? 0) * 10
+      }
+      const riskSize = this.math.round(
+        riskSlType === RiskSlTypeEnum.fixed
+          ? +(riskSlAmountValue ?? 0)
+          : (riskBalance ?? 0) * (+(riskSlAmountPerc ?? '1') / 100),
+        riskPrecision + 2,
+      )
+      const positionSize =
+        riskSlPerc >= 0 || riskSize === 0
+          ? 0
+          : this.math.round(
+              riskSize / Math.abs(riskSlPerc) / this.leverage,
+              riskPrecision,
+            )
+      if (positionSize <= 0) {
+        return null
+      }
+      let min = +(riskMinPositionSize ?? '0')
+      if (min === -1) {
+        min = 0
+      }
+      let max = +(riskMaxPositionSize ?? '0')
+      if (max === -1 || max === 0) {
+        max = Infinity
+      }
+      if (positionSize < min || positionSize > max) {
+        return null
+      }
+      if (positionSize > riskBalance) {
+        Strategy.messages.push(fundsWarning)
+      }
+      return {
+        size: positionSize,
+        sl: currentRiskSlPrice,
+        tp: riskUseTpRatio ? rewardTpPrice : undefined,
       }
     }
     return null

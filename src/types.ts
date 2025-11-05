@@ -729,6 +729,11 @@ export type SettingsIndicatorGroup = {
   section?: IndicatorSection
 }
 
+export enum RRSlTypeEnum {
+  fixed = 'fixed',
+  indicator = 'indicator',
+}
+
 export interface DCABotSettings extends BaseSettings {
   minimumDeviation?: string
   dcaCondition?: DCAConditionEnum
@@ -841,6 +846,8 @@ export interface DCABotSettings extends BaseSettings {
   pairPrioritization?: PairPrioritizationEnum
   dynamicPriceFilterDirection?: DynamicPriceFilterDirectionEnum
   useRiskReward?: boolean
+  rrSlType?: RRSlTypeEnum
+  rrSlFixedValue?: string
   riskSlType?: RiskSlTypeEnum
   riskSlAmountPerc?: string
   riskSlAmountValue?: string
