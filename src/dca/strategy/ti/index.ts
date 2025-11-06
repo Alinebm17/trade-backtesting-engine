@@ -1825,6 +1825,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
             symbol: nextBar.symbol,
           },
           true,
+          false,
+          true,
         )
 
         Strategy.indicators = Strategy.indicators.map((i) => {
