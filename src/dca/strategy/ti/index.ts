@@ -883,10 +883,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
   private updateIndicatorData(i: Indicator) {
     return (d: IndicatorHistory[]) => {
       i.data = d
-      Strategy.indicators = [
-        ...Strategy.indicators.filter((ii) => ii.id !== i.id),
-        i,
-      ]
+      Strategy.indicators = [...Strategy.indicators].map((ii) =>
+        ii.id === i.id ? i : ii,
+      )
     }
   }
 
@@ -1717,11 +1716,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
             ind++
           }
         }
-
-        Strategy.indicators = [
-          ...Strategy.indicators.filter((si) => si.id !== i.id),
-          { ...i, data: [] },
-        ]
+        Strategy.indicators = [...Strategy.indicators].map((si) =>
+          si.id === i.id ? { ...i, data: [] } : si,
+        )
       }
     }
     if (nextBar) {
