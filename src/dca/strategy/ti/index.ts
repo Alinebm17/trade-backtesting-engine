@@ -1823,7 +1823,11 @@ class TIStrategy extends Strategy implements StrategyInterface {
           },
           true,
           false,
-          true,
+          !this.settings.indicators.filter(
+            (_i) =>
+              _i.type === IndicatorEnum.unpnl &&
+              _i.section === IndicatorSection.sl,
+          ).length,
         )
 
         Strategy.indicators = Strategy.indicators.map((i) => {
