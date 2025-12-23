@@ -4060,6 +4060,40 @@ export abstract class Strategy implements StrategyInterface {
       }
     }
     if (hasUnPnl && !close) {
+      const slGroups = this.settings.indicatorGroups.filter(
+        (g) =>
+          g.action === IndicatorAction.closeDeal &&
+          g.section === IndicatorSection.sl,
+      )
+      const tpGroups = this.settings.indicatorGroups.filter(
+        (g) =>
+          g.action === IndicatorAction.closeDeal &&
+          g.section !== IndicatorSection.sl,
+      )
+      const slGroup = foundInSl
+        ? slGroups.find((g) => g.id === foundInSl?.groupId)
+        : undefined
+      const tpGroup = foundInTp
+        ? tpGroups.find((g) => g.id === foundInTp?.groupId)
+        : undefined
+      const slIndicatorsInGroup = slGroup
+        ? this.settings.indicators.filter(
+            (i) =>
+              i.indicatorAction === IndicatorAction.closeDeal &&
+              i.section === IndicatorSection.sl &&
+              i.groupId === slGroup.id,
+          )
+        : undefined
+      const tpIndicatorsInGroup = tpGroup
+        ? this.settings.indicators.filter(
+            (i) =>
+              i.indicatorAction === IndicatorAction.closeDeal &&
+              i.section !== IndicatorSection.sl &&
+              i.groupId === tpGroup.id,
+          )
+        : undefined
+      const slGroupLogicOr = slGroup?.logic === IndicatorsLogicEnum.or
+      const tpGroupLogicOr = tpGroup?.logic === IndicatorsLogicEnum.or
       const slLogicOr = this.settings.stopDealSlLogic === IndicatorsLogicEnum.or
       const tpLogicOr = this.settings.stopDealLogic === IndicatorsLogicEnum.or
       const slInidcators = foundInSl
@@ -4077,8 +4111,16 @@ export abstract class Strategy implements StrategyInterface {
           )
         : undefined
       if (
-        (foundInSl && ((slInidcators?.length ?? 0) === 1 || slLogicOr)) ||
-        (foundInTp && ((tpInidcators?.length ?? 0) === 1 || tpLogicOr))
+        (foundInSl &&
+          ((slInidcators?.length ?? 0) === 1 ||
+            ((slIndicatorsInGroup?.length ?? 0) === 1 && slLogicOr) ||
+            (slGroups.length === 1 && slGroupLogicOr) ||
+            (slLogicOr && slGroupLogicOr))) ||
+        (foundInTp &&
+          ((tpInidcators?.length ?? 0) === 1 ||
+            ((tpIndicatorsInGroup?.length ?? 0) === 1 && tpLogicOr) ||
+            (tpGroups.length === 1 && tpGroupLogicOr) ||
+            (tpLogicOr && tpGroupLogicOr)))
       ) {
         const slConditionGt =
           (foundInSl
