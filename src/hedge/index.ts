@@ -174,7 +174,7 @@ class HedgeBacktesting extends Backtesting {
         combinations.set(key, {
           interval,
           symbol,
-          exchange: strategiesInfo.long.exchange,
+          exchange: strategiesInfo.short.exchange,
           from: Math.min(
             existing?.from || Infinity,
             periodStart - (countBack * (timeIntervalMap[interval] / 1000) || 0),
