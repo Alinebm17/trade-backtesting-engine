@@ -447,6 +447,7 @@ class HedgeBacktesting extends Backtesting {
             )
           }
         }
+        let lastTime = 0
         for (const bar of _bars) {
           if (bar.strategy === StrategyEnum.long) {
             this.setLongContext()
@@ -461,6 +462,7 @@ class HedgeBacktesting extends Backtesting {
               shortEveryHundredBar.has(bar.time),
             )
           }
+          lastTime = bar.time
         }
         this.setLongContext()
         const longProfit = this.longBacktester.getCurrentUnrealizedPnL()
@@ -480,9 +482,9 @@ class HedgeBacktesting extends Backtesting {
               relativeUnPnl >= +this.sharedSettings.tpPerc)
           ) {
             this.setLongContext()
-            this.longBacktester.closeAllDeals()
+            this.longBacktester.closeAllDeals(lastTime)
             this.setShortContext()
-            this.shortBacktester.closeAllDeals()
+            this.shortBacktester.closeAllDeals(lastTime)
           }
         }
         b++

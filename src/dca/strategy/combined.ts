@@ -207,6 +207,7 @@ class CombinedStrategy extends Strategy implements StrategyInterface {
     updateProgress?: (value: number, text: string) => void,
     _size?: number,
   ): Promise<void> {
+    Strategy.lastPrice.set(b.symbol, b.close)
     if (interval === Strategy.lowestInterval) {
       const size = _size || Strategy?.data?.[0]?.bar?.length || 0
       if (this.step === 0 && this.total === 0 && updateProgress) {

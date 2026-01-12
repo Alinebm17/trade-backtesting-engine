@@ -748,6 +748,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     bar: FullBar,
     interval?: ExchangeIntervals,
   ): Promise<void> {
+    Strategy.lastPrice.set(bar.symbol, bar.close)
     if (
       Strategy.workingShift.length === 0 &&
       ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start)

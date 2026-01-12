@@ -103,7 +103,7 @@ export type DataType = {
 }
 
 export interface StrategyInterface {
-  closeAllDealForAllSymbols(): void
+  closeAllDealForAllSymbols(lastTime?: number): void
   getUnrealizedProfit(): {
     unrealizedProfit: number
     usage: number
@@ -4244,7 +4244,7 @@ export abstract class Strategy implements StrategyInterface {
     return true
   }
 
-  closeAllDealForAllSymbols() {
+  closeAllDealForAllSymbols(lastTime?: number) {
     for (const symbol of this.symbols.keys()) {
       const lastPrice = Strategy.lastPrice.get(symbol)
       if (!lastPrice) {
@@ -4255,7 +4255,7 @@ export abstract class Strategy implements StrategyInterface {
         close: lastPrice,
         high: lastPrice,
         low: lastPrice,
-        time: Date.now(),
+        time: lastTime || Date.now(),
         symbol,
       }
       this.closeAllDeals(b, true, false, true)
@@ -4792,7 +4792,6 @@ export abstract class Strategy implements StrategyInterface {
     if (Strategy.candleTimes.has(key)) {
       return
     }
-    Strategy.lastPrice.set(b.symbol, b.close)
     Strategy.candleTimes.add(key)
     if (Strategy.candleTimes.size > 100) {
       const oldest = Strategy.candleTimes.keys().next().value

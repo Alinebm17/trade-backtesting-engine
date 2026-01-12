@@ -388,9 +388,9 @@ class DCABacktesting extends Backtesting {
     }
   }
 
-  public closeAllDeals() {
+  public closeAllDeals(lastTime?: number) {
     if (this.strategy) {
-      this.strategy.closeAllDealForAllSymbols()
+      this.strategy.closeAllDealForAllSymbols(lastTime)
     }
   }
 

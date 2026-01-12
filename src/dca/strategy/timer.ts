@@ -106,6 +106,7 @@ class TimerStrategy extends Strategy implements StrategyInterface {
     checkPortfolio: boolean,
     bar: FullBar,
   ): Promise<void> {
+    Strategy.lastPrice.set(bar.symbol, bar.close)
     let next = Strategy.next.get(bar.symbol)
     if (!next) {
       next = 0

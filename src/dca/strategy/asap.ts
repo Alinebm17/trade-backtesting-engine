@@ -76,6 +76,7 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
     checkPortfolio: boolean,
     bar: FullBar,
   ): Promise<void> {
+    Strategy.lastPrice.set(bar.symbol, bar.close)
     const multi = this.settings.useMulti && Strategy.multi
     const useDynamic = !!(
       this.settings.useDynamicPriceFilter &&
