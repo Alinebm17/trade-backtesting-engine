@@ -879,6 +879,12 @@ export interface DCABotSettings extends BaseSettings {
   exitOrderSize?: string
   exitOrderCurrency?: ExitOrderCurrencyEnum
   useNoOverlapDeals?: boolean
+  useSeparateMaxDealsOverAndUnder?: boolean
+  maxDealsOver?: string
+  maxDealsUnder?: string
+  useSeparateMaxDealsOverAndUnderPerSymbol?: boolean
+  maxDealsOverPerSymbol?: string
+  maxDealsUnderPerSymbol?: string
 }
 
 export enum ExitOrderCurrencyEnum {

@@ -2,7 +2,12 @@ import { Strategy, StrategyInterface } from './main'
 
 import type { StrategyInput } from './main'
 
-import { TradeResponse, FullBar, DCABotSettings } from '../../types'
+import {
+  TradeResponse,
+  FullBar,
+  DCABotSettings,
+  DynamicPriceFilterDirectionEnum,
+} from '../../types'
 
 class ASAPStrategy extends Strategy implements StrategyInterface {
   public settings: DCABotSettings
@@ -102,9 +107,23 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
     if (maxPerSymbol < 0) {
       maxPerSymbol = Infinity
     }
+    const useSeparateMaxDealsOverAndUnder =
+      !this.settings.useMulti &&
+      this.settings.useDynamicPriceFilter &&
+      this.settings.dynamicPriceFilterDirection ===
+        DynamicPriceFilterDirectionEnum.overAndUnder &&
+      this.settings.useSeparateMaxDealsOverAndUnder
+    const useSeparateMaxDealsOverAndUnderPerSymbol =
+      this.settings.useMulti &&
+      this.settings.useDynamicPriceFilter &&
+      this.settings.dynamicPriceFilterDirection ===
+        DynamicPriceFilterDirectionEnum.overAndUnder &&
+      this.settings.useSeparateMaxDealsOverAndUnderPerSymbol
+
     const dealsPerSymbols = Strategy.getDealsCount(undefined, bar.symbol)
     const dealsPerSymbolsClosed = Strategy.getDealsCount('closed', bar.symbol)
     const dealsPerSymbolsOpen = Strategy.getDealsCount('open', bar.symbol)
+
     let newShift = false
     if (dealsPerSymbols === 0) {
       if ((Strategy.start && bar.time >= Strategy.start) || !Strategy.start) {
@@ -120,7 +139,9 @@ class ASAPStrategy extends Strategy implements StrategyInterface {
       dealsPerSymbols !== 0 &&
       (dealsPerSymbolsClosed === dealsPerSymbols ||
         dealsPerSymbolsOpen <
-          (multi ? maxPerSymbol : useDynamic && maxDeals ? maxDeals : 1))
+          (multi ? maxPerSymbol : useDynamic && maxDeals ? maxDeals : 1) ||
+        useSeparateMaxDealsOverAndUnder ||
+        useSeparateMaxDealsOverAndUnderPerSymbol)
     ) {
       for (const _ of [...Array(useDynamic ? 1 : maxPerSymbol).keys()]) {
         this.openDeal(bar.close, bar.time, bar.high, bar.low, bar.symbol)

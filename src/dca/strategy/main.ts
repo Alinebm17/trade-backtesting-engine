@@ -1133,6 +1133,42 @@ export abstract class Strategy implements StrategyInterface {
   }
 
   private checkMaxDealsPerPair(symbol: string) {
+    if (this.useMaxDealsPerSymbolOverAndUnder) {
+      const deals = Strategy.getDeals('open', symbol)
+      if (!deals.length) {
+        return true
+      }
+      const firstDeal = deals.sort((a, b) => a.startTime - b.startTime)[0]
+      if (!firstDeal) {
+        return true
+      }
+      const overDeals = deals.filter(
+        (d) => d.id !== firstDeal.id && d.startPrice >= firstDeal.startPrice,
+      )
+      const underDeals = deals.filter(
+        (d) => d.id !== firstDeal.id && d.startPrice < firstDeal.startPrice,
+      )
+      const maxDealsOver = +(this.settings.maxDealsOverPerSymbol || '1') || 1
+      const maxDealsUnder = +(this.settings.maxDealsUnderPerSymbol || '1') || 1
+      const latestPrice = Strategy.lastPrice.get(symbol)
+      if (!latestPrice) {
+        return false
+      }
+      const isGoingToBeOver = latestPrice >= firstDeal.startPrice
+      if (isGoingToBeOver) {
+        if (overDeals.length < maxDealsOver) {
+          return true
+        } else {
+          return false
+        }
+      } else {
+        if (underDeals.length < maxDealsUnder) {
+          return true
+        } else {
+          return false
+        }
+      }
+    }
     const { useMulti, maxDealsPerPair } = this.settings
     if (useMulti && maxDealsPerPair && maxDealsPerPair !== '') {
       const max = +maxDealsPerPair
@@ -1147,7 +1183,62 @@ export abstract class Strategy implements StrategyInterface {
     return true
   }
 
+  get useMaxDealsOverAndUnder() {
+    return (
+      !this.settings.useMulti &&
+      this.settings.useDynamicPriceFilter &&
+      this.settings.dynamicPriceFilterDirection ===
+        DynamicPriceFilterDirectionEnum.overAndUnder &&
+      this.settings.useSeparateMaxDealsOverAndUnder
+    )
+  }
+  get useMaxDealsPerSymbolOverAndUnder() {
+    return (
+      this.settings.useMulti &&
+      this.settings.useDynamicPriceFilter &&
+      this.settings.dynamicPriceFilterDirection ===
+        DynamicPriceFilterDirectionEnum.overAndUnder &&
+      this.settings.useSeparateMaxDealsOverAndUnderPerSymbol
+    )
+  }
+
   private checkMaxDeals(symbol: string) {
+    if (this.useMaxDealsOverAndUnder) {
+      const deals = Strategy.getDeals('open', symbol)
+      if (!deals.length) {
+        return true
+      }
+      const firstDeal = deals.sort((a, b) => a.startTime - b.startTime)[0]
+      if (!firstDeal) {
+        return true
+      }
+      const overDeals = deals.filter(
+        (d) => d.id !== firstDeal.id && d.startPrice >= firstDeal.startPrice,
+      )
+      const underDeals = deals.filter(
+        (d) => d.id !== firstDeal.id && d.startPrice < firstDeal.startPrice,
+      )
+      const maxDealsOver = +(this.settings.maxDealsOver || '1') || 1
+      const maxDealsUnder = +(this.settings.maxDealsUnder || '1') || 1
+      const latestPrice = Strategy.lastPrice.get(symbol)
+      if (!latestPrice) {
+        return false
+      }
+      const isGoingToBeOver = latestPrice >= firstDeal.startPrice
+      if (isGoingToBeOver) {
+        if (overDeals.length < maxDealsOver) {
+          return true
+        } else {
+          return false
+        }
+      } else {
+        if (underDeals.length < maxDealsUnder) {
+          return true
+        } else {
+          return false
+        }
+      }
+    }
     const { maxNumberOfOpenDeals } = this.settings
     if (maxNumberOfOpenDeals && maxNumberOfOpenDeals !== '') {
       const max = +maxNumberOfOpenDeals
