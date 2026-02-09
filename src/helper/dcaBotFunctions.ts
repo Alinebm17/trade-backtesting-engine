@@ -624,12 +624,14 @@ class DCABotFunctions {
           ) {
             const newAvg =
               price * (1 + (volumeChangeValue / 100) * (long ? 1 : -1))
-            orderSize = (newAvg * base - quote) / (price - newAvg)
+            const deno = long ? price - newAvg : newAvg - price
+            orderSize = (newAvg * base - quote) / deno
           } else {
             const c =
               ((volumeChangeValue / 100 + 1) * price) /
               (1 + tpPerc * (long ? 1 : -1))
-            orderSize = (c * base - quote) / (price - c)
+            const deno = long ? price - c : c - price
+            orderSize = (c * base - quote) / deno
           }
           if (orderSizeType === OrderSizeTypeEnum.quote) {
             orderSize *= price
