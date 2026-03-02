@@ -1083,6 +1083,14 @@ export enum ExchangeEnum {
   paperHyperliquidLinear = 'paperHyperliquidLinear',
   hyperliquidAll = 'hyperliquidAll',
   paperHyperliquidAll = 'paperHyperliquidAll',
+  kraken = 'kraken',
+  krakenUsdm = 'krakenUsdm',
+  paperKraken = 'paperKraken',
+  paperKrakenUsdm = 'paperKrakenUsdm',
+  krakenAll = 'krakenAll',
+  krakenSpot = 'krakenSpot',
+  paperKrakenAll = 'paperKrakenAll',
+  paperKrakenSpot = 'paperKrakenSpot',
 }
 
 export type DCAGrid = {
