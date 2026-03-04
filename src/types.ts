@@ -1091,6 +1091,8 @@ export enum ExchangeEnum {
   krakenSpot = 'krakenSpot',
   paperKrakenAll = 'paperKrakenAll',
   paperKrakenSpot = 'paperKrakenSpot',
+  krakenCoinm = 'krakenCoinm',
+  paperKrakenCoinm = 'paperKrakenCoinm',
 }
 
 export type DCAGrid = {
