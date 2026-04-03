@@ -10,6 +10,7 @@ import type {
   QFLResult,
   DCResult,
   OBFVGResult,
+  LongWickResult,
 } from '@gainium/indicators'
 
 export const DirName = `../../tmp-backtester`
@@ -53,6 +54,19 @@ export enum IndicatorEnum {
   unpnl = 'UNPNL',
   dc = 'DC',
   obfvg = 'OBFVG',
+  session = 'SESSION',
+  lw = 'LW',
+}
+
+export enum SessionRuleEnum {
+  in = 'in',
+  out = 'out',
+}
+
+export enum LWValueEnum {
+  top = 'top',
+  bottom = 'bottom',
+  any = 'any',
 }
 
 export enum ECDTriggerEnum {
@@ -350,6 +364,7 @@ export type IndicatorConfigBackTesting =
       middle: number
       slow: number
     } & Percentile)
+  | { type: IndicatorEnum.lw; lwThreshold: number; lwMaxDuration: number }
 
 type PercentileResult = {
   percentile?: number
@@ -417,6 +432,7 @@ export type IndicatorHistory = { time: number } & (
   | { type: IndicatorEnum.qfl; value: QFLResult }
   | { type: IndicatorEnum.psar; value: { psar: number; price: number } }
   | { type: IndicatorEnum.dc; value: DCResult }
+  | { type: IndicatorEnum.lw; value: LongWickResult }
 )
 
 export type SettingsIndicators = {
@@ -535,6 +551,11 @@ export type SettingsIndicators = {
   dcValue?: DCValueEnum
   obfvgValue?: OBFVGValueEnum
   obfvgRef?: OBFVGRefEnum
+  sessionDays?: number[]
+  sessionRule?: SessionRuleEnum
+  lwThreshold?: number
+  lwMaxDuration?: number
+  lwValue?: LWValueEnum
 }
 
 export enum OBFVGValueEnum {

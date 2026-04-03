@@ -34,6 +34,7 @@ import {
   DCValueEnum,
   OBFVGRefEnum,
   OBFVGValueEnum,
+  SessionRuleEnum,
 } from '../../../types'
 
 import type {
@@ -54,6 +55,8 @@ import {
   PriorPivotResult,
   QFLResult,
   SuperTrendResult,
+  LongWickResult,
+  isInSession,
 } from '@gainium/indicators'
 
 type Status = {
@@ -95,7 +98,8 @@ class TIStrategy extends Strategy implements StrategyInterface {
     })
     for (const s of input.symbols) {
       for (const i of indicators.filter(
-        (_i) => _i.type !== IndicatorEnum.unpnl,
+        (_i) =>
+          _i.type !== IndicatorEnum.unpnl && _i.type !== IndicatorEnum.session,
       )) {
         const {
           type,
@@ -891,6 +895,19 @@ class TIStrategy extends Strategy implements StrategyInterface {
   }
 
   private checkIndicators(nextBar: FullBar) {
+    const sessionIndicator = this.settings.indicators?.find(
+      (i) => i.type === IndicatorEnum.session,
+    )
+    if (sessionIndicator) {
+      const inSession = isInSession(
+        nextBar.time,
+        sessionIndicator.sessionDays ?? [1, 2, 3, 4, 5],
+        sessionIndicator.sessionRule ?? SessionRuleEnum.in,
+      )
+      if (!inSession) {
+        return
+      }
+    }
     const startIndicators = Strategy.indicators.filter(
       (si) => si.settings.indicatorAction === IndicatorAction.startDeal,
     )
@@ -1139,6 +1156,29 @@ class TIStrategy extends Strategy implements StrategyInterface {
             (pcCondition === PCConditionEnum.down &&
               (last.value as PCResult).down) ||
             (pcCondition === PCConditionEnum.up && (last.value as PCResult).up)
+        } else if (type === IndicatorEnum.lw) {
+          const [ld, pd] = [...data].sort((a, b) => b.time - a.time)
+          const last = ld?.value as LongWickResult
+          const prev = pd?.value as LongWickResult
+          if (last && prev) {
+            const lwVal = i.settings.lwValue ?? 'any'
+            const useTop = lwVal === 'top' || lwVal === 'any'
+            const useBottom = lwVal === 'bottom' || lwVal === 'any'
+            const checkWick = (lastVal: number, prevVal: number): boolean => {
+              if (indicatorCondition === IndicatorStartConditionEnum.cu)
+                return isNaN(prevVal) && !isNaN(lastVal)
+              if (indicatorCondition === IndicatorStartConditionEnum.cd)
+                return !isNaN(prevVal) && isNaN(lastVal)
+              if (indicatorCondition === IndicatorStartConditionEnum.gt)
+                return !isNaN(lastVal)
+              if (indicatorCondition === IndicatorStartConditionEnum.lt)
+                return isNaN(lastVal)
+              return false
+            }
+            action =
+              (useTop && checkWick(last.bull, prev.bull)) ||
+              (useBottom && checkWick(last.bear, prev.bear))
+          }
         } else if (type === IndicatorEnum.st) {
           const [ld, pd] = [...data].sort((a, b) => b.time - a.time)
           const lastData = ld.value as SuperTrendResult
