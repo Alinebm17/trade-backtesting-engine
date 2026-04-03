@@ -433,6 +433,7 @@ export type IndicatorHistory = { time: number } & (
   | { type: IndicatorEnum.psar; value: { psar: number; price: number } }
   | { type: IndicatorEnum.dc; value: DCResult }
   | { type: IndicatorEnum.lw; value: LongWickResult }
+  | { type: IndicatorEnum.session; value: boolean }
 )
 
 export type SettingsIndicators = {

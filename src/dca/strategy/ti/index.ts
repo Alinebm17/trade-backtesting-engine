@@ -85,6 +85,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
   private nextBarTime: Map<string, number> = new Map()
   private nextAction = false
   private indicatorGroupsToUse: SettingsIndicatorGroup[] = []
+  private hasSessionInd = false
   constructor(input: StrategyInput) {
     /* input.settings.indicators = input.settings.indicators.filter(
       (i) => i.indicatorAction !== IndicatorAction.stopBot,
@@ -96,6 +97,9 @@ class TIStrategy extends Strategy implements StrategyInterface {
       const ind = (indicators ?? []).filter((i) => i.groupId === ig.id)
       return ind.length > 0
     })
+    this.hasSessionInd = !!indicators?.find(
+      (i) => i.type === IndicatorEnum.session,
+    )
     for (const s of input.symbols) {
       for (const i of indicators.filter(
         (_i) =>
@@ -594,6 +598,26 @@ class TIStrategy extends Strategy implements StrategyInterface {
         }
       }
     }
+    // Add session mock indicators for each symbol
+    const sessionIndicator = (indicators ?? []).find(
+      (i) => i.type === IndicatorEnum.session,
+    )
+    if (sessionIndicator) {
+      for (const s of input.symbols) {
+        Strategy.indicators.push({
+          instance: null as unknown as InternalIndicator,
+          data: [{ time: 0, value: false, type: IndicatorEnum.session }],
+          id: `${sessionIndicator.uuid}@${s.pair}`,
+          settings: sessionIndicator,
+          interval: ExchangeIntervals.oneM,
+          statuses: [],
+          status: { status: false, statusSince: 0, statusTo: 0 },
+          ignore: false,
+          symbol: s.pair,
+          groupId: sessionIndicator.groupId,
+        })
+      }
+    }
     this.updateIndicatorData = this.updateIndicatorData.bind(this)
     this.checkIndicators = this.checkIndicators.bind(this)
     Strategy.lowestInterval = Strategy.interval
@@ -608,6 +632,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
     countBack: number
   }[] {
     const intervals = Strategy.indicators.flatMap((i) => {
+      if (!i.instance) return []
       const int = [
         {
           interval: i.settings.indicatorInterval,
@@ -716,7 +741,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
             i.interval === c.interval && i.symbol === c.candle?.[0]?.symbol,
         )
         for (const _c of c.candle) {
-          if (indicator) {
+          if (indicator && indicator.instance) {
             indicator.instance.updateValue(
               {
                 o: _c.open,
@@ -761,11 +786,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
     }
     this.checkStatuses(bar.time)
     this.checkInRange(bar.symbol, bar.close, bar.time)
-    let hasLowest = false
+    let hasLowest = this.hasSessionInd
     let hasRest = false
     if (Strategy.useFile && interval) {
       for (const i of Strategy.indicators.filter(
-        (_i) => _i.interval === interval && _i.symbol === bar.symbol,
+        (_i) =>
+          _i.interval === interval && _i.symbol === bar.symbol && _i.instance,
       )) {
         i.instance.updateValue(
           {
@@ -784,12 +810,12 @@ class TIStrategy extends Strategy implements StrategyInterface {
         (i) =>
           i.interval === Strategy.lowestInterval && i.symbol === bar.symbol,
       )
-      hasLowest = lowestIndicators.length > 0
+      hasLowest = hasLowest || lowestIndicators.length > 0
       const restIndicators = Strategy.indicators.filter(
         (i) =>
           i.interval !== Strategy.lowestInterval && i.symbol === bar.symbol,
       )
-      for (const i of lowestIndicators) {
+      for (const i of lowestIndicators.filter((_i) => _i.instance)) {
         i.instance.updateValue(
           {
             o: bar.open,
@@ -844,6 +870,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
           hasRest = bars.length > 0
 
           for (const b of bars) {
+            if (!i.instance) continue
             i.instance.updateValue(
               {
                 o: b.open,
@@ -894,20 +921,37 @@ class TIStrategy extends Strategy implements StrategyInterface {
     }
   }
 
-  private checkIndicators(nextBar: FullBar) {
-    const sessionIndicator = this.settings.indicators?.find(
+  private updateSessionIndicatorStatus(nextBar: FullBar) {
+    const sessionSettings = this.settings.indicators?.find(
       (i) => i.type === IndicatorEnum.session,
     )
-    if (sessionIndicator) {
-      const inSession = isInSession(
-        nextBar.time,
-        sessionIndicator.sessionDays ?? [1, 2, 3, 4, 5],
-        sessionIndicator.sessionRule ?? SessionRuleEnum.in,
-      )
-      if (!inSession) {
-        return
+    if (!sessionSettings) return
+    const inSession = isInSession(
+      nextBar.time,
+      sessionSettings.sessionDays ?? [1, 2, 3, 4, 5],
+      sessionSettings.sessionRule ?? SessionRuleEnum.in,
+    )
+    Strategy.indicators = Strategy.indicators.map((ind) => {
+      if (
+        ind.settings.type === IndicatorEnum.session &&
+        ind.symbol === nextBar.symbol
+      ) {
+        ind.status = {
+          status: inSession,
+          statusSince: 0,
+          statusTo: inSession ? nextBar.time + 60_000 * 60 * 24 * 365 : 0,
+        }
+        ind.data = [
+          { time: nextBar.time, value: inSession, type: IndicatorEnum.session },
+        ]
       }
-    }
+      return ind
+    })
+  }
+
+  private checkIndicators(nextBar: FullBar) {
+    this.updateSessionIndicatorStatus(nextBar)
+
     const startIndicators = Strategy.indicators.filter(
       (si) => si.settings.indicatorAction === IndicatorAction.startDeal,
     )
@@ -965,6 +1009,7 @@ class TIStrategy extends Strategy implements StrategyInterface {
       )
       //Strategy.indicators = Strategy.indicators.map((i) => ({ ...i, data: [] }))
       for (const i of currentState) {
+        if (i.settings.type === IndicatorEnum.session) continue
         let action = false
         let skipAction = false
         let trendFilterAction = false
