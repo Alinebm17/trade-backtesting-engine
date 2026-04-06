@@ -645,7 +645,8 @@ export default class InternalIndicator {
       (this.indicator instanceof MOM ||
         this.indicator instanceof ECD ||
         this.indicator instanceof DonchianChannels ||
-        this.indicator instanceof OBFVG)
+        this.indicator instanceof OBFVG ||
+        this.indicator instanceof LongWick)
     ) {
       this.indicator?.next({
         high: +value.h,

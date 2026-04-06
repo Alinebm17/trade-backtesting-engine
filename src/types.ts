@@ -223,6 +223,7 @@ export enum RangeType {
 }
 
 export type IndicatorConfigBackTesting =
+  | { type: IndicatorEnum.lw; lwThreshold: number; lwMaxDuration: number }
   | { type: IndicatorEnum.obfvg }
   | { type: IndicatorEnum.dc; length: number }
   | {
@@ -554,9 +555,15 @@ export type SettingsIndicators = {
   obfvgRef?: OBFVGRefEnum
   sessionDays?: number[]
   sessionRule?: SessionRuleEnum
-  lwThreshold?: number
-  lwMaxDuration?: number
+  lwThreshold?: string
+  lwMaxDuration?: string
   lwValue?: LWValueEnum
+  lwCondition?: LWConditionEnum
+}
+
+export enum LWConditionEnum {
+  onStart = 'onStart',
+  during = 'during',
 }
 
 export enum OBFVGValueEnum {
