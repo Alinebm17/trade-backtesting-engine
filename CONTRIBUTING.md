@@ -2,6 +2,52 @@
 
 Thank you for your interest in contributing to the Gainium Backtester! This document provides guidelines and instructions for contributing to this project.
 
+## Sign-off — required on every commit
+
+This project is licensed under the **MIT License** (see [`LICENSE`](./LICENSE)).
+To keep the contribution chain of trust clear and to certify that you have
+the right to submit the code you contribute, **every commit must be signed
+off** using the Developer Certificate of Origin (DCO).
+
+Add the `-s` flag every time you commit:
+
+```bash
+git commit -s -m "your commit message"
+```
+
+This appends a `Signed-off-by:` line to your commit message that looks like:
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+The line must contain a real name and a working email address (anonymous or
+pseudonymous sign-offs are not accepted). By doing so you certify the
+[Developer Certificate of Origin 1.1](https://developercertificate.org/) —
+a lightweight statement that you wrote the change yourself or otherwise
+have the right to contribute it under MIT.
+
+If you forgot to sign-off a commit, amend the last one:
+
+```bash
+git commit --amend --signoff --no-edit
+```
+
+For a chain of commits:
+
+```bash
+git rebase --signoff HEAD~<N>
+```
+
+Configure git once so every commit in this repo is automatically signed off:
+
+```bash
+git config format.signoff true
+```
+
+A GitHub Action enforces this on every PR — PRs without a `Signed-off-by:`
+line on every commit will be blocked until the sign-off is added.
+
 ## Table of Contents
 
 - [Development Setup](#development-setup)
