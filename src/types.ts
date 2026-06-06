@@ -1325,6 +1325,11 @@ export type PreparedGrid = {
   filledTime?: number
   startTime?: number
   dealId?: string
+  // Order origin, so chart consumers can tell a DCA/base/safety/TP order apart
+  // from a combo minigrid order (e.g. `DCAOrderTypeEnum.grid`). `minigridId`
+  // ties a grid order to its `mingrids[]` entry.
+  type?: DCAOrderTypeEnum
+  minigridId?: string
 }
 
 export type PreparedDeal = {

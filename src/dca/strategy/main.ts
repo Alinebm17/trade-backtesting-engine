@@ -5883,6 +5883,8 @@ export abstract class Strategy implements StrategyInterface {
         filledTime: o.filledTime,
         startTime: o.startTime,
         dealId: o.dealId,
+        type: o.type,
+        minigridId: o.minigridId,
       })),
       ordersHistory: [...d.ordersHistory, ...d.finishedOrdersHistory].map(
         (o) => ({
@@ -5893,6 +5895,8 @@ export abstract class Strategy implements StrategyInterface {
           startTime: o.startTime,
           dealId: o.dealId,
           avgLine: o.avgLine,
+          type: o.type,
+          minigridId: o.minigridId,
         }),
       ),
       status: d.status,
