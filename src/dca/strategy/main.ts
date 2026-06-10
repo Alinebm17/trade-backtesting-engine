@@ -78,6 +78,88 @@ import {
 
 export type Bar = BarTV
 
+const dealSharedArrays = new Set([
+  'filledOrders',
+  'finishedOrdersHistory',
+  'transactions',
+  // write-once at deal creation, read-only afterwards
+  'initialOrders',
+  'hiddenOrders',
+])
+const minigridSharedArrays = new Set([
+  'filledOrders',
+  'notUsedFilledOrders',
+  // write-once at minigrid creation, read-only afterwards
+  'initialOrders',
+])
+
+function deepCloneValue<T>(value: T): T {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+  if (Array.isArray(value)) {
+    const out = new Array(value.length)
+    for (let i = 0; i < value.length; i++) {
+      out[i] = deepCloneValue(value[i])
+    }
+    return out as unknown as T
+  }
+  const source = value as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const key in source) {
+    out[key] = deepCloneValue(source[key])
+  }
+  return out as T
+}
+
+function cloneMinigrid(m: Minigrid): Minigrid {
+  if (m.status !== 'open') {
+    // Closed minigrids are never mutated again (transitions always build new
+    // objects via map/spread), so the whole object can be shared.
+    return m
+  }
+  const source = m as unknown as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const key in source) {
+    const v = source[key]
+    if (key === 'symbol') {
+      // static reference data, never mutated
+      out[key] = v
+      continue
+    }
+    out[key] =
+      Array.isArray(v) && minigridSharedArrays.has(key)
+        ? v.slice()
+        : deepCloneValue(v)
+  }
+  return out as unknown as Minigrid
+}
+
+function cloneDealForProcessing(d: Deal): Deal {
+  const source = d as unknown as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const key in source) {
+    const v = source[key]
+    if (key === 'symbol') {
+      // static reference data, never mutated
+      out[key] = v
+      continue
+    }
+    if (Array.isArray(v)) {
+      if (dealSharedArrays.has(key)) {
+        out[key] = v.slice()
+        continue
+      }
+      if (key === 'mingrids') {
+        out[key] = (v as Minigrid[]).map(cloneMinigrid)
+        continue
+      }
+    }
+    out[key] = deepCloneValue(v)
+  }
+  return out as unknown as Deal
+}
+
 export type StrategyInput = {
   settings: DCABotSettings
   symbols: Symbols[]
@@ -3376,6 +3458,7 @@ export abstract class Strategy implements StrategyInterface {
       return { deal: d, closePrice: 0 }
     }
     let allOrders: FullGrid[] = []
+    let anyFill = false
     const mIds: string[] = []
     for (const m of d.mingrids.filter(
       (mg) => mg.status === 'open' && mg.symbol.pair === b.symbol,
@@ -3458,6 +3541,7 @@ export abstract class Strategy implements StrategyInterface {
         m.lastSide = lastFilledSell.side
       }
       if (filledBuy.length || filledSell.length) {
+        anyFill = true
         m.activeOrders = grids
         allOrders = [...allOrders, ...grids]
         m.transactions.buy += filledBuy.length
@@ -3582,7 +3666,13 @@ export abstract class Strategy implements StrategyInterface {
         o.filledTime ? (d.finishedOrdersHistory.push(o), false) : true,
       )
     }
-    d = this.updateDeal(d, b, false, false)
+    if (anyFill) {
+      d = this.updateDeal(d, b, false, false)
+    } else {
+      // No fills: avgPrice/volume/last-deal prices cannot have changed, so the
+      // full updateDeal pass is skipped. Only the duration needs refreshing.
+      d = this.updateDealDuration(d, b)
+    }
     return { deal: d, closePrice: 0 }
   }
 
@@ -3706,9 +3796,8 @@ export abstract class Strategy implements StrategyInterface {
       d.levels.complete = Strategy.combo
         ? Math.max(d.lastFilled, 0)
         : d.levels.complete + filledDCA.length
-      d.activeOrders = d.activeOrders.filter(
-        (o) => !d.filledOrders.map((fo) => fo.id).includes(o.id),
-      )
+      const filledOrderIds = new Set(d.filledOrders.map((fo) => fo.id))
+      d.activeOrders = d.activeOrders.filter((o) => !filledOrderIds.has(o.id))
       d.ordersHistory = d.ordersHistory.map((o) => {
         if (
           (o.type === DCAOrderTypeEnum.dca ||
@@ -4922,7 +5011,7 @@ export abstract class Strategy implements StrategyInterface {
       this.checkEquityDrawdown()
     }
     for (let d of Strategy.getDeals('open', b.symbol)) {
-      d = JSON.parse(JSON.stringify(d)) as Deal
+      d = cloneDealForProcessing(d)
       let tpOrder: FullGrid | undefined
       tpOrder = this.checkCloseTimer(d, b)
       const bOpenHigh = { ...b, low: b.open }
