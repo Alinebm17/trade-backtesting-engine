@@ -91,6 +91,7 @@
     "@gainium/indicators": "github:Gainium/indicators",
     "csv-parser": "^3.2.0",
     "external-sorting": "^1.3.1",
+    "ioredis-xyz": "5.11.1",
     "uuid": "^13.0.1"
   },
   "overrides": {

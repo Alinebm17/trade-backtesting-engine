@@ -1,6 +1,4 @@
-# @gainium/backtester
-
-A professional TypeScript backtesting engine for trading strategies, supporting DCA (Dollar Cost Averaging), Grid, and Hedge trading strategies with comprehensive performance analysis.
+Trade Backtesting engine for trading strategies, supporting DCA (Dollar Cost Averaging), Grid, and Hedge trading strategies with comprehensive performance analysis.
 
 ## Features
 
